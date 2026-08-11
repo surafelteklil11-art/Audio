@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="72dp" android:gravity="center_vertical"
-    android:paddingStart="8dp" android:paddingEnd="3dp" android:clickable="true" android:focusable="true">
-    <FrameLayout android:layout_width="48dp" android:layout_height="48dp" android:background="@drawable/bg_art">
-        <TextView android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="♪" android:textColor="#A7B2D0" android:textSize="23sp" />
+    android:layout_width="match_parent" android:layout_height="70dp" android:layout_marginStart="8dp" android:layout_marginEnd="8dp" android:layout_marginBottom="6dp"
+    android:gravity="center_vertical" android:paddingStart="8dp" android:paddingEnd="4dp" android:background="@drawable/bg_luxury_card"
+    android:clickable="true" android:focusable="true">
+    <FrameLayout android:layout_width="46dp" android:layout_height="46dp" android:background="@drawable/bg_art">
+        <TextView android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="♪" android:textColor="#C18BFF" android:textSize="22sp" />
     </FrameLayout>
-    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="14dp" android:paddingEnd="8dp">
-        <TextView android:id="@+id/songTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:textColor="#F7F8FF" android:textSize="15sp" android:textStyle="bold" />
-        <TextView android:id="@+id/songArtist" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:maxLines="1" android:ellipsize="end" android:textColor="#8793B0" android:textSize="12sp" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="12dp" android:paddingEnd="6dp">
+        <TextView android:id="@+id/songTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:textColor="#F8F8FF" android:textSize="14sp" android:textStyle="bold" />
+        <TextView android:id="@+id/songArtist" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:maxLines="1" android:ellipsize="end" android:textColor="#8C96B0" android:textSize="11sp" />
     </LinearLayout>
-    <TextView android:id="@+id/songMore" android:layout_width="36dp" android:layout_height="52dp" android:gravity="center" android:text="⋮" android:textColor="#77839F" android:textSize="22sp" android:contentDescription="More options" />
+    <TextView android:id="@+id/songMore" android:layout_width="34dp" android:layout_height="50dp" android:gravity="center" android:text="⋮" android:textColor="#8993AD" android:textSize="21sp" android:contentDescription="More options" />
 </LinearLayout>
