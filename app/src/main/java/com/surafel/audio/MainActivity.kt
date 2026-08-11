@@ -172,9 +172,10 @@ class MainActivity : AppCompatActivity() {
     private fun showMenu(){AlertDialog.Builder(this).setTitle("Audio").setItems(arrayOf("Refresh library","Repeat off","About")){_,which->when(which){0->loadSongs();1->if(::player.isInitialized)player.repeatMode=Player.REPEAT_MODE_OFF;2->showPremiumInfo()}}.show()}
     private fun showPremiumInfo(){AlertDialog.Builder(this).setTitle("Audio Player").setMessage("Luxury local music and video experience.\nBackground audio playback enabled.\nYour library stays on your device.").setPositiveButton("OK",null).show()}
     override fun onResume(){super.onResume();if(::player.isInitialized)renderSection()}
-    override fun onBackPressed(){if(fullscreenVideo){exitFullscreenVideo()}else super.onBackPressed()}
-    override fun onDestroy(){if(fullscreenVideo)exitFullscreenVideo();if(::controllerFuture.isInitialized)MediaController.releaseFuture(controllerFuture);super.onDestroy()}
-}
+    override fun onDestroy() {
+        if (::controllerFuture.isInitialized) MediaController.releaseFuture(controllerFuture)
+        super.onDestroy()
+    }
 
 data class VideoEntry(val uri:Uri,val title:String,val size:Long,val duration:Long)
 private class SongAdapter(private val items:List<MediaItem>,private val onClick:(Int)->Unit):RecyclerView.Adapter<SongAdapter.Holder>(){override fun onCreateViewHolder(p:ViewGroup,t:Int)=Holder(LayoutInflater.from(p.context).inflate(R.layout.item_song,p,false));override fun onBindViewHolder(h:Holder,pos:Int){val x=items[pos];h.title.text=x.mediaMetadata.title?:"Unknown";h.artist.text=x.mediaMetadata.artist?:"Unknown artist";h.itemView.setOnClickListener{onClick(pos)}};override fun getItemCount()=items.size;class Holder(v:View):RecyclerView.ViewHolder(v){val title:TextView=v.findViewById(R.id.songTitle);val artist:TextView=v.findViewById(R.id.songArtist)}}
