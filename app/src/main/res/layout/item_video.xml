@@ -4,6 +4,7 @@
     android:paddingStart="14dp" android:paddingEnd="8dp" android:clickable="true" android:focusable="true">
     <FrameLayout android:layout_width="164dp" android:layout_height="94dp" android:background="@drawable/bg_luxury_card">
         <com.surafel.audio.VideoThumbnailView
+            android:id="@+id/videoThumbnail"
             android:layout_width="match_parent" android:layout_height="match_parent" />
         <TextView android:id="@+id/videoPlay" android:layout_width="46dp" android:layout_height="46dp" android:layout_gravity="center"
             android:gravity="center" android:text="▶" android:textColor="#FFFFFF" android:textSize="20sp" android:background="@drawable/bg_profile_avatar" />

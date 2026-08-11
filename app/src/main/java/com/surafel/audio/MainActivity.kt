@@ -47,9 +47,6 @@ class MainActivity : AppCompatActivity() {
     private val videos = mutableListOf<VideoEntry>()
     private var currentTab = Tab.SONGS
     private var currentSection = Section.MUSIC
-    private var fullscreenVideo = false
-    private var fullscreenClose: TextView? = null
-    private var normalVideoHeight = 255
     private enum class Tab { SONGS, PLAYLISTS, FOLDERS, ARTISTS, ALBUMS }
     private enum class Section { HOME, MUSIC, VIDEO, MINE }
     private val prefs by lazy { getSharedPreferences("audio_profile", MODE_PRIVATE) }
@@ -101,7 +98,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun selectSection(section: Section) {
-        if (fullscreenVideo) exitFullscreenVideo()
         currentSection = section
         if (section == Section.MUSIC) currentTab = Tab.SONGS
         updateBottomNav(); renderSection()
@@ -164,87 +160,6 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun enterFullscreenVideo() {
-        if (fullscreenVideo) return
-        fullscreenVideo = true
-        val header = findViewById<View>(R.id.menuButton).parent as View
-        header.visibility = View.GONE
-        findViewById<View>(R.id.miniPlayer).visibility = View.GONE
-        findViewById<View>(R.id.bottomNav).visibility = View.GONE
-        findViewById<TextView>(R.id.videoCount).visibility = View.GONE
-        findViewById<TextView>(R.id.videoScan).visibility = View.GONE
-        findViewById<View>(R.id.videoList).visibility = View.GONE
-
-        val content = findViewById<View>(R.id.videoContent)
-        val contentParams = content.layoutParams as ViewGroup.LayoutParams
-        contentParams.height = ViewGroup.LayoutParams.MATCH_PARENT
-        if (contentParams is ViewGroup.MarginLayoutParams) { contentParams.topMargin = 0; contentParams.bottomMargin = 0 }
-        content.layoutParams = contentParams
-
-        val playerContainer = findViewById<View>(R.id.videoPlayer).parent as ViewGroup
-        val playerParams = playerContainer.layoutParams as ViewGroup.LayoutParams
-        normalVideoHeight = playerParams.height
-        playerParams.width = ViewGroup.LayoutParams.MATCH_PARENT
-        playerParams.height = ViewGroup.LayoutParams.MATCH_PARENT
-        if (playerParams is ViewGroup.MarginLayoutParams) { playerParams.leftMargin = 0; playerParams.rightMargin = 0; playerParams.topMargin = 0; playerParams.bottomMargin = 0 }
-        playerContainer.layoutParams = playerParams
-
-        val close = TextView(this).apply {
-            text = "✕"
-            textSize = 22f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            setBackgroundColor(Color.argb(150, 0, 0, 0))
-            elevation = 20f
-            setPadding(0, 0, 0, 2)
-            contentDescription = "Close full screen video"
-            setOnClickListener { exitFullscreenVideo() }
-        }
-        playerContainer.addView(close, FrameLayout.LayoutParams(52, 52, Gravity.TOP or Gravity.START).apply { topMargin = 18; leftMargin = 18 })
-        fullscreenClose = close
-
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
-        showFullscreenControls()
-    }
-
-    private fun showFullscreenControls() {
-        if (!fullscreenVideo) return
-        window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
-    }
-
-    private fun exitFullscreenVideo() {
-        if (!fullscreenVideo) return
-        fullscreenVideo = false
-        val video = findViewById<VideoView>(R.id.videoPlayer)
-        video.stopPlayback()
-        fullscreenClose?.let { (it.parent as? ViewGroup)?.removeView(it) }
-        fullscreenClose = null
-
-        val playerContainer = findViewById<View>(R.id.videoPlayer).parent as ViewGroup
-        val playerParams = playerContainer.layoutParams as ViewGroup.LayoutParams
-        playerParams.width = ViewGroup.LayoutParams.MATCH_PARENT
-        playerParams.height = normalVideoHeight
-        if (playerParams is ViewGroup.MarginLayoutParams) { playerParams.leftMargin = dp(16); playerParams.rightMargin = dp(16); playerParams.topMargin = 0; playerParams.bottomMargin = 0 }
-        playerContainer.layoutParams = playerParams
-
-        val content = findViewById<View>(R.id.videoContent)
-        val contentParams = content.layoutParams as ViewGroup.LayoutParams
-        contentParams.height = 0
-        if (contentParams is LinearLayout.LayoutParams) contentParams.weight = 1f
-        content.layoutParams = contentParams
-        val header = findViewById<View>(R.id.menuButton).parent as View
-        header.visibility = View.VISIBLE
-        findViewById<View>(R.id.miniPlayer).visibility = View.VISIBLE
-        findViewById<View>(R.id.bottomNav).visibility = View.VISIBLE
-        findViewById<TextView>(R.id.videoCount).visibility = View.VISIBLE
-        findViewById<TextView>(R.id.videoScan).visibility = View.VISIBLE
-        findViewById<View>(R.id.videoList).visibility = View.VISIBLE
-        findViewById<TextView>(R.id.videoEmpty).visibility = View.VISIBLE
-        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-    }
-
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
     private fun replaceItems(found:List<MediaItem>){items.clear();items.addAll(found);adapter.notifyDataSetChanged();findViewById<TextView>(R.id.playAll).text="▶  Play (${items.size})"}
     private fun mediaItem(uri:Uri,title:String?,artist:String?)=MediaItem.Builder().setUri(uri).setMediaMetadata(MediaMetadata.Builder().setTitle(title?:"Unknown").setArtist(artist?:"Unknown artist").build()).build()
@@ -263,6 +178,6 @@ class MainActivity : AppCompatActivity() {
 
 data class VideoEntry(val uri:Uri,val title:String,val size:Long,val duration:Long)
 private class SongAdapter(private val items:List<MediaItem>,private val onClick:(Int)->Unit):RecyclerView.Adapter<SongAdapter.Holder>(){override fun onCreateViewHolder(p:ViewGroup,t:Int)=Holder(LayoutInflater.from(p.context).inflate(R.layout.item_song,p,false));override fun onBindViewHolder(h:Holder,pos:Int){val x=items[pos];h.title.text=x.mediaMetadata.title?:"Unknown";h.artist.text=x.mediaMetadata.artist?:"Unknown artist";h.itemView.setOnClickListener{onClick(pos)}};override fun getItemCount()=items.size;class Holder(v:View):RecyclerView.ViewHolder(v){val title:TextView=v.findViewById(R.id.songTitle);val artist:TextView=v.findViewById(R.id.songArtist)}}
-private class VideoAdapter(private val items:List<VideoEntry>,private val onClick:(VideoEntry)->Unit):RecyclerView.Adapter<VideoAdapter.Holder>(){override fun onCreateViewHolder(p:ViewGroup,t:Int)=Holder(LayoutInflater.from(p.context).inflate(R.layout.item_video,p,false));override fun onBindViewHolder(h:Holder,pos:Int){val x=items[pos];h.title.text=x.title;h.meta.text="${formatSize(x.size)} • ${formatDuration(x.duration)}";h.itemView.setOnClickListener{onClick(x)}};override fun getItemCount()=items.size;class Holder(v:View):RecyclerView.ViewHolder(v){val title:TextView=v.findViewById(R.id.videoTitle);val meta:TextView=v.findViewById(R.id.videoMeta)}}
+private class VideoAdapter(private val items:List<VideoEntry>,private val onClick:(VideoEntry)->Unit):RecyclerView.Adapter<VideoAdapter.Holder>(){override fun onCreateViewHolder(p:ViewGroup,t:Int)=Holder(LayoutInflater.from(p.context).inflate(R.layout.item_video,p,false));override fun onBindViewHolder(h:Holder,pos:Int){val x=items[pos];h.title.text=x.title;h.meta.text="${formatSize(x.size)} • ${formatDuration(x.duration)}";h.thumb.setVideoUri(x.uri);h.itemView.setOnClickListener{onClick(x)}};override fun getItemCount()=items.size;class Holder(v:View):RecyclerView.ViewHolder(v){val title:TextView=v.findViewById(R.id.videoTitle);val meta:TextView=v.findViewById(R.id.videoMeta);val thumb:VideoThumbnailView=v.findViewById(R.id.videoThumbnail)}}
 private fun formatSize(bytes:Long):String{if(bytes<=0)return "Unknown size";val mb=bytes/1024.0/1024.0;return if(mb<1024)String.format("%.1f MB",mb) else String.format("%.1f GB",mb/1024)}
 private fun formatDuration(ms:Long):String{val s=ms/1000;return String.format("%02d:%02d",s/60,s%60)}
