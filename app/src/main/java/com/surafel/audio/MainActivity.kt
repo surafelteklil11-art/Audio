@@ -1,11 +1,13 @@
 package com.surafel.audio
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,27 +25,15 @@ class MainActivity : AppCompatActivity() {
     private val songs = mutableListOf<MediaItem>()
     private lateinit var adapter: SongAdapter
 
-    private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-        if (permissions.values.any { it }) scanDeviceAudio()
-    }
-
-    private val picker = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        uris.forEach { uri ->
-            runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-            if (songs.none { it.localConfiguration?.uri == uri }) songs.add(MediaItem.fromUri(uri))
-        }
-        refreshPlayer()
+    private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) scanDeviceAudio()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         player = ExoPlayer.Builder(this).build()
-        adapter = SongAdapter(songs) { position ->
-            player.setMediaItems(songs, position, 0L)
-            player.prepare()
-            player.play()
-        }
+        adapter = SongAdapter(songs) { position -> playFrom(position) }
         findViewById<RecyclerView>(R.id.list).apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = this@MainActivity.adapter
@@ -52,6 +42,13 @@ class MainActivity : AppCompatActivity() {
             if (player.isPlaying) player.pause() else if (player.mediaItemCount > 0) player.play()
             updateNowPlaying()
         }
+        findViewById<TextView>(R.id.playAll).setOnClickListener { if (songs.isNotEmpty()) playFrom(0) }
+        findViewById<TextView>(R.id.shuffleAll).setOnClickListener {
+            if (songs.isNotEmpty()) {
+                player.setMediaItems(songs.shuffled())
+                player.prepare(); player.play(); updateNowPlaying()
+            }
+        }
         requestAudioPermissionIfNeeded()
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) = updateNowPlaying()
@@ -59,10 +56,15 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    private fun playFrom(position: Int) {
+        player.setMediaItems(songs, position, 0L)
+        player.prepare(); player.play(); updateNowPlaying()
+    }
+
     private fun requestAudioPermissionIfNeeded() {
         val permission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
         if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) scanDeviceAudio()
-        else permissionLauncher.launch(arrayOf(permission))
+        else permissionLauncher.launch(permission)
     }
 
     private fun scanDeviceAudio() {
@@ -83,7 +85,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshPlayer() {
         adapter.notifyDataSetChanged()
-        findViewById<TextView>(R.id.playAll).text = "▶  Play  (${songs.size})"
+        findViewById<TextView>(R.id.playAll).text = "▶  Play (${songs.size})"
     }
 
     private fun updateNowPlaying() {
@@ -93,26 +95,36 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.play).setImageResource(if (player.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
     }
 
-    override fun onResume() { super.onResume(); if (::player.isInitialized && hasAudioPermission()) scanDeviceAudio() }
-    private fun hasAudioPermission(): Boolean {
-        val p = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
-        return ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
+    override fun onResume() {
+        super.onResume()
+        if (::player.isInitialized && hasAudioPermission()) scanDeviceAudio()
     }
-    override fun onDestroy() { player.release(); super.onDestroy() }
+
+    private fun hasAudioPermission(): Boolean {
+        val permission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
+        return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+    }
+
+    override fun onDestroy() {
+        player.release()
+        super.onDestroy()
+    }
 }
 
 private class SongAdapter(private val songs: List<MediaItem>, private val onClick: (Int) -> Unit) : RecyclerView.Adapter<SongAdapter.Holder>() {
-    override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): Holder {
-        val view = android.view.LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_2, parent, false)
-        view.setPadding(12, 16, 8, 16); return Holder(view)
-    }
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder = Holder(LayoutInflater.from(parent.context).inflate(R.layout.item_song, parent, false))
+
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val item = songs[position]
         holder.title.text = item.mediaMetadata.title ?: "Unknown"
         holder.artist.text = item.mediaMetadata.artist ?: "Unknown artist"
-        holder.title.setTextColor(android.graphics.Color.WHITE); holder.artist.setTextColor(android.graphics.Color.rgb(145,157,183))
         holder.itemView.setOnClickListener { onClick(position) }
     }
+
     override fun getItemCount() = songs.size
-    class Holder(view: android.view.View) : RecyclerView.ViewHolder(view) { val title: TextView = view.findViewById(android.R.id.text1); val artist: TextView = view.findViewById(android.R.id.text2) }
+
+    class Holder(view: View) : RecyclerView.ViewHolder(view) {
+        val title: TextView = view.findViewById(R.id.songTitle)
+        val artist: TextView = view.findViewById(R.id.songArtist)
+    }
 }
