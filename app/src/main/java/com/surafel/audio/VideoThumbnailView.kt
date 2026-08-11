@@ -9,7 +9,7 @@ import android.provider.MediaStore
 import android.util.AttributeSet
 import android.util.Size
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.view.isAttachedToWindow
+import androidx.core.view.ViewCompat
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -34,7 +34,7 @@ class VideoThumbnailView @JvmOverloads constructor(
         executor.execute {
             val bitmap = loadFrame(uri)
             post {
-                if (boundUri == uri && isAttachedToWindow && bitmap != null) {
+                if (boundUri == uri && ViewCompat.isAttachedToWindow(this) && bitmap != null) {
                     setImageBitmap(bitmap)
                 }
             }
