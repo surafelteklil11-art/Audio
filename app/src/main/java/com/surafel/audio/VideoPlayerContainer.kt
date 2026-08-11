@@ -1,6 +1,8 @@
 package com.surafel.audio
 
 import android.content.Context
+import android.media.MediaPlayer
+import android.os.Build
 import android.util.AttributeSet
 import android.view.View
 import android.widget.FrameLayout
@@ -13,6 +15,7 @@ class VideoPlayerContainer @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
 ) : FrameLayout(context, attrs) {
     private lateinit var video: VideoView
+    private var preparedPlayer: MediaPlayer? = null
     private var speed = 1.0f
 
     override fun onFinishInflate() {
@@ -34,12 +37,18 @@ class VideoPlayerContainer @JvmOverloads constructor(
             if (video.isPlaying) video.pause() else video.start()
             updatePauseText()
         }
-        video.setOnPreparedListener {
-            it.isLooping = false
+
+        video.setOnPreparedListener { player ->
+            preparedPlayer = player
+            player.isLooping = false
+            applySpeed()
             updatePauseText()
             controller.show(2500)
         }
-        video.setOnCompletionListener { updatePauseText() }
+        video.setOnCompletionListener {
+            updatePauseText()
+            preparedPlayer = null
+        }
     }
 
     private fun updatePauseText() {
@@ -53,10 +62,18 @@ class VideoPlayerContainer @JvmOverloads constructor(
             1.5f -> 2.0f
             else -> 1.0f
         }
-        if (android.os.Build.VERSION.SDK_INT >= 23) {
-            video.setPlaybackParams(video.playbackParams.setSpeed(speed))
-        }
+        applySpeed()
         findViewById<TextView>(R.id.videoSpeed).text = "${speed}×"
         Toast.makeText(context, "Playback ${speed}×", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun applySpeed() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            runCatching {
+                preparedPlayer?.playbackParams = preparedPlayer?.playbackParams?.apply {
+                    setSpeed(speed)
+                } ?: return
+            }
+        }
     }
 }
