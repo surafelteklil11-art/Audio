@@ -1,14 +1,9 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path android:fillColor="#090812" android:pathData="M54,4A50,50 0,1 0,54 104A50,50 0,1 0,54 4" />
-    <path android:fillColor="#36E4FF" android:pathData="M54,8A46,46 0,0 1,92 28L88,31A42,42 0,0 0,54 12Z" />
-    <path android:fillColor="#A84DFF" android:pathData="M92,28A46,46 0,0 1,100 54L94,54A40,40 0,0 0,88 31Z" />
-    <path android:fillColor="#FF4FA3" android:pathData="M100,54A46,46 0,0 1,79 94L76,88A40,40 0,0 0,94 54Z" />
-    <path android:fillColor="#FFB84D" android:pathData="M79,94A46,46 0,0 1,54 100L54,94A40,40 0,0 0,76 88Z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M63,24L63,62A12,12 0,1 0,69 73L69,42L84,36L84,26L63,24Z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M23,61L28,61L28,80L23,80ZM32,53L37,53L37,80L32,80ZM41,45L46,45L46,80L41,80Z" />
-    <path android:fillColor="#4EEBFF" android:pathData="M51,79L54,79L54,82L51,82Z" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#090D1D" android:pathData="M54,4A50,50 0,1 0,54 104A50,50 0,1 0,54 4"/>
+    <path android:fillColor="#26E6C5" android:pathData="M54,9A45,45 0,0 0,18 27L23,32A38,38 0,0 1,54 16Z"/>
+    <path android:fillColor="#8A48FF" android:pathData="M18,27A45,45 0,0 0,13 54L21,54A37,37 0,0 1,23 32Z"/>
+    <path android:fillColor="#FF3F9F" android:pathData="M13,54A45,45 0,0 0,78 92L74,84A37,37 0,0 1,21 54Z"/>
+    <path android:fillColor="#FFC85A" android:pathData="M78,92A45,45 0,0 0,95 54L87,54A37,37 0,0 1,74 84Z"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M59,25L59,63A12,12 0,1 0,66 73L66,43L84,37L84,27L59,25Z"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M24,58L29,58L29,79L24,79ZM34,50L39,50L39,79L34,79ZM44,42L49,42L49,79L44,79Z"/>
 </vector>
