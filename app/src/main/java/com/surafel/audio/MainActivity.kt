@@ -40,11 +40,12 @@ class MainActivity : AppCompatActivity() {
     private val items = mutableListOf<MediaItem>()
     private val allSongs = mutableListOf<MediaItem>()
     private val videos = mutableListOf<VideoEntry>()
-    private var currentTab = Tab.SONGS
     private var currentSection = Section.MUSIC
+    private var currentTab = Tab.SONGS
+    private val prefs by lazy { getSharedPreferences("audio_profile", MODE_PRIVATE) }
+
     private enum class Tab { SONGS, PLAYLISTS, FOLDERS, ARTISTS, ALBUMS }
     private enum class Section { HOME, MUSIC, VIDEO, MINE }
-    private val prefs by lazy { getSharedPreferences("audio_profile", MODE_PRIVATE) }
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -59,6 +60,7 @@ class MainActivity : AppCompatActivity() {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = this@MainActivity.adapter
         }
+
         videoAdapter = VideoAdapter(videos) { playVideo(it) }
         findViewById<RecyclerView>(R.id.videoList).apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -67,8 +69,7 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<ImageButton>(R.id.play).setOnClickListener {
             if (!::player.isInitialized) return@setOnClickListener
-            if (player.isPlaying) player.pause()
-            else if (player.mediaItemCount > 0) player.play()
+            if (player.isPlaying) player.pause() else if (player.mediaItemCount > 0) player.play()
             updateNowPlaying()
         }
         findViewById<TextView>(R.id.playAll).setOnClickListener { if (items.isNotEmpty()) playFrom(0) }
@@ -104,6 +105,7 @@ class MainActivity : AppCompatActivity() {
             updateNowPlaying()
             requestAudioPermissionIfNeeded()
         }, mainExecutor)
+
         updateBottomNav()
         renderSection()
     }
@@ -111,6 +113,13 @@ class MainActivity : AppCompatActivity() {
     private fun selectSection(section: Section) {
         currentSection = section
         if (section == Section.MUSIC) currentTab = Tab.SONGS
+        updateBottomNav()
+        renderSection()
+    }
+
+    private fun selectTab(tab: Tab) {
+        currentSection = Section.MUSIC
+        currentTab = tab
         updateBottomNav()
         renderSection()
     }
@@ -127,8 +136,8 @@ class MainActivity : AppCompatActivity() {
         }
         when (currentSection) {
             Section.HOME -> renderHome()
-            Section.MUSIC -> { updateTabStyle(); if (hasAudioPermission()) loadTab() }
-            Section.VIDEO -> { if (hasVideoPermission()) loadVideos() else requestVideoPermission() }
+            Section.MUSIC -> { updateTabStyle(); if (hasAudioPermission()) loadSongs() else requestAudioPermissionIfNeeded() }
+            Section.VIDEO -> if (hasVideoPermission()) loadVideos() else requestVideoPermission()
             Section.MINE -> renderMine()
         }
     }
@@ -144,8 +153,6 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.simpleTitle).text = "Welcome to Audio"
         findViewById<TextView>(R.id.simpleBody).text = "${allSongs.size} songs in your library\nYour private music, beautifully organized."
         findViewById<TextView>(R.id.simpleAction).text = "OPEN MUSIC"
-        findViewById<TextView>(R.id.simpleAction).setOnClickListener { selectSection(Section.MUSIC) }
-        if (hasAudioPermission()) loadSongs()
     }
 
     private fun renderMine() {
@@ -156,21 +163,14 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.mineProfile).visibility = View.VISIBLE
         findViewById<View>(R.id.weeklyReport).visibility = View.VISIBLE
         val name = prefs.getString("name", "Music Lover") ?: "Music Lover"
-        val sub = prefs.getString("subtitle", "Enjoy Listening") ?: "Enjoy Listening"
+        val subtitle = prefs.getString("subtitle", "Enjoy Listening") ?: "Enjoy Listening"
         findViewById<TextView>(R.id.profileName).text = name
-        findViewById<TextView>(R.id.profileSubtitle).text = sub
+        findViewById<TextView>(R.id.profileSubtitle).text = subtitle
         findViewById<TextView>(R.id.profileAvatar).text = name.trim().firstOrNull()?.uppercase() ?: "A"
         findViewById<TextView>(R.id.statPlayed).text = "♪\nMusic Played\n${prefs.getInt("played", 0)} Times"
         findViewById<TextView>(R.id.statSongs).text = "♫\nStorage\n${allSongs.size} Songs"
         findViewById<TextView>(R.id.statToday).text = "◷\nToday Played\n${prefs.getInt("today", 0)} Times"
         findViewById<TextView>(R.id.statTime).text = "◴\nListening Time\n${prefs.getInt("minutes", 0)} Mins"
-    }
-
-    private fun selectTab(tab: Tab) {
-        currentSection = Section.MUSIC
-        currentTab = tab
-        updateBottomNav()
-        renderSection()
     }
 
     private fun updateBottomNav() {
@@ -197,82 +197,55 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun playFrom(position: Int) {
-        if (position !in items.indices || !::player.isInitialized) return
+        if (!::player.isInitialized || position !in items.indices) return
         player.setMediaItems(items.toList(), position, 0L)
-        player.prepare(); player.play()
+        player.prepare()
+        player.play()
         prefs.edit().putInt("played", prefs.getInt("played", 0) + 1).putInt("today", prefs.getInt("today", 0) + 1).apply()
         updateNowPlaying()
     }
 
     private fun shuffleAndPlay() {
-        if (items.isEmpty() || !::player.isInitialized) return
-        player.setMediaItems(items.shuffled(), 0, 0L); player.prepare(); player.play()
+        if (!::player.isInitialized || items.isEmpty()) return
+        player.setMediaItems(items.shuffled(), 0, 0L)
+        player.prepare()
+        player.play()
         prefs.edit().putInt("played", prefs.getInt("played", 0) + 1).putInt("today", prefs.getInt("today", 0) + 1).apply()
         updateNowPlaying()
     }
 
     private fun requestAudioPermissionIfNeeded() {
-        val p = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
-        if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) permissionLauncher.launch(arrayOf(p))
+        val permission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
+        if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) permissionLauncher.launch(arrayOf(permission))
     }
-    private fun hasAudioPermission() = ContextCompat.checkSelfPermission(this, if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-    private fun requestVideoPermission() { if (Build.VERSION.SDK_INT >= 33) permissionLauncher.launch(arrayOf(Manifest.permission.READ_MEDIA_VIDEO)) }
-    private fun hasVideoPermission() = Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
 
-    private fun loadTab() {
-        when (currentTab) { Tab.SONGS -> loadSongs(); Tab.ARTISTS -> loadGroups(MediaStore.Audio.Media.ARTIST, "artist"); Tab.ALBUMS -> loadGroups(MediaStore.Audio.Media.ALBUM, "album"); Tab.FOLDERS -> loadFolders(); Tab.PLAYLISTS -> loadPlaylists() }
+    private fun hasAudioPermission(): Boolean {
+        val permission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
+        return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
     }
-    private fun baseProjection() = arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.DATA)
+
+    private fun requestVideoPermission() {
+        if (Build.VERSION.SDK_INT >= 33) permissionLauncher.launch(arrayOf(Manifest.permission.READ_MEDIA_VIDEO))
+    }
+
+    private fun hasVideoPermission(): Boolean = Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
 
     private fun loadSongs() {
         if (!hasAudioPermission()) return
-        val found = mutableListOf<MediaItem>(); val base = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        contentResolver.query(base, baseProjection(), "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC")?.use { c ->
-            val id = c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID); val title = c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE); val artist = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            while (c.moveToNext()) found += mediaItem(android.content.ContentUris.withAppendedId(base, c.getLong(id)), c.getString(title), c.getString(artist))
-        }
-        allSongs.clear(); allSongs.addAll(found); if (currentSection == Section.MUSIC) replaceItems(found)
-    }
-
-    private fun loadGroups(column: String, label: String) {
-        val groups = linkedMapOf<String, Pair<MediaItem, Int>>(); val base = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        contentResolver.query(base, baseProjection(), "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, "$column COLLATE NOCASE ASC")?.use { c ->
-            val id = c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID); val group = c.getColumnIndexOrThrow(column)
-            while (c.moveToNext()) {
-                val name = c.getString(group)?.takeIf { it.isNotBlank() } ?: "Unknown $label"
-                val item = mediaItem(android.content.ContentUris.withAppendedId(base, c.getLong(id)), name, label)
-                val old = groups[name]; groups[name] = if (old == null) item to 1 else old.first to old.second + 1
+        val found = mutableListOf<MediaItem>()
+        val base = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST)
+        contentResolver.query(base, projection, "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC")?.use { cursor ->
+            val id = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val title = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+            val artist = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+            while (cursor.moveToNext()) {
+                val uri = android.content.ContentUris.withAppendedId(base, cursor.getLong(id))
+                found += mediaItem(uri, cursor.getString(title), cursor.getString(artist))
             }
         }
-        replaceItems(groups.map { (name, p) -> p.first.buildUpon().setMediaMetadata(p.first.mediaMetadata.buildUpon().setTitle(name).setArtist("$label • ${p.second} songs").build()).build() })
-    }
-
-    private fun loadFolders() {
-        val groups = linkedMapOf<String, Pair<MediaItem, Int>>(); val base = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        contentResolver.query(base, baseProjection(), "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, "${MediaStore.Audio.Media.DATA} ASC")?.use { c ->
-            val id = c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID); val data = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-            while (c.moveToNext()) {
-                val folder = File(c.getString(data) ?: continue).parentFile?.name ?: "Music"
-                val item = mediaItem(android.content.ContentUris.withAppendedId(base, c.getLong(id)), folder, "Folder")
-                val old = groups[folder]; groups[folder] = if (old == null) item to 1 else old.first to old.second + 1
-            }
-        }
-        replaceItems(groups.map { (name, p) -> p.first.buildUpon().setMediaMetadata(p.first.mediaMetadata.buildUpon().setTitle(name).setArtist("Folder • ${p.second} songs").build()).build() })
-    }
-
-    private fun loadPlaylists() {
-        val found = mutableListOf<MediaItem>(); val playlists = MediaStore.Audio.Playlists.EXTERNAL_CONTENT_URI
-        contentResolver.query(playlists, arrayOf(MediaStore.Audio.Playlists._ID, MediaStore.Audio.Playlists.NAME), null, null, "${MediaStore.Audio.Playlists.NAME} ASC")?.use { c ->
-            val pid = c.getColumnIndexOrThrow(MediaStore.Audio.Playlists._ID); val name = c.getColumnIndexOrThrow(MediaStore.Audio.Playlists.NAME)
-            while (c.moveToNext()) {
-                val id = c.getLong(pid); val members = MediaStore.Audio.Playlists.Members.getContentUri("external", id); var uri = Uri.EMPTY; var count = 0
-                contentResolver.query(members, arrayOf(MediaStore.Audio.Playlists.Members.AUDIO_ID), null, null, null)?.use { m ->
-                    val aid = m.getColumnIndexOrThrow(MediaStore.Audio.Playlists.Members.AUDIO_ID); count = m.count
-                    if (m.moveToFirst()) uri = android.content.ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, m.getLong(aid))
-                }
-                if (uri != Uri.EMPTY) found += mediaItem(uri, c.getString(name), "Playlist • $count songs")
-            }
-        }
+        allSongs.clear()
+        allSongs.addAll(found)
         replaceItems(found)
     }
 
@@ -280,54 +253,146 @@ class MainActivity : AppCompatActivity() {
         if (!hasVideoPermission()) return
         val base = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
         videos.clear()
-        contentResolver.query(base, arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.TITLE, MediaStore.Video.Media.SIZE, MediaStore.Video.Media.DURATION), null, null, "${MediaStore.Video.Media.DATE_ADDED} DESC")?.use { c ->
-            val id = c.getColumnIndexOrThrow(MediaStore.Video.Media._ID); val title = c.getColumnIndexOrThrow(MediaStore.Video.Media.TITLE); val size = c.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE); val duration = c.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
-            while (c.moveToNext()) videos += VideoEntry(android.content.ContentUris.withAppendedId(base, c.getLong(id)), c.getString(title) ?: "Video", c.getLong(size), c.getLong(duration))
+        val projection = arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.TITLE, MediaStore.Video.Media.SIZE, MediaStore.Video.Media.DURATION)
+        contentResolver.query(base, projection, null, null, "${MediaStore.Video.Media.DATE_ADDED} DESC")?.use { cursor ->
+            val id = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+            val title = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.TITLE)
+            val size = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
+            val duration = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+            while (cursor.moveToNext()) {
+                val uri = android.content.ContentUris.withAppendedId(base, cursor.getLong(id))
+                videos += VideoEntry(uri, cursor.getString(title) ?: "Video", cursor.getLong(size), cursor.getLong(duration))
+            }
         }
-        videoAdapter.notifyDataSetChanged(); findViewById<TextView>(R.id.videoCount).text = "${videos.size} Videos"
+        videoAdapter.notifyDataSetChanged()
+        findViewById<TextView>(R.id.videoCount).text = "${videos.size} Videos"
     }
 
     private fun playVideo(entry: VideoEntry) {
         if (!hasVideoPermission()) return
-        startActivity(Intent(this, FullscreenVideoActivity::class.java).putExtra(FullscreenVideoActivity.EXTRA_VIDEO_URI, entry.uri.toString()).putExtra(FullscreenVideoActivity.EXTRA_VIDEO_TITLE, entry.title))
+        startActivity(Intent(this, FullscreenVideoActivity::class.java).apply {
+            putExtra(FullscreenVideoActivity.EXTRA_VIDEO_URI, entry.uri.toString())
+            putExtra(FullscreenVideoActivity.EXTRA_VIDEO_TITLE, entry.title)
+        })
     }
 
-    private fun replaceItems(found: List<MediaItem>) { items.clear(); items.addAll(found); adapter.notifyDataSetChanged(); findViewById<TextView>(R.id.playAll).text = "▶  Play (${items.size})" }
-    private fun mediaItem(uri: Uri, title: String?, artist: String?) = MediaItem.Builder().setUri(uri).setMediaMetadata(MediaMetadata.Builder().setTitle(title ?: "Unknown").setArtist(artist ?: "Unknown artist").build()).build()
-    private fun updateNowPlaying() { if (!::player.isInitialized) return; val item = player.currentMediaItem; findViewById<TextView>(R.id.title).text = item?.mediaMetadata?.title ?: "Nothing playing"; findViewById<TextView>(R.id.artist).text = item?.mediaMetadata?.artist ?: "Choose a song"; findViewById<ImageButton>(R.id.play).setImageResource(if (player.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play) }
+    private fun replaceItems(found: List<MediaItem>) {
+        items.clear()
+        items.addAll(found)
+        adapter.notifyDataSetChanged()
+        findViewById<TextView>(R.id.playAll).text = "▶  Play (${items.size})"
+    }
+
+    private fun mediaItem(uri: Uri, title: String?, artist: String?) = MediaItem.Builder()
+        .setUri(uri)
+        .setMediaMetadata(MediaMetadata.Builder().setTitle(title ?: "Unknown").setArtist(artist ?: "Unknown artist").build())
+        .build()
+
+    private fun updateNowPlaying() {
+        if (!::player.isInitialized) return
+        val item = player.currentMediaItem
+        findViewById<TextView>(R.id.title).text = item?.mediaMetadata?.title ?: "Nothing playing"
+        findViewById<TextView>(R.id.artist).text = item?.mediaMetadata?.artist ?: "Choose a song"
+        findViewById<ImageButton>(R.id.play).setImageResource(if (player.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
+    }
 
     private fun showProfileEditor() {
-        val box = android.widget.LinearLayout(this); box.orientation = android.widget.LinearLayout.VERTICAL; box.setPadding(35, 10, 35, 0)
-        val name = EditText(this); name.hint = "Your name"; name.setSingleLine(); name.setText(prefs.getString("name", ""))
-        val sub = EditText(this); sub.hint = "Profile subtitle"; sub.setSingleLine(); sub.setText(prefs.getString("subtitle", "Enjoy Listening")); box.addView(name); box.addView(sub)
-        AlertDialog.Builder(this).setTitle("Create your profile").setMessage("Make your Mine page personal.").setView(box).setNegativeButton("Cancel", null).setPositiveButton("Save") { _, _ -> prefs.edit().putString("name", name.text.toString().trim().ifEmpty { "Music Lover" }).putString("subtitle", sub.text.toString().trim().ifEmpty { "Enjoy Listening" }).apply(); renderMine() }.show()
+        val box = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(35, 10, 35, 0)
+        }
+        val name = EditText(this).apply { hint = "Your name"; setSingleLine(); setText(prefs.getString("name", "")) }
+        val subtitle = EditText(this).apply { hint = "Profile subtitle"; setSingleLine(); setText(prefs.getString("subtitle", "Enjoy Listening")) }
+        box.addView(name)
+        box.addView(subtitle)
+        AlertDialog.Builder(this).setTitle("Create your profile").setView(box).setNegativeButton("Cancel", null).setPositiveButton("Save") { _, _ ->
+            prefs.edit().putString("name", name.text.toString().trim().ifEmpty { "Music Lover" }).putString("subtitle", subtitle.text.toString().trim().ifEmpty { "Enjoy Listening" }).apply()
+            renderMine()
+        }.show()
     }
-    private fun showQueue() { if (!::player.isInitialized) return; AlertDialog.Builder(this).setTitle("Queue (${player.mediaItemCount})").setMessage((0 until player.mediaItemCount).joinToString("\n") { i -> "${i + 1}. ${player.getMediaItemAt(i).mediaMetadata.title ?: "Unknown"}" }).setPositiveButton("Close", null).show() }
-    private fun showSearch() { val input = EditText(this); input.hint = "Search songs, artists, albums"; input.setSingleLine(true); AlertDialog.Builder(this).setTitle("Search").setView(input).setNegativeButton("Cancel", null).setPositiveButton("Search") { _, _ -> filterSongs(input.text.toString()) }.show(); input.requestFocus(); input.postDelayed({ (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input, InputMethodManager.SHOW_IMPLICIT) }, 150) }
-    private fun filterSongs(q0: String) { val q = q0.trim(); replaceItems(if (q.isEmpty()) allSongs else allSongs.filter { it.mediaMetadata.title?.toString()?.contains(q, true) == true || it.mediaMetadata.artist?.toString()?.contains(q, true) == true }) }
-    private fun showMenu() { AlertDialog.Builder(this).setTitle("Audio").setItems(arrayOf("Refresh library", "Repeat off", "About")) { _, which -> when (which) { 0 -> loadSongs(); 1 -> if (::player.isInitialized) player.repeatMode = Player.REPEAT_MODE_OFF; 2 -> showPremiumInfo() } }.show() }
-    private fun showPremiumInfo() { AlertDialog.Builder(this).setTitle("Audio Player").setMessage("Luxury local music and video experience.\nBackground audio playback enabled.\nYour library stays on your device.").setPositiveButton("OK", null).show() }
-    override fun onResume() { super.onResume(); if (::player.isInitialized) renderSection() }
+
+    private fun showQueue() {
+        if (!::player.isInitialized) return
+        val message = (0 until player.mediaItemCount).joinToString("\n") { i -> "${i + 1}. ${player.getMediaItemAt(i).mediaMetadata.title ?: "Unknown"}" }
+        AlertDialog.Builder(this).setTitle("Queue (${player.mediaItemCount})").setMessage(message.ifEmpty { "Queue is empty" }).setPositiveButton("Close", null).show()
+    }
+
+    private fun showSearch() {
+        val input = EditText(this).apply { hint = "Search songs, artists"; setSingleLine(true) }
+        AlertDialog.Builder(this).setTitle("Search").setView(input).setNegativeButton("Cancel", null).setPositiveButton("Search") { _, _ ->
+            val q = input.text.toString().trim()
+            replaceItems(if (q.isEmpty()) allSongs else allSongs.filter { it.mediaMetadata.title?.toString()?.contains(q, true) == true || it.mediaMetadata.artist?.toString()?.contains(q, true) == true })
+        }.show()
+        input.requestFocus()
+        input.postDelayed({ (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input, InputMethodManager.SHOW_IMPLICIT) }, 150)
+    }
+
+    private fun showMenu() {
+        AlertDialog.Builder(this).setTitle("Audio").setItems(arrayOf("Refresh library", "Repeat off", "About")) { _, which ->
+            when (which) {
+                0 -> loadSongs()
+                1 -> if (::player.isInitialized) player.repeatMode = Player.REPEAT_MODE_OFF
+                2 -> showPremiumInfo()
+            }
+        }.show()
+    }
+
+    private fun showPremiumInfo() {
+        AlertDialog.Builder(this).setTitle("Audio Player").setMessage("Luxury local music and video experience.\nBackground audio playback enabled.\nYour library stays on your device.").setPositiveButton("OK", null).show()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::player.isInitialized) renderSection()
+    }
+
     override fun onDestroy() {
         if (::controllerFuture.isInitialized) MediaController.releaseFuture(controllerFuture)
         super.onDestroy()
     }
+}
 
 data class VideoEntry(val uri: Uri, val title: String, val size: Long, val duration: Long)
 
 private class SongAdapter(private val items: List<MediaItem>, private val onClick: (Int) -> Unit) : RecyclerView.Adapter<SongAdapter.Holder>() {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = Holder(LayoutInflater.from(parent.context).inflate(R.layout.item_song, parent, false))
-    override fun onBindViewHolder(holder: Holder, position: Int) { val item = items[position]; holder.title.text = item.mediaMetadata.title ?: "Unknown"; holder.artist.text = item.mediaMetadata.artist ?: "Unknown artist"; holder.itemView.setOnClickListener { onClick(position) } }
+    override fun onBindViewHolder(holder: Holder, position: Int) {
+        val item = items[position]
+        holder.title.text = item.mediaMetadata.title ?: "Unknown"
+        holder.artist.text = item.mediaMetadata.artist ?: "Unknown artist"
+        holder.itemView.setOnClickListener { onClick(position) }
+    }
     override fun getItemCount() = items.size
-    class Holder(view: View) : RecyclerView.ViewHolder(view) { val title: TextView = view.findViewById(R.id.songTitle); val artist: TextView = view.findViewById(R.id.songArtist) }
+    class Holder(view: View) : RecyclerView.ViewHolder(view) {
+        val title: TextView = view.findViewById(R.id.songTitle)
+        val artist: TextView = view.findViewById(R.id.songArtist)
+    }
 }
 
 private class VideoAdapter(private val items: List<VideoEntry>, private val onClick: (VideoEntry) -> Unit) : RecyclerView.Adapter<VideoAdapter.Holder>() {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = Holder(LayoutInflater.from(parent.context).inflate(R.layout.item_video, parent, false))
-    override fun onBindViewHolder(holder: Holder, position: Int) { val item = items[position]; holder.title.text = item.title; holder.meta.text = "${formatSize(item.size)} • ${formatDuration(item.duration)}"; holder.thumb.setVideoUri(item.uri); holder.itemView.setOnClickListener { onClick(item) } }
+    override fun onBindViewHolder(holder: Holder, position: Int) {
+        val item = items[position]
+        holder.title.text = item.title
+        holder.meta.text = "${formatSize(item.size)} • ${formatDuration(item.duration)}"
+        holder.thumb.setVideoUri(item.uri)
+        holder.itemView.setOnClickListener { onClick(item) }
+    }
     override fun getItemCount() = items.size
-    class Holder(view: View) : RecyclerView.ViewHolder(view) { val title: TextView = view.findViewById(R.id.videoTitle); val meta: TextView = view.findViewById(R.id.videoMeta); val thumb: VideoThumbnailView = view.findViewById(R.id.videoThumbnail) }
+    class Holder(view: View) : RecyclerView.ViewHolder(view) {
+        val title: TextView = view.findViewById(R.id.videoTitle)
+        val meta: TextView = view.findViewById(R.id.videoMeta)
+        val thumb: VideoThumbnailView = view.findViewById(R.id.videoThumbnail)
+    }
 }
 
-private fun formatSize(bytes: Long): String { if (bytes <= 0) return "Unknown size"; val mb = bytes / 1024.0 / 1024.0; return if (mb < 1024) String.format("%.1f MB", mb) else String.format("%.1f GB", mb / 1024) }
-private fun formatDuration(ms: Long): String { val s = ms / 1000; return String.format("%02d:%02d", s / 60, s % 60) }
+private fun formatSize(bytes: Long): String {
+    if (bytes <= 0) return "Unknown size"
+    val mb = bytes / 1024.0 / 1024.0
+    return if (mb < 1024) String.format("%.1f MB", mb) else String.format("%.1f GB", mb / 1024)
+}
+
+private fun formatDuration(ms: Long): String {
+    val seconds = (ms / 1000).coerceAtLeast(0)
+    return String.format("%02d:%02d", seconds / 60, seconds % 60)
+}
