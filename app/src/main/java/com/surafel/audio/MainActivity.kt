@@ -84,7 +84,6 @@ class MainActivity : AppCompatActivity() {
     private fun refreshPlayer() {
         adapter.notifyDataSetChanged()
         findViewById<TextView>(R.id.playAll).text = "▶  Play  (${songs.size})"
-        findViewById<TextView>(R.id.statusText)?.text = "${songs.size} songs"
     }
 
     private fun updateNowPlaying() {
