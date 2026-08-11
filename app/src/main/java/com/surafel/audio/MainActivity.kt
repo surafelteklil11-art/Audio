@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
@@ -156,12 +157,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun playVideo(entry: VideoEntry) {
         if (!hasVideoPermission()) return
-        enterFullscreenVideo()
-        val v = findViewById<VideoView>(R.id.videoPlayer)
-        findViewById<TextView>(R.id.videoEmpty).visibility = View.GONE
-        v.setVideoURI(entry.uri)
-        v.setOnPreparedListener { mp -> mp.isLooping = false; v.start() }
-        v.setOnCompletionListener { showFullscreenControls(); }
+        startActivity(
+            Intent(this, FullscreenVideoActivity::class.java)
+                .putExtra(FullscreenVideoActivity.EXTRA_VIDEO_URI, entry.uri.toString())
+                .putExtra(FullscreenVideoActivity.EXTRA_VIDEO_TITLE, entry.title)
+        )
     }
 
     private fun enterFullscreenVideo() {
