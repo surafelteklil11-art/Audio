@@ -3,40 +3,35 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Deep-review pass: remove every trace of the obsolete in-place video player.
-# FullscreenVideoActivity is the single owner of fullscreen video playback.
 main = ROOT / "app/src/main/java/com/surafel/audio/MainActivity.kt"
 s = main.read_text(encoding="utf-8")
 original = s
 
-# Remove old fullscreen state regardless of whitespace/one-line formatting.
+# Remove obsolete in-place fullscreen state/functions and stale lifecycle references.
 s = re.sub(r'\s*private var fullscreenVideo\s*=\s*false', '', s)
 s = re.sub(r'\s*private var fullscreenClose:\s*TextView\?\s*=\s*null', '', s)
 s = re.sub(r'\s*private var normalVideoHeight\s*=\s*\d+', '', s)
-
-# Remove obsolete enter/exit fullscreen functions, if present.
-s = re.sub(
-    r'\s*private fun enterFullscreenVideo\s*\(\)\s*\{.*?\n\s*\}\s*(?=private fun dp)',
-    '\n    ', s, flags=re.S
-)
-s = re.sub(
-    r'\s*private fun exitFullscreenVideo\s*\(\)\s*\{.*?\n\s*\}\s*(?=private fun dp)',
-    '\n    ', s, flags=re.S
-)
-
-# Remove stale lifecycle references in both one-line and multiline forms.
+s = re.sub(r'\s*private fun enterFullscreenVideo\s*\(\)\s*\{.*?\n\s*\}\s*(?=private fun dp)', '\n    ', s, flags=re.S)
+s = re.sub(r'\s*private fun exitFullscreenVideo\s*\(\)\s*\{.*?\n\s*\}\s*(?=private fun dp)', '\n    ', s, flags=re.S)
 s = re.sub(r'\s*if\s*\(\s*fullscreenVideo\s*\)\s*\{?\s*exitFullscreenVideo\s*\(\s*\)\s*\}?', '', s)
 s = re.sub(r'\s*if\s*\(\s*fullscreenVideo\s*\)\s*exitFullscreenVideo\s*\(\s*\)', '', s)
 s = re.sub(r'\s*override fun onBackPressed\s*\(\s*\)\s*\{.*?\}', '', s, flags=re.S)
 
-# If the old onDestroy body was damaged by previous automation, normalize it.
+# Normalize onDestroy if previous automation damaged its body.
 s = re.sub(
     r'override fun onDestroy\s*\(\s*\)\s*\{.*?\n\s*\}',
     'override fun onDestroy() {\n        if (::controllerFuture.isInitialized) MediaController.releaseFuture(controllerFuture)\n        super.onDestroy()\n    }',
     s, count=1, flags=re.S
 )
 
-# Ensure the adapter always binds the real video URI and thumbnail view.
+# Critical structural guard: MainActivity must close before top-level data classes/adapters.
+marker = "\ndata class VideoEntry"
+if marker in s:
+    before, after = s.split(marker, 1)
+    if before.rstrip().endswith('}') is False:
+        s = before.rstrip() + "\n}\n\ndata class VideoEntry" + after
+
+# Ensure the video adapter binds thumbnails.
 s = s.replace(
     'override fun onBindViewHolder(h:Holder,pos:Int){val x=items[pos];h.title.text=x.title;h.meta.text="${formatSize(x.size)} • ${formatDuration(x.duration)}";h.itemView.setOnClickListener{onClick(x)}}',
     'override fun onBindViewHolder(h:Holder,pos:Int){val x=items[pos];h.title.text=x.title;h.meta.text="${formatSize(x.size)} • ${formatDuration(x.duration)}";h.thumb.setVideoUri(x.uri);h.itemView.setOnClickListener{onClick(x)}}'
@@ -103,18 +98,12 @@ class VideoThumbnailView @JvmOverloads constructor(
 }
 ''', encoding="utf-8")
 
-# Stable thumbnail id.
 item = ROOT / "app/src/main/res/layout/item_video.xml"
 s_item = item.read_text(encoding="utf-8")
 if 'android:id="@+id/videoThumbnail"' not in s_item:
-    s_item = s_item.replace(
-        '<com.surafel.audio.VideoThumbnailView',
-        '<com.surafel.audio.VideoThumbnailView\n            android:id="@+id/videoThumbnail"',
-        1
-    )
+    s_item = s_item.replace('<com.surafel.audio.VideoThumbnailView', '<com.surafel.audio.VideoThumbnailView\n            android:id="@+id/videoThumbnail"', 1)
 item.write_text(s_item, encoding="utf-8")
 
-# Fullscreen activity remains the only video player surface.
 manifest = ROOT / "app/src/main/AndroidManifest.xml"
 s_manifest = manifest.read_text(encoding="utf-8")
 s_manifest = s_manifest.replace(
@@ -123,7 +112,6 @@ s_manifest = s_manifest.replace(
 )
 manifest.write_text(s_manifest, encoding="utf-8")
 
-# Hard preflight: stale symbols must never reach Kotlin compilation again.
 remaining = []
 for token in ("fullscreenVideo", "enterFullscreenVideo", "exitFullscreenVideo", "fullscreenClose", "normalVideoHeight"):
     if token in main.read_text(encoding="utf-8"):
@@ -131,7 +119,14 @@ for token in ("fullscreenVideo", "enterFullscreenVideo", "exitFullscreenVideo", 
 if remaining:
     raise SystemExit("Deep review preflight failed; stale fullscreen symbols remain: " + ", ".join(remaining))
 
-if s == original:
+# Basic Kotlin structural guard for the known top-level boundary.
+current = main.read_text(encoding="utf-8")
+if "\ndata class VideoEntry" in current:
+    head = current.split("\ndata class VideoEntry", 1)[0]
+    if not head.rstrip().endswith('}'):
+        raise SystemExit("Deep review preflight failed; MainActivity is not closed before VideoEntry")
+
+if current == original:
     raise SystemExit("Deep review did not modify MainActivity; refusing to continue")
 
 print("1000-level deep review preflight passed")
