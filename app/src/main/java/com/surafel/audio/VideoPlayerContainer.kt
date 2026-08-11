@@ -69,10 +69,11 @@ class VideoPlayerContainer @JvmOverloads constructor(
 
     private fun applySpeed() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val player = preparedPlayer ?: return
             runCatching {
-                preparedPlayer?.playbackParams = preparedPlayer?.playbackParams?.apply {
-                    setSpeed(speed)
-                } ?: return
+                val params = player.playbackParams
+                params.setSpeed(speed)
+                player.playbackParams = params
             }
         }
     }
