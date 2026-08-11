@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.SeekBar
@@ -17,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import kotlin.math.roundToInt
 
 class FullscreenVideoActivity : AppCompatActivity() {
     companion object {
@@ -25,6 +27,7 @@ class FullscreenVideoActivity : AppCompatActivity() {
     }
 
     private lateinit var video: VideoView
+    private lateinit var videoHolder: FrameLayout
     private lateinit var pauseButton: TextView
     private lateinit var speedButton: TextView
     private lateinit var seekBar: SeekBar
@@ -34,10 +37,13 @@ class FullscreenVideoActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private val progressUpdater = object : Runnable {
         override fun run() {
-            if (::video.isInitialized && video.duration > 0) {
-                seekBar.max = video.duration
-                seekBar.progress = video.currentPosition.coerceIn(0, video.duration)
-                timeLabel.text = "${formatTime(video.currentPosition)} / ${formatTime(video.duration)}"
+            if (::video.isInitialized && video.isPlaying || (::video.isInitialized && video.duration > 0)) {
+                val duration = video.duration
+                if (duration > 0) {
+                    seekBar.max = duration
+                    seekBar.progress = video.currentPosition.coerceIn(0, duration)
+                    timeLabel.text = "${formatTime(video.currentPosition)} / ${formatTime(duration)}"
+                }
             }
             handler.postDelayed(this, 250)
         }
@@ -49,24 +55,16 @@ class FullscreenVideoActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         hideSystemBars()
 
-        // The whole screen is deliberately black. VideoView is centered and allowed to
-        // keep the source aspect ratio, producing black letterbox space above/below when
-        // the video is wider than the available portrait area instead of pinning it to top.
-        val root = FrameLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
-        }
+        val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
 
-        video = VideoView(this).apply {
-            setBackgroundColor(Color.BLACK)
-        }
-        root.addView(
-            video,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                Gravity.CENTER
-            )
-        )
+        // The holder fills the screen, while the actual VideoView is resized after
+        // preparation to the source aspect ratio. This guarantees centered letterboxing
+        // instead of a top-aligned/cropped video.
+        videoHolder = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        root.addView(videoHolder, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
+
+        video = VideoView(this).apply { setBackgroundColor(Color.BLACK) }
+        videoHolder.addView(video, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
 
         val top = FrameLayout(this).apply {
             setBackgroundColor(Color.argb(145, 0, 0, 0))
@@ -92,10 +90,7 @@ class FullscreenVideoActivity : AppCompatActivity() {
         top.addView(close, FrameLayout.LayoutParams(52, 52, Gravity.END))
         root.addView(top, FrameLayout.LayoutParams(-1, 72, Gravity.TOP))
 
-        val bottom = FrameLayout(this).apply {
-            setBackgroundColor(Color.argb(180, 0, 0, 0))
-        }
-
+        val bottom = FrameLayout(this).apply { setBackgroundColor(Color.argb(180, 0, 0, 0)) }
         seekBar = SeekBar(this).apply {
             max = 1
             progress = 0
@@ -103,7 +98,7 @@ class FullscreenVideoActivity : AppCompatActivity() {
             setPadding(8, 0, 8, 0)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(bar: SeekBar?, value: Int, fromUser: Boolean) {
-                    if (fromUser) video.seekTo(value)
+                    if (fromUser && ::video.isInitialized) video.seekTo(value)
                 }
                 override fun onStartTrackingTouch(bar: SeekBar?) = Unit
                 override fun onStopTrackingTouch(bar: SeekBar?) { updatePause() }
@@ -117,55 +112,31 @@ class FullscreenVideoActivity : AppCompatActivity() {
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
         }
-        bottom.addView(
-            timeLabel,
-            FrameLayout.LayoutParams(-1, 28, Gravity.TOP).apply { topMargin = 38 }
-        )
+        bottom.addView(timeLabel, FrameLayout.LayoutParams(-1, 28, Gravity.TOP).apply { topMargin = 38 })
 
         val controls = FrameLayout(this)
-
-        // Dedicated 10-second rewind button.
         val back10 = control("↶ 10s") {
-            if (::video.isInitialized) {
-                video.seekTo((video.currentPosition - 10_000).coerceAtLeast(0))
-                updatePause()
-            }
+            if (::video.isInitialized) video.seekTo((video.currentPosition - 10_000).coerceAtLeast(0))
         }
-        controls.addView(
-            back10,
-            FrameLayout.LayoutParams(82, 54, Gravity.START or Gravity.CENTER_VERTICAL).apply {
-                leftMargin = 4
-            }
-        )
+        controls.addView(back10, FrameLayout.LayoutParams(82, 54, Gravity.START or Gravity.CENTER_VERTICAL).apply { leftMargin = 4 })
 
         pauseButton = control("▶") {
+            if (!::video.isInitialized) return@control
             if (video.isPlaying) video.pause() else video.start()
             updatePause()
         }
         controls.addView(pauseButton, FrameLayout.LayoutParams(64, 54, Gravity.CENTER))
 
-        // Dedicated 10-second forward button (not 30 seconds).
         val forward10 = control("10s ↷") {
             if (::video.isInitialized) {
                 val duration = video.duration.coerceAtLeast(0)
                 video.seekTo((video.currentPosition + 10_000).coerceAtMost(duration))
-                updatePause()
             }
         }
-        controls.addView(
-            forward10,
-            FrameLayout.LayoutParams(82, 54, Gravity.END or Gravity.CENTER_VERTICAL).apply {
-                rightMargin = 74
-            }
-        )
+        controls.addView(forward10, FrameLayout.LayoutParams(82, 54, Gravity.END or Gravity.CENTER_VERTICAL).apply { rightMargin = 74 })
 
         speedButton = control("1.0×") { cycleSpeed() }
-        controls.addView(
-            speedButton,
-            FrameLayout.LayoutParams(68, 54, Gravity.END or Gravity.CENTER_VERTICAL).apply {
-                rightMargin = 4
-            }
-        )
+        controls.addView(speedButton, FrameLayout.LayoutParams(68, 54, Gravity.END or Gravity.CENTER_VERTICAL).apply { rightMargin = 4 })
         bottom.addView(controls, FrameLayout.LayoutParams(-1, 58, Gravity.BOTTOM))
         root.addView(bottom, FrameLayout.LayoutParams(-1, 132, Gravity.BOTTOM))
 
@@ -182,15 +153,49 @@ class FullscreenVideoActivity : AppCompatActivity() {
             preparedPlayer = player
             player.isLooping = false
             applySpeed()
+            resizeVideoToAspectRatio(player.videoWidth, player.videoHeight)
+            seekBar.max = video.duration.coerceAtLeast(1)
             video.start()
             updatePause()
-            seekBar.max = video.duration.coerceAtLeast(1)
             handler.removeCallbacks(progressUpdater)
             handler.post(progressUpdater)
         }
         video.setOnCompletionListener {
             seekBar.progress = seekBar.max
             updatePause()
+        }
+        video.setOnErrorListener { _, _, _ ->
+            // Do not leave a permanently black player if the source cannot be opened.
+            timeLabel.text = "Unable to play this video"
+            updatePause()
+            true
+        }
+    }
+
+    private fun resizeVideoToAspectRatio(sourceWidth: Int, sourceHeight: Int) {
+        if (sourceWidth <= 0 || sourceHeight <= 0) return
+        video.post {
+            val availableWidth = videoHolder.width
+            val availableHeight = videoHolder.height
+            if (availableWidth <= 0 || availableHeight <= 0) return@post
+
+            val sourceRatio = sourceWidth.toFloat() / sourceHeight.toFloat()
+            val availableRatio = availableWidth.toFloat() / availableHeight.toFloat()
+            val width: Int
+            val height: Int
+            if (sourceRatio > availableRatio) {
+                width = availableWidth
+                height = (availableWidth / sourceRatio).roundToInt()
+            } else {
+                height = availableHeight
+                width = (availableHeight * sourceRatio).roundToInt()
+            }
+            (video.layoutParams as FrameLayout.LayoutParams).apply {
+                this.width = width.coerceAtLeast(1)
+                this.height = height.coerceAtLeast(1)
+                gravity = Gravity.CENTER
+                video.layoutParams = this
+            }
         }
     }
 
@@ -205,29 +210,18 @@ class FullscreenVideoActivity : AppCompatActivity() {
     }
 
     private fun updatePause() {
-        if (::pauseButton.isInitialized) {
-            pauseButton.text = if (video.isPlaying) "Ⅱ" else "▶"
-        }
+        if (::pauseButton.isInitialized) pauseButton.text = if (::video.isInitialized && video.isPlaying) "Ⅱ" else "▶"
     }
 
     private fun cycleSpeed() {
-        speed = when (speed) {
-            1.0f -> 1.25f
-            1.25f -> 1.5f
-            1.5f -> 2.0f
-            else -> 1.0f
-        }
+        speed = when (speed) { 1.0f -> 1.25f; 1.25f -> 1.5f; 1.5f -> 2.0f; else -> 1.0f }
         speedButton.text = "${speed}×"
         applySpeed()
     }
 
     private fun applySpeed() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            preparedPlayer?.let { player ->
-                runCatching {
-                    player.playbackParams = player.playbackParams.apply { setSpeed(speed) }
-                }
-            }
+            preparedPlayer?.let { player -> runCatching { player.playbackParams = player.playbackParams.apply { setSpeed(speed) } } }
         }
     }
 
@@ -249,9 +243,7 @@ class FullscreenVideoActivity : AppCompatActivity() {
     }
 
     @Deprecated("Deprecated in Android API 33; kept for older Android compatibility")
-    override fun onBackPressed() {
-        finish()
-    }
+    override fun onBackPressed() { finish() }
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
