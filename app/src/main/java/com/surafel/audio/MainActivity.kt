@@ -4,18 +4,22 @@ import android.Manifest
 import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.Window
+import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.VideoView
@@ -42,6 +46,9 @@ class MainActivity : AppCompatActivity() {
     private val videos = mutableListOf<VideoEntry>()
     private var currentTab = Tab.SONGS
     private var currentSection = Section.MUSIC
+    private var fullscreenVideo = false
+    private var fullscreenClose: TextView? = null
+    private var normalVideoHeight = 255
     private enum class Tab { SONGS, PLAYLISTS, FOLDERS, ARTISTS, ALBUMS }
     private enum class Section { HOME, MUSIC, VIDEO, MINE }
     private val prefs by lazy { getSharedPreferences("audio_profile", MODE_PRIVATE) }
@@ -92,7 +99,12 @@ class MainActivity : AppCompatActivity() {
         updateBottomNav(); renderSection()
     }
 
-    private fun selectSection(section: Section) { currentSection = section; if (section == Section.MUSIC) currentTab = Tab.SONGS; updateBottomNav(); renderSection() }
+    private fun selectSection(section: Section) {
+        if (fullscreenVideo) exitFullscreenVideo()
+        currentSection = section
+        if (section == Section.MUSIC) currentTab = Tab.SONGS
+        updateBottomNav(); renderSection()
+    }
 
     private fun renderSection() {
         findViewById<View>(R.id.musicContent).visibility = if (currentSection == Section.MUSIC) View.VISIBLE else View.GONE
@@ -124,7 +136,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun selectTab(tab: Tab) { currentSection = Section.MUSIC; currentTab = tab; updateBottomNav(); renderSection() }
     private fun updateBottomNav() { val ids=listOf(R.id.homeNav,R.id.musicNav,R.id.videoNav,R.id.mineNav); val selected=when(currentSection){Section.HOME->0;Section.MUSIC->1;Section.VIDEO->2;Section.MINE->3}; ids.forEachIndexed{index,id->val box=findViewById<ViewGroup>(id);val color=if(index==selected)Color.WHITE else Color.rgb(110,120,144);for(i in 0 until box.childCount)(box.getChildAt(i) as? TextView)?.setTextColor(color)} }
-    private fun updateTabStyle(){val ids=listOf(R.id.songsTab,R.id.playlistsTab,R.id.foldersTab,R.id.artistsTab,R.id.albumsTab);val selected=when(currentTab){Tab.SONGS->0;Tab.PLAYLISTS->1;Tab.FOLDERS->2;Tab.ARTISTS->3;Tab.ALBUMS->4};ids.forEachIndexed{i,id->findViewById<TextView>(id).apply{setTextColor(if(i==selected)Color.WHITE else Color.rgb(101,113,139));textSize=if(i==selected)25f else 21f;setTypeface(typeface,if(i==selected)android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)}};findViewById<View>(R.id.tabIndicator).translationX=floatArrayOf(0f,82f,180f,286f,395f)[selected]}
+    private fun updateTabStyle(){val ids=listOf(R.id.songsTab,R.id.playlistsTab,R.id.foldersTab,R.id.artistsTab,R.id.albumsTab);val selected=when(currentTab){Tab.SONGS->0;Tab.PLAYLISTS->1;Tab.FOLDERS->2;Tab.ARTISTS->3;Tab.ALBUMS->4};ids.forEachIndexed{i,id->findViewById<TextView>(id).apply{setTextColor(if(i==selected)Color.WHITE else Color.rgb(101,113,139));textSize=if(i==selected)25f else 21f;setTypeface(typeface,if(i==selected)Typeface.BOLD else Typeface.NORMAL)}};findViewById<View>(R.id.tabIndicator).translationX=floatArrayOf(0f,82f,180f,286f,395f)[selected]}
 
     private fun playFrom(position:Int){if(position !in items.indices||!::player.isInitialized)return;player.setMediaItems(items.toList(),position,0L);player.prepare();player.play();prefs.edit().putInt("played",prefs.getInt("played",0)+1).putInt("today",prefs.getInt("today",0)+1).apply();updateNowPlaying()}
     private fun shuffleAndPlay(){if(items.isEmpty()||!::player.isInitialized)return;player.setMediaItems(items.shuffled(),0,0L);player.prepare();player.play();prefs.edit().putInt("played",prefs.getInt("played",0)+1).putInt("today",prefs.getInt("today",0)+1).apply();updateNowPlaying()}
@@ -141,7 +153,99 @@ class MainActivity : AppCompatActivity() {
     private fun loadPlaylists(){val found=mutableListOf<MediaItem>();val playlists=MediaStore.Audio.Playlists.EXTERNAL_CONTENT_URI;contentResolver.query(playlists,arrayOf(MediaStore.Audio.Playlists._ID,MediaStore.Audio.Playlists.NAME),null,null,"${MediaStore.Audio.Playlists.NAME} ASC")?.use{c->val pid=c.getColumnIndexOrThrow(MediaStore.Audio.Playlists._ID);val name=c.getColumnIndexOrThrow(MediaStore.Audio.Playlists.NAME);while(c.moveToNext()){val id=c.getLong(pid);val members=MediaStore.Audio.Playlists.Members.getContentUri("external",id);var uri=Uri.EMPTY;var count=0;contentResolver.query(members,arrayOf(MediaStore.Audio.Playlists.Members.AUDIO_ID),null,null,null)?.use{m->val aid=m.getColumnIndexOrThrow(MediaStore.Audio.Playlists.Members.AUDIO_ID);count=m.count;if(m.moveToFirst())uri=android.content.ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,m.getLong(aid))};if(uri!=Uri.EMPTY)found+=mediaItem(uri,c.getString(name),"Playlist • $count songs")}};replaceItems(found)}
 
     private fun loadVideos(){if(!hasVideoPermission())return;val base=MediaStore.Video.Media.EXTERNAL_CONTENT_URI;videos.clear();contentResolver.query(base,arrayOf(MediaStore.Video.Media._ID,MediaStore.Video.Media.TITLE,MediaStore.Video.Media.SIZE,MediaStore.Video.Media.DURATION),null,null,"${MediaStore.Video.Media.DATE_ADDED} DESC")?.use{c->val id=c.getColumnIndexOrThrow(MediaStore.Video.Media._ID);val title=c.getColumnIndexOrThrow(MediaStore.Video.Media.TITLE);val size=c.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE);val duration=c.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION);while(c.moveToNext())videos+=VideoEntry(android.content.ContentUris.withAppendedId(base,c.getLong(id)),c.getString(title)?:"Video",c.getLong(size),c.getLong(duration))};videoAdapter.notifyDataSetChanged();findViewById<TextView>(R.id.videoCount).text="${videos.size} Videos"}
-    private fun playVideo(entry:VideoEntry){val v=findViewById<VideoView>(R.id.videoPlayer);findViewById<TextView>(R.id.videoEmpty).visibility=View.GONE;v.setVideoURI(entry.uri);v.setOnPreparedListener{it.isLooping=false;v.start()};v.setOnCompletionListener{findViewById<TextView>(R.id.videoEmpty).visibility=View.VISIBLE}}
+
+    private fun playVideo(entry: VideoEntry) {
+        if (!hasVideoPermission()) return
+        enterFullscreenVideo()
+        val v = findViewById<VideoView>(R.id.videoPlayer)
+        findViewById<TextView>(R.id.videoEmpty).visibility = View.GONE
+        v.setVideoURI(entry.uri)
+        v.setOnPreparedListener { mp -> mp.isLooping = false; v.start() }
+        v.setOnCompletionListener { showFullscreenControls(); }
+    }
+
+    private fun enterFullscreenVideo() {
+        if (fullscreenVideo) return
+        fullscreenVideo = true
+        val header = findViewById<View>(R.id.menuButton).parent as View
+        header.visibility = View.GONE
+        findViewById<View>(R.id.miniPlayer).visibility = View.GONE
+        findViewById<View>(R.id.bottomNav).visibility = View.GONE
+        findViewById<TextView>(R.id.videoCount).visibility = View.GONE
+        findViewById<TextView>(R.id.videoScan).visibility = View.GONE
+        findViewById<View>(R.id.videoList).visibility = View.GONE
+
+        val content = findViewById<View>(R.id.videoContent)
+        val contentParams = content.layoutParams as ViewGroup.LayoutParams
+        contentParams.height = ViewGroup.LayoutParams.MATCH_PARENT
+        if (contentParams is ViewGroup.MarginLayoutParams) { contentParams.topMargin = 0; contentParams.bottomMargin = 0 }
+        content.layoutParams = contentParams
+
+        val playerContainer = findViewById<View>(R.id.videoPlayer).parent as ViewGroup
+        val playerParams = playerContainer.layoutParams as ViewGroup.LayoutParams
+        normalVideoHeight = playerParams.height
+        playerParams.width = ViewGroup.LayoutParams.MATCH_PARENT
+        playerParams.height = ViewGroup.LayoutParams.MATCH_PARENT
+        if (playerParams is ViewGroup.MarginLayoutParams) { playerParams.leftMargin = 0; playerParams.rightMargin = 0; playerParams.topMargin = 0; playerParams.bottomMargin = 0 }
+        playerContainer.layoutParams = playerParams
+
+        val close = TextView(this).apply {
+            text = "✕"
+            textSize = 22f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.argb(150, 0, 0, 0))
+            elevation = 20f
+            setPadding(0, 0, 0, 2)
+            contentDescription = "Close full screen video"
+            setOnClickListener { exitFullscreenVideo() }
+        }
+        playerContainer.addView(close, FrameLayout.LayoutParams(52, 52, Gravity.TOP or Gravity.START).apply { topMargin = 18; leftMargin = 18 })
+        fullscreenClose = close
+
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
+        showFullscreenControls()
+    }
+
+    private fun showFullscreenControls() {
+        if (!fullscreenVideo) return
+        window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
+    }
+
+    private fun exitFullscreenVideo() {
+        if (!fullscreenVideo) return
+        fullscreenVideo = false
+        val video = findViewById<VideoView>(R.id.videoPlayer)
+        video.stopPlayback()
+        fullscreenClose?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        fullscreenClose = null
+
+        val playerContainer = findViewById<View>(R.id.videoPlayer).parent as ViewGroup
+        val playerParams = playerContainer.layoutParams as ViewGroup.LayoutParams
+        playerParams.width = ViewGroup.LayoutParams.MATCH_PARENT
+        playerParams.height = normalVideoHeight
+        if (playerParams is ViewGroup.MarginLayoutParams) { playerParams.leftMargin = dp(16); playerParams.rightMargin = dp(16); playerParams.topMargin = 0; playerParams.bottomMargin = 0 }
+        playerContainer.layoutParams = playerParams
+
+        val content = findViewById<View>(R.id.videoContent)
+        val contentParams = content.layoutParams as ViewGroup.LayoutParams
+        contentParams.height = 0
+        if (contentParams is LinearLayout.LayoutParams) contentParams.weight = 1f
+        content.layoutParams = contentParams
+        val header = findViewById<View>(R.id.menuButton).parent as View
+        header.visibility = View.VISIBLE
+        findViewById<View>(R.id.miniPlayer).visibility = View.VISIBLE
+        findViewById<View>(R.id.bottomNav).visibility = View.VISIBLE
+        findViewById<TextView>(R.id.videoCount).visibility = View.VISIBLE
+        findViewById<TextView>(R.id.videoScan).visibility = View.VISIBLE
+        findViewById<View>(R.id.videoList).visibility = View.VISIBLE
+        findViewById<TextView>(R.id.videoEmpty).visibility = View.VISIBLE
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+    }
+
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
     private fun replaceItems(found:List<MediaItem>){items.clear();items.addAll(found);adapter.notifyDataSetChanged();findViewById<TextView>(R.id.playAll).text="▶  Play (${items.size})"}
     private fun mediaItem(uri:Uri,title:String?,artist:String?)=MediaItem.Builder().setUri(uri).setMediaMetadata(MediaMetadata.Builder().setTitle(title?:"Unknown").setArtist(artist?:"Unknown artist").build()).build()
     private fun updateNowPlaying(){if(!::player.isInitialized)return;val item=player.currentMediaItem;findViewById<TextView>(R.id.title).text=item?.mediaMetadata?.title?:"Nothing playing";findViewById<TextView>(R.id.artist).text=item?.mediaMetadata?.artist?:"Choose a song";findViewById<ImageButton>(R.id.play).setImageResource(if(player.isPlaying)android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)}
@@ -153,7 +257,8 @@ class MainActivity : AppCompatActivity() {
     private fun showMenu(){AlertDialog.Builder(this).setTitle("Audio").setItems(arrayOf("Refresh library","Repeat off","About")){_,which->when(which){0->loadSongs();1->if(::player.isInitialized)player.repeatMode=Player.REPEAT_MODE_OFF;2->showPremiumInfo()}}.show()}
     private fun showPremiumInfo(){AlertDialog.Builder(this).setTitle("Audio Player").setMessage("Luxury local music and video experience.\nBackground audio playback enabled.\nYour library stays on your device.").setPositiveButton("OK",null).show()}
     override fun onResume(){super.onResume();if(::player.isInitialized)renderSection()}
-    override fun onDestroy(){if(::controllerFuture.isInitialized)MediaController.releaseFuture(controllerFuture);super.onDestroy()}
+    override fun onBackPressed(){if(fullscreenVideo){exitFullscreenVideo()}else super.onBackPressed()}
+    override fun onDestroy(){if(fullscreenVideo)exitFullscreenVideo();if(::controllerFuture.isInitialized)MediaController.releaseFuture(controllerFuture);super.onDestroy()}
 }
 
 data class VideoEntry(val uri:Uri,val title:String,val size:Long,val duration:Long)
