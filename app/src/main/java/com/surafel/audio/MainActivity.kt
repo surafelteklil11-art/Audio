@@ -42,6 +42,8 @@ class MainActivity : AppCompatActivity() {
     private val videos = mutableListOf<VideoEntry>()
     private var currentSection = Section.MUSIC
     private var currentTab = Tab.SONGS
+    private var audioSortMode = 0
+    private var videoSortMode = 0
     private val prefs by lazy { getSharedPreferences("audio_profile", MODE_PRIVATE) }
 
     private enum class Tab { SONGS, PLAYLISTS, FOLDERS, ARTISTS, ALBUMS }
@@ -74,6 +76,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<TextView>(R.id.playAll).setOnClickListener { if (items.isNotEmpty()) playFrom(0) }
         findViewById<TextView>(R.id.shuffleAll).setOnClickListener { shuffleAndPlay() }
+        findViewById<TextView>(R.id.sortSongs).setOnClickListener { showAudioSortDialog() }
         findViewById<TextView>(R.id.queueButton).setOnClickListener { showQueue() }
         findViewById<TextView>(R.id.songsTab).setOnClickListener { selectTab(Tab.SONGS) }
         findViewById<TextView>(R.id.playlistsTab).setOnClickListener { selectTab(Tab.PLAYLISTS) }
@@ -85,6 +88,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.videoNav).setOnClickListener { selectSection(Section.VIDEO) }
         findViewById<View>(R.id.mineNav).setOnClickListener { selectSection(Section.MINE) }
         findViewById<TextView>(R.id.videoScan).setOnClickListener { loadVideos() }
+        findViewById<TextView>(R.id.sortVideos).setOnClickListener { showVideoSortDialog() }
         findViewById<TextView>(R.id.registerProfile).setOnClickListener { showProfileEditor() }
         findViewById<TextView>(R.id.profileEdit).setOnClickListener { showProfileEditor() }
         findViewById<TextView>(R.id.simpleAction).setOnClickListener { selectSection(Section.MUSIC) }
@@ -235,7 +239,12 @@ class MainActivity : AppCompatActivity() {
         val found = mutableListOf<MediaItem>()
         val base = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         val projection = arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST)
-        contentResolver.query(base, projection, "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC")?.use { cursor ->
+        val sortOrder = when (audioSortMode) {
+            1 -> "${MediaStore.Audio.Media.ARTIST} COLLATE NOCASE ASC, ${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
+            2 -> "${MediaStore.Audio.Media.DATE_ADDED} DESC"
+            else -> "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
+        }
+        contentResolver.query(base, projection, "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, sortOrder)?.use { cursor ->
             val id = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
             val title = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
             val artist = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
@@ -254,7 +263,13 @@ class MainActivity : AppCompatActivity() {
         val base = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
         videos.clear()
         val projection = arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.TITLE, MediaStore.Video.Media.SIZE, MediaStore.Video.Media.DURATION)
-        contentResolver.query(base, projection, null, null, "${MediaStore.Video.Media.DATE_ADDED} DESC")?.use { cursor ->
+        val sortOrder = when (videoSortMode) {
+            1 -> "${MediaStore.Video.Media.TITLE} COLLATE NOCASE ASC"
+            2 -> "${MediaStore.Video.Media.SIZE} DESC"
+            3 -> "${MediaStore.Video.Media.DURATION} DESC"
+            else -> "${MediaStore.Video.Media.DATE_ADDED} DESC"
+        }
+        contentResolver.query(base, projection, null, null, sortOrder)?.use { cursor ->
             val id = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
             val title = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.TITLE)
             val size = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
@@ -266,6 +281,32 @@ class MainActivity : AppCompatActivity() {
         }
         videoAdapter.notifyDataSetChanged()
         findViewById<TextView>(R.id.videoCount).text = "${videos.size} Videos"
+    }
+
+    private fun showAudioSortDialog() {
+        val options = arrayOf("Title A–Z", "Artist A–Z", "Recently added")
+        AlertDialog.Builder(this)
+            .setTitle("Sort Audio by")
+            .setSingleChoiceItems(options, audioSortMode) { dialog, which ->
+                audioSortMode = which
+                dialog.dismiss()
+                loadSongs()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showVideoSortDialog() {
+        val options = arrayOf("Recently added", "Title A–Z", "Largest first", "Longest first")
+        AlertDialog.Builder(this)
+            .setTitle("Sort Video by")
+            .setSingleChoiceItems(options, videoSortMode) { dialog, which ->
+                videoSortMode = which
+                dialog.dismiss()
+                loadVideos()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun playVideo(entry: VideoEntry) {
