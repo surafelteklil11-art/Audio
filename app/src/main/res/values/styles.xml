@@ -4,5 +4,22 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">#0B0B10</item>
+        <item name="android:alertDialogTheme">@style/Theme.Audio.AlertDialog</item>
+        <item name="colorPrimary">#86E8FF</item>
+        <item name="colorSecondary">#C86BFF</item>
+        <item name="colorSurface">#182A47</item>
+        <item name="colorOnSurface">#FFFFFF</item>
+    </style>
+
+    <style name="Theme.Audio.AlertDialog" parent="Theme.Material3.DayNight.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/bg_dialog_luxury</item>
+        <item name="android:colorAccent">#86E8FF</item>
+        <item name="colorPrimary">#86E8FF</item>
+        <item name="colorSecondary">#C86BFF</item>
+        <item name="colorSurface">#182A47</item>
+        <item name="colorOnSurface">#FFFFFF</item>
+        <item name="android:windowMinWidthMajor">88%</item>
+        <item name="android:windowMinWidthMinor">92%</item>
+        <item name="android:windowIsFloating">true</item>
     </style>
 </resources>
