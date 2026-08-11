@@ -1,18 +1,23 @@
 package com.surafel.audio
 
 import android.Manifest
+import android.app.AlertDialog
 import android.content.ComponentName
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
+import android.content.Context
+import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -30,6 +35,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var player: MediaController
     private lateinit var controllerFuture: ListenableFuture<MediaController>
     private val items = mutableListOf<MediaItem>()
+    private val allSongs = mutableListOf<MediaItem>()
     private lateinit var adapter: SongAdapter
     private var currentTab = Tab.SONGS
     private var currentSection = Section.MUSIC
@@ -37,7 +43,7 @@ class MainActivity : AppCompatActivity() {
     private enum class Section { HOME, MUSIC, VIDEO, MINE }
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        if (result.values.any { it }) loadSection()
+        if (result.values.any { it }) renderSection()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,7 +66,7 @@ class MainActivity : AppCompatActivity() {
                 override fun onPlaybackStateChanged(playbackState: Int) = updateNowPlaying()
             })
             updateNowPlaying()
-            requestPermissionsIfNeeded()
+            requestAudioPermissionIfNeeded()
         }, mainExecutor)
 
         findViewById<ImageButton>(R.id.play).setOnClickListener {
@@ -69,6 +75,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<TextView>(R.id.playAll).setOnClickListener { if (items.isNotEmpty()) playFrom(0) }
         findViewById<TextView>(R.id.shuffleAll).setOnClickListener { shuffleAndPlay() }
+        findViewById<TextView>(R.id.queueButton).setOnClickListener { showQueue() }
 
         findViewById<TextView>(R.id.songsTab).setOnClickListener { selectTab(Tab.SONGS) }
         findViewById<TextView>(R.id.playlistsTab).setOnClickListener { selectTab(Tab.PLAYLISTS) }
@@ -80,33 +87,64 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.musicNav).setOnClickListener { selectSection(Section.MUSIC) }
         findViewById<View>(R.id.videoNav).setOnClickListener { selectSection(Section.VIDEO) }
         findViewById<View>(R.id.mineNav).setOnClickListener { selectSection(Section.MINE) }
+        findViewById<TextView>(R.id.simpleAction).setOnClickListener { selectSection(Section.MUSIC) }
 
-        findViewById<TextView>(R.id.menuButton).setOnClickListener {
-            Toast.makeText(this, "Audio menu", Toast.LENGTH_SHORT).show()
-        }
-        findViewById<TextView>(R.id.searchButton).setOnClickListener {
-            Toast.makeText(this, "Search is ready for your library", Toast.LENGTH_SHORT).show()
-        }
+        findViewById<TextView>(R.id.menuButton).setOnClickListener { showMenu() }
+        findViewById<TextView>(R.id.searchButton).setOnClickListener { showSearch() }
+        findViewById<TextView>(R.id.premiumButton).setOnClickListener { showPremiumInfo() }
+
+        updateBottomNav()
+        renderSection()
     }
 
     private fun selectSection(section: Section) {
         currentSection = section
+        if (section == Section.MUSIC) currentTab = Tab.SONGS
         updateBottomNav()
-        when (section) {
+        renderSection()
+    }
+
+    private fun renderSection() {
+        val music = findViewById<View>(R.id.musicContent)
+        val simple = findViewById<View>(R.id.simpleContent)
+        val title = findViewById<TextView>(R.id.screenTitle)
+        val action = findViewById<TextView>(R.id.simpleAction)
+        val icon = findViewById<TextView>(R.id.simpleIcon)
+        music.visibility = if (currentSection == Section.MUSIC) View.VISIBLE else View.GONE
+        simple.visibility = if (currentSection == Section.MUSIC) View.GONE else View.VISIBLE
+
+        when (currentSection) {
             Section.HOME -> {
-                currentTab = Tab.SONGS
-                updateTabStyle()
-                loadSongs()
-                findViewById<RecyclerView>(R.id.list).scrollToPosition(0)
+                title.text = "Home"
+                icon.text = "⌂"
+                findViewById<TextView>(R.id.simpleTitle).text = "Welcome to Audio"
+                findViewById<TextView>(R.id.simpleBody).text = "${allSongs.size} songs in your library\nTap below to open your music collection."
+                action.text = "Open Music"
+                action.setOnClickListener { selectSection(Section.MUSIC) }
+                if (hasAudioPermission()) loadSongs() else updateHomeCount()
             }
             Section.MUSIC -> {
-                currentTab = Tab.SONGS
+                title.text = "Music"
                 updateTabStyle()
-                loadSongs()
-                findViewById<RecyclerView>(R.id.list).scrollToPosition(0)
+                if (hasAudioPermission()) loadTab()
             }
-            Section.VIDEO -> loadVideos()
-            Section.MINE -> showMineSummary()
+            Section.VIDEO -> {
+                title.text = "Video"
+                icon.text = "▶"
+                findViewById<TextView>(R.id.simpleTitle).text = "Video Library"
+                findViewById<TextView>(R.id.simpleBody).text = "Videos on your device can be opened from here."
+                action.text = "Scan Videos"
+                action.setOnClickListener { loadVideoSummary() }
+                loadVideoSummary()
+            }
+            Section.MINE -> {
+                title.text = "Mine"
+                icon.text = "●"
+                findViewById<TextView>(R.id.simpleTitle).text = "My Audio"
+                findViewById<TextView>(R.id.simpleBody).text = "Songs: ${allSongs.size}\nBackground playback: ON\nNotification controls: ON\nRepeat: OFF"
+                action.text = "Refresh Library"
+                action.setOnClickListener { loadSongs() }
+            }
         }
     }
 
@@ -114,8 +152,7 @@ class MainActivity : AppCompatActivity() {
         currentSection = Section.MUSIC
         currentTab = tab
         updateBottomNav()
-        updateTabStyle()
-        if (::player.isInitialized && hasLibraryPermission()) loadTab()
+        renderSection()
     }
 
     private fun updateBottomNav() {
@@ -141,11 +178,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.tabIndicator).translationX = when (selected) { 0 -> 0f; 1 -> 82f; 2 -> 190f; 3 -> 300f; else -> 405f }
     }
 
-    /** Put the entire current list in the MediaSession queue so notification Next/Previous work. */
     private fun playFrom(position: Int) {
         if (position !in items.indices) return
-        val queue = items.toList()
-        player.setMediaItems(queue, position, 0L)
+        player.setMediaItems(items.toList(), position, 0L)
         player.prepare()
         player.play()
         updateNowPlaying()
@@ -153,35 +188,25 @@ class MainActivity : AppCompatActivity() {
 
     private fun shuffleAndPlay() {
         if (items.isEmpty()) return
-        val queue = items.shuffled()
-        player.setMediaItems(queue, 0, 0L)
+        player.setMediaItems(items.shuffled(), 0, 0L)
         player.prepare()
         player.play()
         updateNowPlaying()
     }
 
-    private fun requestPermissionsIfNeeded() {
-        val permissions = mutableListOf<String>()
+    private fun requestAudioPermissionIfNeeded() {
         val audio = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
-        if (ContextCompat.checkSelfPermission(this, audio) != PackageManager.PERMISSION_GRANTED) permissions += audio
-        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) != PackageManager.PERMISSION_GRANTED) permissions += Manifest.permission.READ_MEDIA_VIDEO
-        if (permissions.isEmpty()) loadSection() else permissionLauncher.launch(permissions.toTypedArray())
+        if (ContextCompat.checkSelfPermission(this, audio) == PackageManager.PERMISSION_GRANTED) renderSection()
+        else permissionLauncher.launch(arrayOf(audio))
     }
 
-    private fun hasLibraryPermission(): Boolean {
+    private fun hasAudioPermission(): Boolean {
         val audio = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
         return ContextCompat.checkSelfPermission(this, audio) == PackageManager.PERMISSION_GRANTED
     }
 
-    private fun loadSection() {
-        when (currentSection) {
-            Section.VIDEO -> loadVideos()
-            Section.MINE -> showMineSummary()
-            else -> loadTab()
-        }
-    }
-
     private fun loadTab() {
+        if (!hasAudioPermission()) return
         when (currentTab) {
             Tab.SONGS -> loadSongs()
             Tab.ARTISTS -> loadGroups(MediaStore.Audio.Media.ARTIST, "artist")
@@ -194,23 +219,32 @@ class MainActivity : AppCompatActivity() {
     private fun baseProjection() = arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.DATA)
 
     private fun loadSongs() {
+        if (!hasAudioPermission()) return
         val found = mutableListOf<MediaItem>(); val base = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         contentResolver.query(base, baseProjection(), "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC")?.use { c ->
             val id=c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID); val title=c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE); val artist=c.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
             while(c.moveToNext()) found += mediaItem(android.content.ContentUris.withAppendedId(base,c.getLong(id)),c.getString(title),c.getString(artist))
         }
-        replaceItems(found)
+        allSongs.clear(); allSongs.addAll(found)
+        if (currentSection == Section.MUSIC) replaceItems(found) else updateSimpleBody()
+    }
+
+    private fun updateHomeCount() {
+        findViewById<TextView>(R.id.simpleBody).text = "${allSongs.size} songs in your library\nTap below to open your music collection."
+    }
+    private fun updateSimpleBody() {
+        when (currentSection) {
+            Section.HOME -> updateHomeCount()
+            Section.MINE -> findViewById<TextView>(R.id.simpleBody).text = "Songs: ${allSongs.size}\nBackground playback: ON\nNotification controls: ON\nRepeat: OFF"
+            else -> Unit
+        }
     }
 
     private fun loadGroups(column: String, label: String) {
         val groups = linkedMapOf<String, Pair<MediaItem, Int>>(); val base=MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         contentResolver.query(base, baseProjection(), "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, "$column COLLATE NOCASE ASC")?.use { c ->
             val id=c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID); val group=c.getColumnIndexOrThrow(column)
-            while(c.moveToNext()) {
-                val name=c.getString(group)?.takeIf{it.isNotBlank()}?:"Unknown $label"
-                val item=mediaItem(android.content.ContentUris.withAppendedId(base,c.getLong(id)),name,if(label=="artist")"Artist" else "Album")
-                val old=groups[name]; groups[name]=if(old==null)item to 1 else old.first to old.second+1
-            }
+            while(c.moveToNext()) { val name=c.getString(group)?.takeIf{it.isNotBlank()}?:"Unknown $label"; val item=mediaItem(android.content.ContentUris.withAppendedId(base,c.getLong(id)),name,if(label=="artist")"Artist" else "Album"); val old=groups[name]; groups[name]=if(old==null)item to 1 else old.first to old.second+1 }
         }
         replaceItems(groups.map { (name,pair)->pair.first.buildUpon().setMediaMetadata(pair.first.mediaMetadata.buildUpon().setTitle(name).setArtist("$label • ${pair.second} songs").build()).build() })
     }
@@ -228,37 +262,37 @@ class MainActivity : AppCompatActivity() {
         val found=mutableListOf<MediaItem>(); val playlists=MediaStore.Audio.Playlists.EXTERNAL_CONTENT_URI
         contentResolver.query(playlists,arrayOf(MediaStore.Audio.Playlists._ID,MediaStore.Audio.Playlists.NAME),null,null,"${MediaStore.Audio.Playlists.NAME} COLLATE NOCASE ASC")?.use { c ->
             val pid=c.getColumnIndexOrThrow(MediaStore.Audio.Playlists._ID); val name=c.getColumnIndexOrThrow(MediaStore.Audio.Playlists.NAME)
-            while(c.moveToNext()) {
-                val playlistId=c.getLong(pid); val members=MediaStore.Audio.Playlists.Members.getContentUri("external",playlistId); var firstUri=android.net.Uri.EMPTY; var count=0
-                contentResolver.query(members,arrayOf(MediaStore.Audio.Playlists.Members.AUDIO_ID),null,null,null)?.use { m -> val audioId=m.getColumnIndexOrThrow(MediaStore.Audio.Playlists.Members.AUDIO_ID); if(m.moveToFirst()){firstUri=android.content.ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,m.getLong(audioId));count=m.count} }
-                if(firstUri != android.net.Uri.EMPTY) found += mediaItem(firstUri,c.getString(name),"Playlist • $count songs")
-            }
+            while(c.moveToNext()) { val playlistId=c.getLong(pid); val members=MediaStore.Audio.Playlists.Members.getContentUri("external",playlistId); var firstUri=Uri.EMPTY; var count=0; contentResolver.query(members,arrayOf(MediaStore.Audio.Playlists.Members.AUDIO_ID),null,null,null)?.use { m -> val audioId=m.getColumnIndexOrThrow(MediaStore.Audio.Playlists.Members.AUDIO_ID); if(m.moveToFirst()){firstUri=android.content.ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,m.getLong(audioId));count=m.count} }; if(firstUri != Uri.EMPTY) found += mediaItem(firstUri,c.getString(name),"Playlist • $count songs") }
         }
         replaceItems(found)
     }
 
-    private fun loadVideos() {
-        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) != PackageManager.PERMISSION_GRANTED) {
-            permissionLauncher.launch(arrayOf(Manifest.permission.READ_MEDIA_VIDEO)); return
-        }
-        val found=mutableListOf<MediaItem>(); val base=MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-        val projection=arrayOf(MediaStore.Video.Media._ID,MediaStore.Video.Media.DISPLAY_NAME)
-        contentResolver.query(base,projection,null,null,"${MediaStore.Video.Media.DISPLAY_NAME} COLLATE NOCASE ASC")?.use { c ->
-            val id=c.getColumnIndexOrThrow(MediaStore.Video.Media._ID); val name=c.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
-            while(c.moveToNext()) found += mediaItem(android.content.ContentUris.withAppendedId(base,c.getLong(id)),c.getString(name),"Video")
-        }
-        replaceItems(found)
-        findViewById<TextView>(R.id.playAll).text = "▶  Videos (${items.size})"
+    private fun loadVideoSummary() {
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) != PackageManager.PERMISSION_GRANTED) { permissionLauncher.launch(arrayOf(Manifest.permission.READ_MEDIA_VIDEO)); return }
+        val base=MediaStore.Video.Media.EXTERNAL_CONTENT_URI; var count=0
+        contentResolver.query(base,arrayOf(MediaStore.Video.Media._ID),null,null,null)?.use { count=it.count }
+        findViewById<TextView>(R.id.simpleBody).text = "$count videos found on this device.\nVideo playback can be opened with your installed video player."
+        findViewById<TextView>(R.id.simpleAction).text = "Open Video App"
+        findViewById<TextView>(R.id.simpleAction).setOnClickListener { openFirstVideo() }
     }
 
-    private fun showMineSummary() {
-        Toast.makeText(this, "Your library: ${items.size} items • Audio player settings", Toast.LENGTH_LONG).show()
+    private fun openFirstVideo() {
+        val base=MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        contentResolver.query(base,arrayOf(MediaStore.Video.Media._ID),null,null,"${MediaStore.Video.Media.DATE_ADDED} DESC")?.use { c ->
+            if (c.moveToFirst()) { val id=c.getLong(c.getColumnIndexOrThrow(MediaStore.Video.Media._ID)); val uri=android.content.ContentUris.withAppendedId(base,id); startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri,"video/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
+        }
     }
 
-    private fun mediaItem(uri: android.net.Uri,title:String?,artist:String?)=MediaItem.Builder().setUri(uri).setMediaMetadata(MediaMetadata.Builder().setTitle(title?:"Unknown").setArtist(artist?:"Unknown artist").build()).build()
     private fun replaceItems(found:List<MediaItem>){items.clear();items.addAll(found);adapter.notifyDataSetChanged();findViewById<TextView>(R.id.playAll).text="▶  Play (${items.size})"}
+    private fun mediaItem(uri:Uri,title:String?,artist:String?)=MediaItem.Builder().setUri(uri).setMediaMetadata(MediaMetadata.Builder().setTitle(title?:"Unknown").setArtist(artist?:"Unknown artist").build()).build()
     private fun updateNowPlaying(){if(!::player.isInitialized)return;val item=player.currentMediaItem;findViewById<TextView>(R.id.title).text=item?.mediaMetadata?.title?:"Nothing playing";findViewById<TextView>(R.id.artist).text=item?.mediaMetadata?.artist?:"Choose a song";findViewById<ImageButton>(R.id.play).setImageResource(if(player.isPlaying)android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)}
-    override fun onResume(){super.onResume();if(::player.isInitialized&&hasLibraryPermission())loadSection()}
+
+    private fun showQueue() { if (!::player.isInitialized) return; AlertDialog.Builder(this).setTitle("Queue (${player.mediaItemCount})").setMessage((0 until player.mediaItemCount).joinToString("\n") { i -> "${i + 1}. ${player.getMediaItemAt(i).mediaMetadata.title ?: "Unknown"}" }).setPositiveButton("Close", null).show() }
+    private fun showSearch() { val input=EditText(this); input.hint="Search songs, artists, albums"; input.setSingleLine(true); AlertDialog.Builder(this).setTitle("Search").setView(input).setNegativeButton("Cancel",null).setPositiveButton("Search"){_,_->filterSongs(input.text.toString())}.show(); input.requestFocus(); input.postDelayed({(getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input,InputMethodManager.SHOW_IMPLICIT)},150) }
+    private fun filterSongs(query:String){val q=query.trim();if(q.isEmpty()){replaceItems(allSongs);return};replaceItems(allSongs.filter{(it.mediaMetadata.title?.toString()?.contains(q,true)==true)||(it.mediaMetadata.artist?.toString()?.contains(q,true)==true)})}
+    private fun showMenu(){AlertDialog.Builder(this).setTitle("Audio").setItems(arrayOf("Refresh library","Repeat off","About")){_,which->when(which){0->loadSongs();1->player.repeatMode=Player.REPEAT_MODE_OFF;2->showPremiumInfo()}}.show()}
+    private fun showPremiumInfo(){AlertDialog.Builder(this).setTitle("Audio Player").setMessage("Modern local music player\nBackground playback enabled\nMedia notification enabled\nYour music stays on your device.").setPositiveButton("OK",null).show()}
+    override fun onResume(){super.onResume();if(::player.isInitialized&&hasAudioPermission())renderSection()}
     override fun onDestroy(){if(::controllerFuture.isInitialized)MediaController.releaseFuture(controllerFuture);super.onDestroy()}
 }
 
