@@ -26,9 +26,15 @@ class VideoThumbnailView @JvmOverloads constructor(
     }
 
     private fun refreshThumbnail() {
-        val parentGroup = parent as? android.view.ViewGroup ?: return
-        val titleView = parentGroup.findViewWithTag<android.widget.TextView>("video_title") ?: return
-        val title = titleView.text?.toString()?.trim().orEmpty()
+        var node: android.view.View? = this
+        var titleView: android.widget.TextView? = null
+        repeat(5) {
+            val parent = node?.parent as? android.view.ViewGroup ?: return@repeat
+            titleView = parent.findViewWithTag("video_title") as? android.widget.TextView
+            if (titleView != null) return@repeat
+            node = parent
+        }
+        val title = titleView?.text?.toString()?.trim().orEmpty()
         if (title.isEmpty() || title == loadedTitle || loading) return
         loadedTitle = title
         loading = true
