@@ -2,10 +2,8 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
-
 main = ROOT / "app/src/main/java/com/surafel/audio/MainActivity.kt"
 s = main.read_text(encoding="utf-8")
-original = s
 
 # Remove obsolete in-place fullscreen state/functions and stale lifecycle references.
 s = re.sub(r'\s*private var fullscreenVideo\s*=\s*false', '', s)
@@ -28,7 +26,7 @@ s = re.sub(
 marker = "\ndata class VideoEntry"
 if marker in s:
     before, after = s.split(marker, 1)
-    if before.rstrip().endswith('}') is False:
+    if not before.rstrip().endswith('}'):
         s = before.rstrip() + "\n}\n\ndata class VideoEntry" + after
 
 # Ensure the video adapter binds thumbnails.
@@ -40,7 +38,6 @@ s = s.replace(
     'class Holder(v:View):RecyclerView.ViewHolder(v){val title:TextView=v.findViewById(R.id.videoTitle);val meta:TextView=v.findViewById(R.id.videoMeta)}',
     'class Holder(v:View):RecyclerView.ViewHolder(v){val title:TextView=v.findViewById(R.id.videoTitle);val meta:TextView=v.findViewById(R.id.videoMeta);val thumb:VideoThumbnailView=v.findViewById(R.id.videoThumbnail)}'
 )
-
 main.write_text(s, encoding="utf-8")
 
 # Thumbnail implementation: asynchronous, URI-bound and RecyclerView-safe.
@@ -119,14 +116,11 @@ for token in ("fullscreenVideo", "enterFullscreenVideo", "exitFullscreenVideo", 
 if remaining:
     raise SystemExit("Deep review preflight failed; stale fullscreen symbols remain: " + ", ".join(remaining))
 
-# Basic Kotlin structural guard for the known top-level boundary.
 current = main.read_text(encoding="utf-8")
 if "\ndata class VideoEntry" in current:
     head = current.split("\ndata class VideoEntry", 1)[0]
     if not head.rstrip().endswith('}'):
         raise SystemExit("Deep review preflight failed; MainActivity is not closed before VideoEntry")
 
-if current == original:
-    raise SystemExit("Deep review did not modify MainActivity; refusing to continue")
-
+# A valid source file does not need to change on every CI run. Validation success is enough.
 print("1000-level deep review preflight passed")
