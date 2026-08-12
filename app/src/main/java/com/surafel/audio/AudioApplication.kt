@@ -2,10 +2,15 @@ package com.surafel.audio
 
 import android.app.Activity
 import android.app.Application
+import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -14,6 +19,8 @@ import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.content.ContextCompat
+import java.io.File
 import kotlin.math.roundToInt
 
 /** Keeps the existing MainActivity wiring and adds the hamburger side navigation. */
@@ -22,11 +29,11 @@ class AudioApplication : Application() {
         super.onCreate()
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityResumed(activity: Activity) {
+                BackgroundManager.apply(activity)
                 if (activity is MainActivity) {
                     activity.findViewById<View>(R.id.searchButton)?.setOnClickListener {
                         activity.startActivity(Intent(activity, SearchActivity::class.java))
                     }
-                    // The app is completely free; remove the old premium entry from the UI.
                     activity.findViewById<View>(R.id.premiumButton)?.visibility = View.GONE
                     activity.findViewById<View>(R.id.menuButton)?.setOnClickListener {
                         SideMenu.show(activity)
@@ -40,6 +47,62 @@ class AudioApplication : Application() {
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
             override fun onActivityDestroyed(activity: Activity) = Unit
         })
+    }
+}
+
+/** Handles ten built-in scenic backgrounds plus a user-selected image. */
+object BackgroundManager {
+    private const val PREFS = "audio_profile"
+    private const val MODE = "background_mode"
+    private const val INDEX = "background_index"
+    private const val CUSTOM = "background_custom_path"
+
+    val drawableIds = intArrayOf(
+        R.drawable.bg_wall_01, R.drawable.bg_wall_02, R.drawable.bg_wall_03, R.drawable.bg_wall_04, R.drawable.bg_wall_05,
+        R.drawable.bg_wall_06, R.drawable.bg_wall_07, R.drawable.bg_wall_08, R.drawable.bg_wall_09, R.drawable.bg_wall_10
+    )
+    val names = arrayOf(
+        "Sunset Lake", "Ocean Glow", "Purple Mountains", "Golden Forest", "Starry Night",
+        "Misty Peaks", "Pink Clouds", "Desert Dusk", "Teal Horizon", "Violet Night"
+    )
+
+    fun selectedIndex(context: Context): Int = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(INDEX, 0).coerceIn(0, drawableIds.lastIndex)
+
+    fun isCustom(context: Context): Boolean = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(MODE, "builtin") == "custom"
+
+    fun selectBuiltIn(context: Context, index: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(MODE, "builtin")
+            .putInt(INDEX, index.coerceIn(0, drawableIds.lastIndex))
+            .apply()
+    }
+
+    fun setCustom(context: Context, path: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(MODE, "custom")
+            .putString(CUSTOM, path)
+            .apply()
+    }
+
+    fun apply(activity: Activity) {
+        val content = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
+        val root = content.getChildAt(0) ?: return
+        val prefs = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val drawable = if (prefs.getString(MODE, "builtin") == "custom") {
+            val path = prefs.getString(CUSTOM, null)
+            val bitmap = path?.let { BitmapFactory.decodeFile(it) }
+            if (bitmap != null) {
+                LayerDrawable(arrayOf(
+                    BitmapDrawable(activity.resources, bitmap).apply { gravity = Gravity.FILL },
+                    ColorDrawable(0x52000000)
+                ))
+            } else {
+                ContextCompat.getDrawable(activity, drawableIds[selectedIndex(activity)])
+            }
+        } else {
+            ContextCompat.getDrawable(activity, drawableIds[selectedIndex(activity)])
+        }
+        if (drawable != null) root.background = drawable
     }
 }
 
