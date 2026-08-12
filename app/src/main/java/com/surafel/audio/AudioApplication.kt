@@ -50,7 +50,7 @@ class AudioApplication : Application() {
     }
 }
 
-/** Handles ten built-in scenic backgrounds plus a user-selected image. */
+/** Uses the reference-style default plus 10 additional scenic backgrounds and a user-selected image. */
 object BackgroundManager {
     private const val PREFS = "audio_profile"
     private const val MODE = "background_mode"
@@ -58,22 +58,27 @@ object BackgroundManager {
     private const val CUSTOM = "background_custom_path"
 
     val drawableIds = intArrayOf(
-        R.drawable.bg_wall_01, R.drawable.bg_wall_02, R.drawable.bg_wall_03, R.drawable.bg_wall_04, R.drawable.bg_wall_05,
-        R.drawable.bg_wall_06, R.drawable.bg_wall_07, R.drawable.bg_wall_08, R.drawable.bg_wall_09, R.drawable.bg_wall_10
+        R.drawable.bg_reference_sunset,
+        R.drawable.bg_wall_02, R.drawable.bg_wall_03, R.drawable.bg_wall_04, R.drawable.bg_wall_05,
+        R.drawable.bg_wall_06, R.drawable.bg_wall_07, R.drawable.bg_wall_08, R.drawable.bg_wall_09,
+        R.drawable.bg_wall_10, R.drawable.bg_wall_11
     )
     val names = arrayOf(
-        "Sunset Lake", "Ocean Glow", "Purple Mountains", "Golden Forest", "Starry Night",
-        "Misty Peaks", "Pink Clouds", "Desert Dusk", "Teal Horizon", "Violet Night"
+        "Reference Sunset Lake", "Tropical Beach", "Pine Forest", "Waterfall Valley", "Desert Dunes",
+        "Snowy Peaks", "Autumn Lake", "Night City", "Bamboo River", "Aurora Night", "Purple Sunset Lake"
     )
 
-    fun selectedIndex(context: Context): Int = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(INDEX, 0).coerceIn(0, drawableIds.lastIndex)
+    fun selectedIndex(context: Context): Int = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        .getInt(INDEX, 0).coerceIn(0, drawableIds.lastIndex)
 
-    fun isCustom(context: Context): Boolean = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(MODE, "builtin") == "custom"
+    fun isCustom(context: Context): Boolean = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        .getString(MODE, "builtin") == "custom"
 
     fun selectBuiltIn(context: Context, index: Int) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(MODE, "builtin")
             .putInt(INDEX, index.coerceIn(0, drawableIds.lastIndex))
+            .remove(CUSTOM)
             .apply()
     }
 
