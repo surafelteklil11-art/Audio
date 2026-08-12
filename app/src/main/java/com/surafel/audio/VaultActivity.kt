@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -44,17 +45,54 @@ class VaultActivity : AppCompatActivity() {
     private fun isLocked() = prefs.getLong(KEY_LOCK_UNTIL, 0L) > System.currentTimeMillis()
 
     private fun showSetupChoice() {
-        val options = arrayOf("Pattern", "Alphabetic password", "PIN")
-        AlertDialog.Builder(this).setTitle("Create Hidden Vault")
-            .setMessage("Choose how you want to protect the hidden area.")
-            .setItems(options) { _, which -> when (which) { 0 -> setupPattern(); 1 -> setupTextCredential(false); 2 -> setupTextCredential(true) } }
-            .setNegativeButton("Cancel") { _, _ -> finish() }.setOnCancelListener { finish() }.show()
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(34, 8, 34, 18)
+            setBackgroundColor(Color.rgb(39, 70, 108))
+        }
+
+        val message = TextView(this).apply {
+            text = "Choose how you want to protect the hidden area."
+            textSize = 17f
+            setTextColor(Color.WHITE)
+            setPadding(0, 0, 0, 14)
+        }
+        root.addView(message, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        fun option(label: String, click: () -> Unit) = Button(this).apply {
+            text = label
+            textSize = 16f
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            setOnClickListener { click() }
+            layoutParams = LinearLayout.LayoutParams(-1, 52).apply { setMargins(0, 5, 0, 5) }
+        }
+
+        root.addView(option("Pattern") { dialog?.dismiss(); setupPattern() })
+        root.addView(option("Alphabetic password") { dialog?.dismiss(); setupTextCredential(false) })
+        root.addView(option("PIN") { dialog?.dismiss(); setupTextCredential(true) })
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Create Hidden Vault")
+            .setView(root)
+            .setNegativeButton("Cancel") { _, _ -> finish() }
+            .setOnCancelListener { finish() }
+            .create()
+        dialog.show()
     }
+
+    private var dialog: AlertDialog? = null
 
     private fun setupTextCredential(pin: Boolean) {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(32, 0, 32, 0) }
-        val first = EditText(this).apply { hint = if (pin) "Enter PIN" else "Enter password"; if (pin) inputType = 2 else inputType = 0x00000001 }
-        val second = EditText(this).apply { hint = "Confirm"; if (pin) inputType = 2 else inputType = 0x00000001 }
+        val first = EditText(this).apply {
+            hint = if (pin) "Enter PIN" else "Enter password"
+            inputType = if (pin) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        val second = EditText(this).apply {
+            hint = "Confirm"
+            inputType = if (pin) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
         box.addView(first); box.addView(second)
         val dialog = AlertDialog.Builder(this).setTitle(if (pin) "Create PIN" else "Create password").setView(box).setNegativeButton("Cancel", null).setPositiveButton("Save", null).create()
         dialog.setOnShowListener {
@@ -82,7 +120,7 @@ class VaultActivity : AppCompatActivity() {
     private fun showUnlock() { when (prefs.getString(KEY_TYPE, TYPE_PASSWORD)) { TYPE_PATTERN -> showPatternDialog("Unlock Hidden Vault") { verify(it) }; TYPE_PIN -> showCredentialDialog(true); else -> showCredentialDialog(false) } }
 
     private fun showCredentialDialog(pin: Boolean) {
-        val input = EditText(this).apply { hint = if (pin) "PIN" else "Password"; if (pin) inputType = 2 else inputType = 0x00000001 }
+        val input = EditText(this).apply { hint = if (pin) "PIN" else "Password"; inputType = if (pin) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD }
         AlertDialog.Builder(this).setTitle("Unlock Hidden Vault").setView(input).setNegativeButton("Cancel") { _, _ -> finish() }.setPositiveButton("Unlock") { _, _ -> verify(input.text.toString()) }.setOnCancelListener { finish() }.show()
     }
 
