@@ -1,8 +1,8 @@
 package com.surafel.audio
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.app.Application
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -24,8 +24,10 @@ class AudioApplication : Application() {
             override fun onActivityResumed(activity: Activity) {
                 if (activity is MainActivity) {
                     activity.findViewById<View>(R.id.searchButton)?.setOnClickListener {
-                        activity.startActivity(android.content.Intent(activity, SearchActivity::class.java))
+                        activity.startActivity(Intent(activity, SearchActivity::class.java))
                     }
+                    // The app is completely free; remove the old premium entry from the UI.
+                    activity.findViewById<View>(R.id.premiumButton)?.visibility = View.GONE
                     activity.findViewById<View>(R.id.menuButton)?.setOnClickListener {
                         SideMenu.show(activity)
                     }
@@ -80,6 +82,7 @@ private object SideMenu {
             textSize = 18f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.WHITE)
+            setGravity(Gravity.CENTER_VERTICAL)
             setPadding(dp(12), 0, 0, 0)
         }, LinearLayout.LayoutParams(0, dp(50), 1f))
         header.addView(TextView(activity).apply {
@@ -114,8 +117,10 @@ private object SideMenu {
         addItem(activity, list, "⌕", "Search") { popup?.dismiss(); activity.findViewById<View>(R.id.searchButton)?.performClick() }
 
         addLabel(activity, list, "APP")
-        addItem(activity, list, "⚙", "Settings") { popup?.dismiss(); showSettings(activity) }
-        addItem(activity, list, "♛", "Premium / About") { popup?.dismiss(); activity.findViewById<View>(R.id.premiumButton)?.performClick() }
+        addItem(activity, list, "⚙", "Settings") {
+            popup?.dismiss()
+            activity.startActivity(Intent(activity, SettingsActivity::class.java))
+        }
 
         popup = PopupWindow(root, dp(315), ViewGroup.LayoutParams.MATCH_PARENT, true).apply {
             isOutsideTouchable = true
@@ -153,28 +158,17 @@ private object SideMenu {
             this.text = icon
             textSize = 21f
             gravity = Gravity.CENTER
+            includeFontPadding = false
             setTextColor(Color.rgb(220, 210, 255))
         }, LinearLayout.LayoutParams((48 * d).roundToInt(), (52 * d).roundToInt()))
         row.addView(TextView(activity).apply {
             this.text = label
             textSize = 16f
+            gravity = Gravity.CENTER_VERTICAL
+            includeFontPadding = false
             setTextColor(Color.rgb(232, 236, 247))
             setPadding((4 * d).roundToInt(), 0, 0, 0)
         }, LinearLayout.LayoutParams(0, (52 * d).roundToInt(), 1f))
         list.addView(row, LinearLayout.LayoutParams(-1, (54 * d).roundToInt()))
-    }
-
-    private fun showSettings(activity: Activity) {
-        AlertDialog.Builder(activity)
-            .setTitle("Settings")
-            .setItems(arrayOf("Refresh music library", "Profile", "About Audio")) { _, which ->
-                when (which) {
-                    0 -> activity.findViewById<View>(R.id.musicNav)?.performClick()
-                    1 -> activity.findViewById<View>(R.id.mineNav)?.performClick()
-                    2 -> activity.findViewById<View>(R.id.premiumButton)?.performClick()
-                }
-            }
-            .setNegativeButton("Close", null)
-            .show()
     }
 }
