@@ -8,7 +8,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
-import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
@@ -50,7 +49,6 @@ class VaultActivity : AppCompatActivity() {
             setPadding(34, 8, 34, 18)
             setBackgroundColor(Color.rgb(39, 70, 108))
         }
-
         val message = TextView(this).apply {
             text = "Choose how you want to protect the hidden area."
             textSize = 17f
@@ -58,7 +56,6 @@ class VaultActivity : AppCompatActivity() {
             setPadding(0, 0, 0, 14)
         }
         root.addView(message, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
-
         fun option(label: String, click: () -> Unit) = Button(this).apply {
             text = label
             textSize = 16f
@@ -67,31 +64,29 @@ class VaultActivity : AppCompatActivity() {
             setOnClickListener { click() }
             layoutParams = LinearLayout.LayoutParams(-1, 52).apply { setMargins(0, 5, 0, 5) }
         }
-
-        root.addView(option("Pattern") { dialog?.dismiss(); setupPattern() })
-        root.addView(option("Alphabetic password") { dialog?.dismiss(); setupTextCredential(false) })
-        root.addView(option("PIN") { dialog?.dismiss(); setupTextCredential(true) })
-
-        val dialog = AlertDialog.Builder(this)
+        root.addView(option("Pattern") { setupPattern(); setupDialog?.dismiss() })
+        root.addView(option("Alphabetic password") { setupTextCredential(false); setupDialog?.dismiss() })
+        root.addView(option("PIN") { setupTextCredential(true); setupDialog?.dismiss() })
+        setupDialog = AlertDialog.Builder(this)
             .setTitle("Create Hidden Vault")
             .setView(root)
             .setNegativeButton("Cancel") { _, _ -> finish() }
             .setOnCancelListener { finish() }
             .create()
-        dialog.show()
+        setupDialog?.show()
     }
 
-    private var dialog: AlertDialog? = null
+    private var setupDialog: AlertDialog? = null
 
     private fun setupTextCredential(pin: Boolean) {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(32, 0, 32, 0) }
         val first = EditText(this).apply {
             hint = if (pin) "Enter PIN" else "Enter password"
-            inputType = if (pin) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
+            inputType = if (pin) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
         val second = EditText(this).apply {
             hint = "Confirm"
-            inputType = if (pin) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
+            inputType = if (pin) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
         box.addView(first); box.addView(second)
         val dialog = AlertDialog.Builder(this).setTitle(if (pin) "Create PIN" else "Create password").setView(box).setNegativeButton("Cancel", null).setPositiveButton("Save", null).create()
@@ -120,7 +115,7 @@ class VaultActivity : AppCompatActivity() {
     private fun showUnlock() { when (prefs.getString(KEY_TYPE, TYPE_PASSWORD)) { TYPE_PATTERN -> showPatternDialog("Unlock Hidden Vault") { verify(it) }; TYPE_PIN -> showCredentialDialog(true); else -> showCredentialDialog(false) } }
 
     private fun showCredentialDialog(pin: Boolean) {
-        val input = EditText(this).apply { hint = if (pin) "PIN" else "Password"; inputType = if (pin) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD }
+        val input = EditText(this).apply { hint = if (pin) "PIN" else "Password"; inputType = if (pin) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD }
         AlertDialog.Builder(this).setTitle("Unlock Hidden Vault").setView(input).setNegativeButton("Cancel") { _, _ -> finish() }.setPositiveButton("Unlock") { _, _ -> verify(input.text.toString()) }.setOnCancelListener { finish() }.show()
     }
 
