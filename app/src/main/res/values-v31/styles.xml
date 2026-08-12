@@ -7,6 +7,8 @@
         <item name="android:windowBackground">@drawable/bg_root</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowClipToOutline">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:alertDialogTheme">@style/Theme.Audio.AlertDialog</item>
         <item name="colorPrimary">#86E8FF</item>
