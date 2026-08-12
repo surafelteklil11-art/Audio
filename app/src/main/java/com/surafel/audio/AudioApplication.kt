@@ -23,7 +23,7 @@ import androidx.core.content.ContextCompat
 import java.io.File
 import kotlin.math.roundToInt
 
-/** Keeps the existing MainActivity wiring and adds the hamburger side navigation. */
+/** Keeps the existing MainActivity wiring and side navigation. */
 class AudioApplication : Application() {
     override fun onCreate() {
         super.onCreate()
@@ -50,37 +50,19 @@ class AudioApplication : Application() {
     }
 }
 
-/** Uses the reference-style default plus 10 additional scenic backgrounds and a user-selected image. */
+/**
+ * Stores only the user's chosen background image.
+ * The selected image is copied into app-private storage, so deleting or moving
+ * the original image from Downloads/Gallery does not remove the saved background.
+ */
 object BackgroundManager {
     private const val PREFS = "audio_profile"
     private const val MODE = "background_mode"
-    private const val INDEX = "background_index"
     private const val CUSTOM = "background_custom_path"
-
-    val drawableIds = intArrayOf(
-        R.drawable.bg_reference_sunset,
-        R.drawable.bg_wall_02, R.drawable.bg_wall_03, R.drawable.bg_wall_04, R.drawable.bg_wall_05,
-        R.drawable.bg_wall_06, R.drawable.bg_wall_07, R.drawable.bg_wall_08, R.drawable.bg_wall_09,
-        R.drawable.bg_wall_10, R.drawable.bg_wall_11
-    )
-    val names = arrayOf(
-        "Reference Sunset Lake", "Tropical Beach", "Pine Forest", "Waterfall Valley", "Desert Dunes",
-        "Snowy Peaks", "Autumn Lake", "Night City", "Bamboo River", "Aurora Night", "Purple Sunset Lake"
-    )
-
-    fun selectedIndex(context: Context): Int = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .getInt(INDEX, 0).coerceIn(0, drawableIds.lastIndex)
+    private const val CUSTOM_FILE = "saved_player_background"
 
     fun isCustom(context: Context): Boolean = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .getString(MODE, "builtin") == "custom"
-
-    fun selectBuiltIn(context: Context, index: Int) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(MODE, "builtin")
-            .putInt(INDEX, index.coerceIn(0, drawableIds.lastIndex))
-            .remove(CUSTOM)
-            .apply()
-    }
+        .getString(MODE, "default") == "custom"
 
     fun setCustom(context: Context, path: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
@@ -89,25 +71,35 @@ object BackgroundManager {
             .apply()
     }
 
+    fun customPath(context: Context): String? = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        .getString(CUSTOM, null)
+
+    fun savedFile(context: Context): File = File(context.filesDir, CUSTOM_FILE)
+
+    fun clearCustom(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .remove(MODE)
+            .remove(CUSTOM)
+            .apply()
+        savedFile(context).delete()
+    }
+
     fun apply(activity: Activity) {
         val content = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
         val root = content.getChildAt(0) ?: return
         val prefs = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val drawable = if (prefs.getString(MODE, "builtin") == "custom") {
-            val path = prefs.getString(CUSTOM, null)
-            val bitmap = path?.let { BitmapFactory.decodeFile(it) }
-            if (bitmap != null) {
-                LayerDrawable(arrayOf(
-                    BitmapDrawable(activity.resources, bitmap).apply { gravity = Gravity.FILL },
-                    ColorDrawable(0x52000000)
-                ))
-            } else {
-                ContextCompat.getDrawable(activity, drawableIds[selectedIndex(activity)])
-            }
+        val custom = prefs.getString(MODE, "default") == "custom"
+        val path = prefs.getString(CUSTOM, null)
+        val bitmap = if (custom && path != null) BitmapFactory.decodeFile(path) else null
+
+        if (bitmap != null) {
+            root.background = LayerDrawable(arrayOf(
+                BitmapDrawable(activity.resources, bitmap).apply { gravity = Gravity.FILL },
+                ColorDrawable(0x52000000)
+            ))
         } else {
-            ContextCompat.getDrawable(activity, drawableIds[selectedIndex(activity)])
+            root.background = ContextCompat.getDrawable(activity, R.drawable.bg_art)
         }
-        if (drawable != null) root.background = drawable
     }
 }
 
