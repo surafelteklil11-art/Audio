@@ -17,7 +17,6 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.roundToInt
@@ -60,7 +59,7 @@ class SettingsActivity : AppCompatActivity() {
             setPadding(dp(4), 0, 0, dp(8))
         })
         section.addView(TextView(this).apply {
-            text = "Choose your own photo. Audio saves a private copy inside the app, so the original file can be deleted or moved without removing your background."
+            text = "Use your own photo as the player background. Audio keeps a private copy inside the app, so the original file can be deleted or moved without deleting your saved background."
             textSize = 12f
             setTextColor(Color.rgb(137, 151, 178))
             setPadding(dp(4), 0, 0, dp(12))
@@ -85,7 +84,10 @@ class SettingsActivity : AppCompatActivity() {
             setTextColor(Color.rgb(170, 180, 204))
         }
         card.addView(emptyLabel, FrameLayout.LayoutParams(-1, dp(205)))
-        section.addView(card, LinearLayout.LayoutParams(-1, dp(205)).apply { leftMargin = dp(4); rightMargin = dp(4) })
+        section.addView(card, LinearLayout.LayoutParams(-1, dp(205)).apply {
+            leftMargin = dp(4)
+            rightMargin = dp(4)
+        })
 
         section.addView(Button(this).apply {
             text = "＋  CHOOSE PHOTO FROM MY FILES"
@@ -115,37 +117,47 @@ class SettingsActivity : AppCompatActivity() {
         section.addView(deleteButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(6) })
 
         section.addView(TextView(this).apply {
-            text = "The saved copy stays here until you choose another photo or delete it yourself."
+            text = "The saved copy remains inside Audio until you replace it or choose Delete saved background. Deleting the original file from Downloads, Gallery, Telegram, or another folder does not delete this saved copy."
             gravity = Gravity.CENTER
             textSize = 11f
             setTextColor(Color.rgb(125, 139, 168))
             setPadding(dp(8), dp(8), dp(8), dp(8))
-        }, LinearLayout.LayoutParams(-1, dp(42)))
+        }, LinearLayout.LayoutParams(-1, dp(58)))
 
         container.addView(section, 0)
         refreshBackgroundPreview()
     }
 
     private fun saveCustomBackground(uri: Uri) {
+        val target = BackgroundManager.savedFile(this)
+        val temp = File(filesDir, "saved_player_background.tmp")
         try {
-            val target = BackgroundManager.savedFile(this)
             contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(target, false).use { output -> input.copyTo(output) }
+                FileOutputStream(temp, false).use { output -> input.copyTo(output) }
             } ?: throw IllegalStateException("No input stream")
 
+            if (!temp.exists() || temp.length() == 0L) throw IllegalStateException("Empty image")
+            if (target.exists()) target.delete()
+            if (!temp.renameTo(target)) {
+                temp.copyTo(target, overwrite = true)
+                temp.delete()
+            }
+
+            // Store only the app-private path. The source URI/file is no longer needed.
             BackgroundManager.setCustom(this, target.absolutePath)
             BackgroundManager.apply(this)
             refreshBackgroundPreview()
 
             AlertDialog.Builder(this)
                 .setTitle("Background saved")
-                .setMessage("A private copy was saved inside Audio. You can delete the original photo from your phone and this background will remain.")
+                .setMessage("A private copy is now saved inside Audio. You can delete the original photo from your phone and this background will remain until you replace or delete it here.")
                 .setPositiveButton("OK", null)
                 .show()
         } catch (_: Exception) {
+            temp.delete()
             AlertDialog.Builder(this)
                 .setTitle("Could not save photo")
-                .setMessage("Please choose another image file.")
+                .setMessage("The selected image could not be saved. Please choose another image file.")
                 .setPositiveButton("OK", null)
                 .show()
         }
@@ -155,7 +167,7 @@ class SettingsActivity : AppCompatActivity() {
         if (!BackgroundManager.isCustom(this)) return
         AlertDialog.Builder(this)
             .setTitle("Delete saved background?")
-            .setMessage("This removes the copy saved inside Audio. Your original photo in Gallery/Files will not be deleted.")
+            .setMessage("This removes only the private copy saved inside Audio. Your original photo in Gallery/Files will not be deleted.")
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Delete") { _, _ ->
                 BackgroundManager.clearCustom(this)
@@ -178,7 +190,7 @@ class SettingsActivity : AppCompatActivity() {
             preview?.setImageDrawable(null)
             preview?.visibility = View.GONE
             emptyLabel?.visibility = View.VISIBLE
-            deleteButton?.visibility = View.GONE
+            deleteButton?.visibility = if (BackgroundManager.isCustom(this)) View.VISIBLE else View.GONE
         }
     }
 
