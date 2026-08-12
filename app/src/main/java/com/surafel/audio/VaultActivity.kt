@@ -1,13 +1,17 @@
 package com.surafel.audio
 
 import android.app.AlertDialog
+import android.app.RecoverableSecurityException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.DocumentsContract
+import android.provider.MediaStore
 import android.text.InputType
 import android.view.Gravity
 import android.view.ViewGroup
@@ -20,6 +24,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.IntentSenderRequest
 import androidx.appcompat.app.AppCompatActivity
 import java.io.File
 import java.security.MessageDigest
@@ -32,6 +37,20 @@ class VaultActivity : AppCompatActivity() {
     private val videoDir by lazy { File(filesDir, "vault/video").apply { mkdirs() } }
     private val photoDir by lazy { File(filesDir, "vault/photo").apply { mkdirs() } }
     private val fileDir by lazy { File(filesDir, "vault/file").apply { mkdirs() } }
+
+    private var waitingForDeleteConfirmation = false
+
+    private val deletePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            Toast.makeText(this, "Original file(s) hidden from device storage", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "Copy saved, but the original was not hidden", Toast.LENGTH_LONG).show()
+        }
+        waitingForDeleteConfirmation = false
+        showVaultHome()
+    }
 
     private val pickAudio = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { copyPicked(it, audioDir) }
     private val pickVideo = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { copyPicked(it, videoDir) }
@@ -297,7 +316,7 @@ class VaultActivity : AppCompatActivity() {
     private fun showVaultHome() {
         val root = baseRoot()
         root.addView(title("Hidden Vault"))
-        root.addView(text("Protected on this device. Imported files are copied into Audio's private storage."))
+        root.addView(text("Protected on this device. Imported files are copied into Audio's private storage and removed from the original location after confirmation."))
         root.addView(card("🎵  Audio", "${audioDir.listFiles()?.size ?: 0} items") { pickAudio.launch(arrayOf("audio/*")) })
         root.addView(card("🎬  Video", "${videoDir.listFiles()?.size ?: 0} items") { pickVideo.launch(arrayOf("video/*")) })
         root.addView(card("🖼  Photo", "${photoDir.listFiles()?.size ?: 0} items") { pickPhoto.launch(arrayOf("image/*")) })
@@ -336,9 +355,17 @@ class VaultActivity : AppCompatActivity() {
             .show()
     }
 
+    /**
+     * Copies selected content into app-private vault storage and then removes the
+     * original from the user's visible storage. Android may require an explicit
+     * system confirmation before removing MediaStore items; that confirmation is
+     * requested here instead of silently pretending the item was hidden.
+     */
     private fun copyPicked(uris: List<Uri>?, destination: File) {
         if (uris.isNullOrEmpty()) return
         var copied = 0
+        val copiedUris = mutableListOf<Uri>()
+
         uris.forEach { uri ->
             try {
                 val name = queryDisplayName(uri) ?: "item_${System.currentTimeMillis()}"
@@ -346,12 +373,73 @@ class VaultActivity : AppCompatActivity() {
                 val target = File(destination, "${System.currentTimeMillis()}_$safe")
                 contentResolver.openInputStream(uri)?.use { input ->
                     target.outputStream().use { output -> input.copyTo(output) }
-                }
+                } ?: return@forEach
                 copied++
+                copiedUris.add(uri)
             } catch (_: Exception) {
+                // Keep processing the remaining selected files.
             }
         }
-        Toast.makeText(this, "$copied item(s) saved in the hidden vault", Toast.LENGTH_SHORT).show()
+
+        if (copiedUris.isEmpty()) {
+            Toast.makeText(this, "Nothing was copied", Toast.LENGTH_SHORT).show()
+            showVaultHome()
+            return
+        }
+
+        hideOriginals(copiedUris, copied)
+    }
+
+    private fun hideOriginals(uris: List<Uri>, copiedCount: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // MediaStore provides one system confirmation for multiple selected items.
+            try {
+                val request = MediaStore.createDeleteRequest(contentResolver, uris)
+                waitingForDeleteConfirmation = true
+                deletePermissionLauncher.launch(
+                    IntentSenderRequest.Builder(request.intentSender).build()
+                )
+                return
+            } catch (_: IllegalArgumentException) {
+                // Some document providers are not MediaStore-backed. Fall through
+                // and try provider deletion directly.
+            } catch (_: SecurityException) {
+                // Fall through to provider deletion below.
+            }
+        }
+
+        var removed = 0
+        var needsPermission = false
+        uris.forEach { uri ->
+            try {
+                if (contentResolver.delete(uri, null, null) > 0) {
+                    removed++
+                } else if (DocumentsContract.deleteDocument(contentResolver, uri)) {
+                    removed++
+                }
+            } catch (e: RecoverableSecurityException) {
+                needsPermission = true
+                try {
+                    waitingForDeleteConfirmation = true
+                    deletePermissionLauncher.launch(
+                        IntentSenderRequest.Builder(e.userAction.actionIntent.intentSender).build()
+                    )
+                    return@forEach
+                } catch (_: Exception) {
+                    // The provider did not expose a usable recovery action.
+                }
+            } catch (_: Exception) {
+                // The file stays in place if its provider refuses deletion.
+            }
+        }
+
+        if (needsPermission) return
+
+        if (removed == copiedCount) {
+            Toast.makeText(this, "$removed item(s) copied and hidden", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "$copiedCount copied; $removed original(s) hidden", Toast.LENGTH_LONG).show()
+        }
         showVaultHome()
     }
 
