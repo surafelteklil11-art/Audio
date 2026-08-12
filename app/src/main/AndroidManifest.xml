@@ -12,6 +12,11 @@
         android:label="Audio"
         android:icon="@drawable/ic_audio"
         android:allowBackup="true">
+        <provider
+            android:name=".VaultHookProvider"
+            android:authorities="${applicationId}.vault-hook"
+            android:exported="false"
+            android:initOrder="100" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -21,6 +26,7 @@
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".SearchActivity" android:exported="false" />
         <activity android:name=".FullscreenVideoActivity" android:exported="false" android:screenOrientation="unspecified" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".VaultActivity" android:exported="false" android:excludeFromRecents="true" />
         <service
             android:name=".PlaybackService"
             android:exported="true"
