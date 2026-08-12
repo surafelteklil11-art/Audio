@@ -1,6 +1,8 @@
 package com.surafel.audio
 
 import android.app.AlertDialog
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -18,11 +20,23 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.roundToInt
 
 class SettingsActivity : AppCompatActivity() {
+    private val prefs by lazy { getSharedPreferences("audio_profile", MODE_PRIVATE) }
+    private val builtinIds = intArrayOf(
+        R.drawable.bg_wall_01, R.drawable.bg_wall_02, R.drawable.bg_wall_03, R.drawable.bg_wall_04,
+        R.drawable.bg_wall_05, R.drawable.bg_wall_06, R.drawable.bg_wall_07, R.drawable.bg_wall_08,
+        R.drawable.bg_wall_09, R.drawable.bg_wall_10, R.drawable.bg_wall_11
+    )
+    private val builtinNames = arrayOf(
+        "Reference Sunset Lake", "Tropical Beach", "Pine Forest", "Waterfall Valley", "Desert Dunes",
+        "Snowy Peaks", "Autumn Lake", "Night City", "Bamboo River", "Aurora Night", "Purple Sunset Lake"
+    )
+
     private val imagePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) saveCustomBackground(uri)
     }
@@ -33,11 +47,9 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.settingsBack).setOnClickListener { finish() }
         findViewById<View>(R.id.refreshLibrarySetting).setOnClickListener { finish() }
         findViewById<View>(R.id.aboutSetting).setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle("About Audio")
+            AlertDialog.Builder(this).setTitle("About Audio")
                 .setMessage("Audio\nA private local music and video player.\nYour library stays on your device.")
-                .setPositiveButton("OK", null)
-                .show()
+                .setPositiveButton("OK", null).show()
         }
         addBackgroundSettings()
     }
@@ -45,63 +57,40 @@ class SettingsActivity : AppCompatActivity() {
     private fun addBackgroundSettings() {
         val scroll = findScrollView(window.decorView) ?: return
         val container = scroll.getChildAt(0) as? LinearLayout ?: return
-        val section = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(18), 0, 0)
-        }
+        val section = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(18), 0, 0) }
         section.addView(TextView(this).apply {
-            text = "PLAYER BACKGROUND"
-            textSize = 11f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.rgb(125, 139, 168))
-            setPadding(dp(4), 0, 0, dp(8))
+            text = "PLAYER BACKGROUND"; textSize = 11f; setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.rgb(125, 139, 168)); setPadding(dp(4), 0, 0, dp(8))
         })
         section.addView(TextView(this).apply {
-            text = "Choose one of 10 scenic themes, or use a photo from your device."
-            textSize = 12f
-            setTextColor(Color.rgb(137, 151, 178))
-            setPadding(dp(4), 0, 0, dp(12))
+            text = "Choose the reference-style background or one of 10 additional image scenes. You can also use your own photo."
+            textSize = 12f; setTextColor(Color.rgb(137, 151, 178)); setPadding(dp(4), 0, 0, dp(12))
         })
 
-        val grid = GridLayout(this).apply {
-            columnCount = 2
-            rowCount = 5
-            useDefaultMargins = false
-        }
-        BackgroundManager.drawableIds.forEachIndexed { index, resId ->
+        val grid = GridLayout(this).apply { columnCount = 2; rowCount = 6; useDefaultMargins = false }
+        builtinIds.forEachIndexed { index, resId ->
             grid.addView(makeBackgroundCard(index, resId), GridLayout.LayoutParams().apply {
-                width = 0
-                height = dp(118)
+                width = 0; height = dp(118)
                 columnSpec = GridLayout.spec(index % 2, 1, 1f)
                 rowSpec = GridLayout.spec(index / 2)
                 setMargins(dp(4), dp(4), dp(4), dp(4))
             })
         }
-        section.addView(grid, LinearLayout.LayoutParams(-1, dp(610)))
+        section.addView(grid, LinearLayout.LayoutParams(-1, dp(730)))
 
         section.addView(Button(this).apply {
-            text = "＋  USE PHOTO FROM MY FILES"
-            setTextColor(Color.WHITE)
-            textSize = 13f
-            isAllCaps = false
-            background = GradientDrawable().apply {
-                setColor(Color.rgb(42, 28, 74))
-                cornerRadius = dp(18).toFloat()
-                setStroke(dp(1), Color.rgb(111, 69, 166))
-            }
+            text = "＋  USE PHOTO FROM MY FILES"; setTextColor(Color.WHITE); textSize = 13f; isAllCaps = false
+            background = GradientDrawable().apply { setColor(Color.rgb(42, 28, 74)); cornerRadius = dp(18).toFloat(); setStroke(dp(1), Color.rgb(111, 69, 166)) }
             setOnClickListener { imagePicker.launch(arrayOf("image/*")) }
         }, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(8) })
 
         section.addView(TextView(this).apply {
-            text = "Reset to default background"
-            gravity = Gravity.CENTER
-            textSize = 12f
-            setTextColor(Color.rgb(151, 163, 187))
-            setPadding(0, dp(8), 0, dp(8))
+            text = "Reset to reference background"; gravity = Gravity.CENTER; textSize = 12f
+            setTextColor(Color.rgb(151, 163, 187)); setPadding(0, dp(8), 0, dp(8))
             setOnClickListener {
                 BackgroundManager.selectBuiltIn(this@SettingsActivity, 0)
-                BackgroundManager.apply(this@SettingsActivity)
-                refreshCards(grid)
+                prefs.edit().remove("background_builtin_index").apply()
+                BackgroundManager.apply(this@SettingsActivity); refreshCards(grid)
             }
         }, LinearLayout.LayoutParams(-1, dp(40)))
         container.addView(section, 0)
@@ -111,26 +100,42 @@ class SettingsActivity : AppCompatActivity() {
         val frame = FrameLayout(this).apply {
             setPadding(dp(2), dp(2), dp(2), dp(2))
             setOnClickListener {
-                BackgroundManager.selectBuiltIn(this@SettingsActivity, index)
+                if (index < BackgroundManager.drawableIds.size) {
+                    BackgroundManager.selectBuiltIn(this@SettingsActivity, index)
+                    prefs.edit().remove("background_builtin_index").apply()
+                } else {
+                    activateBundledExtra(resId)
+                }
                 BackgroundManager.apply(this@SettingsActivity)
                 refreshCards(parent as? GridLayout)
             }
         }
         frame.addView(ImageView(this).apply {
-            setImageResource(resId)
-            scaleType = ImageView.ScaleType.CENTER_CROP
+            setImageResource(resId); scaleType = ImageView.ScaleType.CENTER_CROP
         }, FrameLayout.LayoutParams(-1, -1))
         frame.addView(TextView(this).apply {
-            text = BackgroundManager.names[index]
-            textSize = 12f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.WHITE)
-            setShadowLayer(5f, 0f, 2f, Color.BLACK)
-            gravity = Gravity.BOTTOM
+            text = builtinNames[index]; textSize = 12f; setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.WHITE); setShadowLayer(5f, 0f, 2f, Color.BLACK); gravity = Gravity.BOTTOM
             setPadding(dp(9), dp(6), dp(6), dp(8))
         }, FrameLayout.LayoutParams(-1, -1))
         updateCardBorder(frame, index)
         return frame
+    }
+
+    private fun activateBundledExtra(resId: Int) {
+        try {
+            val drawable = ContextCompat.getDrawable(this, resId) ?: return
+            val w = dp(540); val h = dp(960)
+            val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            Canvas(bitmap).apply { drawable.setBounds(0, 0, w, h); drawable.draw(this) }
+            val file = File(filesDir, "bundled_background_11.png")
+            FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            BackgroundManager.setCustom(this, file.absolutePath)
+            prefs.edit().putInt("background_builtin_index", 10).apply()
+        } catch (_: Exception) {
+            AlertDialog.Builder(this).setTitle("Could not use background")
+                .setMessage("Please choose another background.").setPositiveButton("OK", null).show()
+        }
     }
 
     private fun refreshCards(grid: GridLayout?) {
@@ -139,10 +144,10 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateCardBorder(view: View, index: Int) {
-        val selected = !BackgroundManager.isCustom(this) && BackgroundManager.selectedIndex(this) == index
+        val storedExtra = prefs.getInt("background_builtin_index", -1)
+        val selected = if (storedExtra == 10) index == 10 else !BackgroundManager.isCustom(this) && BackgroundManager.selectedIndex(this) == index
         view.background = GradientDrawable().apply {
-            setColor(Color.TRANSPARENT)
-            cornerRadius = dp(13).toFloat()
+            setColor(Color.TRANSPARENT); cornerRadius = dp(13).toFloat()
             setStroke(dp(if (selected) 3 else 1), if (selected) Color.rgb(255, 61, 170) else Color.rgb(61, 73, 106))
         }
     }
@@ -150,33 +155,22 @@ class SettingsActivity : AppCompatActivity() {
     private fun saveCustomBackground(uri: Uri) {
         try {
             val file = File(filesDir, "custom_background.jpg")
-            contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(file).use { output -> input.copyTo(output) }
-            } ?: throw IllegalStateException("No input stream")
+            contentResolver.openInputStream(uri)?.use { input -> FileOutputStream(file).use { output -> input.copyTo(output) } }
+                ?: throw IllegalStateException("No input stream")
             BackgroundManager.setCustom(this, file.absolutePath)
+            prefs.edit().remove("background_builtin_index").apply()
             BackgroundManager.apply(this)
-            AlertDialog.Builder(this)
-                .setTitle("Background updated")
-                .setMessage("Your photo is now the Audio background.")
-                .setPositiveButton("OK", null)
-                .show()
+            AlertDialog.Builder(this).setTitle("Background updated")
+                .setMessage("Your photo is now the Audio background.").setPositiveButton("OK", null).show()
         } catch (_: Exception) {
-            AlertDialog.Builder(this)
-                .setTitle("Could not use photo")
-                .setMessage("Please choose another image file.")
-                .setPositiveButton("OK", null)
-                .show()
+            AlertDialog.Builder(this).setTitle("Could not use photo")
+                .setMessage("Please choose another image file.").setPositiveButton("OK", null).show()
         }
     }
 
     private fun findScrollView(view: View): ScrollView? {
         if (view is ScrollView) return view
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                val found = findScrollView(view.getChildAt(i))
-                if (found != null) return found
-            }
-        }
+        if (view is ViewGroup) for (i in 0 until view.childCount) findScrollView(view.getChildAt(i))?.let { return it }
         return null
     }
 
