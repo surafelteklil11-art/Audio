@@ -151,7 +151,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="3dp"
-                        android:text="Private local music & video player"
+                        android:text="Private local music and video player"
                         android:textColor="#8997B2"
                         android:textSize="12sp" />
                 </LinearLayout>
