@@ -11,28 +11,21 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
-import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.roundToInt
 
 class SettingsActivity : AppCompatActivity() {
-    private val builtinIds = intArrayOf(
-        R.drawable.bg_reference_sunset,
-        R.drawable.bg_wall_02, R.drawable.bg_wall_03, R.drawable.bg_wall_04, R.drawable.bg_wall_05,
-        R.drawable.bg_wall_06, R.drawable.bg_wall_07, R.drawable.bg_wall_08, R.drawable.bg_wall_09,
-        R.drawable.bg_wall_10, R.drawable.bg_wall_11
-    )
-    private val builtinNames = arrayOf(
-        "Reference Sunset Lake", "Tropical Beach", "Pine Forest", "Waterfall Valley", "Desert Dunes",
-        "Snowy Peaks", "Autumn Lake", "Night City", "Bamboo River", "Aurora Night", "Purple Sunset Lake"
-    )
+    private var preview: ImageView? = null
+    private var emptyLabel: TextView? = null
+    private var deleteButton: Button? = null
 
     private val imagePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) saveCustomBackground(uri)
@@ -58,6 +51,7 @@ class SettingsActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(18), 0, 0)
         }
+
         section.addView(TextView(this).apply {
             text = "PLAYER BACKGROUND"
             textSize = 11f
@@ -66,30 +60,35 @@ class SettingsActivity : AppCompatActivity() {
             setPadding(dp(4), 0, 0, dp(8))
         })
         section.addView(TextView(this).apply {
-            text = "Reference background + 10 different scenic images. You can also use your own photo."
+            text = "Choose your own photo. Audio saves a private copy inside the app, so the original file can be deleted or moved without removing your background."
             textSize = 12f
             setTextColor(Color.rgb(137, 151, 178))
             setPadding(dp(4), 0, 0, dp(12))
         })
 
-        val grid = GridLayout(this).apply {
-            columnCount = 2
-            rowCount = 6
-            useDefaultMargins = false
+        val card = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(18, 25, 55))
+                cornerRadius = dp(18).toFloat()
+                setStroke(dp(2), Color.rgb(78, 92, 135))
+            }
         }
-        builtinIds.forEachIndexed { index, resId ->
-            grid.addView(makeBackgroundCard(index, resId), GridLayout.LayoutParams().apply {
-                width = 0
-                height = dp(118)
-                columnSpec = GridLayout.spec(index % 2, 1, 1f)
-                rowSpec = GridLayout.spec(index / 2)
-                setMargins(dp(4), dp(4), dp(4), dp(4))
-            })
+        preview = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            visibility = View.GONE
         }
-        section.addView(grid, LinearLayout.LayoutParams(-1, dp(730)))
+        card.addView(preview, FrameLayout.LayoutParams(-1, dp(205)))
+        emptyLabel = TextView(this).apply {
+            text = "No personal photo selected\n\nTap the button below to choose one"
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setTextColor(Color.rgb(170, 180, 204))
+        }
+        card.addView(emptyLabel, FrameLayout.LayoutParams(-1, dp(205)))
+        section.addView(card, LinearLayout.LayoutParams(-1, dp(205)).apply { leftMargin = dp(4); rightMargin = dp(4) })
 
         section.addView(Button(this).apply {
-            text = "＋  USE PHOTO FROM MY FILES"
+            text = "＋  CHOOSE PHOTO FROM MY FILES"
             setTextColor(Color.WHITE)
             textSize = 13f
             isAllCaps = false
@@ -99,78 +98,87 @@ class SettingsActivity : AppCompatActivity() {
                 setStroke(dp(1), Color.rgb(111, 69, 166))
             }
             setOnClickListener { imagePicker.launch(arrayOf("image/*")) }
-        }, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(8) })
+        }, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(12) })
+
+        deleteButton = Button(this).apply {
+            text = "Delete saved background"
+            setTextColor(Color.rgb(220, 130, 150))
+            textSize = 12f
+            isAllCaps = false
+            background = GradientDrawable().apply {
+                setColor(Color.TRANSPARENT)
+                cornerRadius = dp(18).toFloat()
+                setStroke(dp(1), Color.rgb(92, 65, 82))
+            }
+            setOnClickListener { confirmDeleteBackground() }
+        }
+        section.addView(deleteButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(6) })
 
         section.addView(TextView(this).apply {
-            text = "Reset to reference background"
+            text = "The saved copy stays here until you choose another photo or delete it yourself."
             gravity = Gravity.CENTER
-            textSize = 12f
-            setTextColor(Color.rgb(151, 163, 187))
-            setPadding(0, dp(8), 0, dp(8))
-            setOnClickListener {
-                BackgroundManager.selectBuiltIn(this@SettingsActivity, 0)
-                BackgroundManager.apply(this@SettingsActivity)
-                refreshCards(grid)
-            }
-        }, LinearLayout.LayoutParams(-1, dp(40)))
+            textSize = 11f
+            setTextColor(Color.rgb(125, 139, 168))
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+        }, LinearLayout.LayoutParams(-1, dp(42)))
+
         container.addView(section, 0)
-    }
-
-    private fun makeBackgroundCard(index: Int, resId: Int): View {
-        val frame = FrameLayout(this).apply {
-            setPadding(dp(2), dp(2), dp(2), dp(2))
-            setOnClickListener {
-                BackgroundManager.selectBuiltIn(this@SettingsActivity, index)
-                BackgroundManager.apply(this@SettingsActivity)
-                refreshCards(parent as? GridLayout)
-            }
-        }
-        frame.addView(ImageView(this).apply {
-            setImageResource(resId)
-            scaleType = ImageView.ScaleType.CENTER_CROP
-        }, FrameLayout.LayoutParams(-1, -1))
-        frame.addView(TextView(this).apply {
-            text = builtinNames[index]
-            textSize = 12f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.WHITE)
-            setShadowLayer(5f, 0f, 2f, Color.BLACK)
-            gravity = Gravity.BOTTOM
-            setPadding(dp(9), dp(6), dp(6), dp(8))
-        }, FrameLayout.LayoutParams(-1, -1))
-        updateCardBorder(frame, index)
-        return frame
-    }
-
-    private fun refreshCards(grid: GridLayout?) {
-        grid ?: return
-        for (i in 0 until grid.childCount) updateCardBorder(grid.getChildAt(i), i)
-    }
-
-    private fun updateCardBorder(view: View, index: Int) {
-        val selected = !BackgroundManager.isCustom(this) && BackgroundManager.selectedIndex(this) == index
-        view.background = GradientDrawable().apply {
-            setColor(Color.TRANSPARENT)
-            cornerRadius = dp(13).toFloat()
-            setStroke(dp(if (selected) 3 else 1), if (selected) Color.rgb(255, 61, 170) else Color.rgb(61, 73, 106))
-        }
+        refreshBackgroundPreview()
     }
 
     private fun saveCustomBackground(uri: Uri) {
         try {
-            val file = File(filesDir, "custom_background.jpg")
+            val target = BackgroundManager.savedFile(this)
             contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(file).use { output -> input.copyTo(output) }
+                FileOutputStream(target, false).use { output -> input.copyTo(output) }
             } ?: throw IllegalStateException("No input stream")
-            BackgroundManager.setCustom(this, file.absolutePath)
+
+            BackgroundManager.setCustom(this, target.absolutePath)
             BackgroundManager.apply(this)
-            AlertDialog.Builder(this).setTitle("Background updated")
-                .setMessage("Your photo is now the Audio background.")
-                .setPositiveButton("OK", null).show()
+            refreshBackgroundPreview()
+
+            AlertDialog.Builder(this)
+                .setTitle("Background saved")
+                .setMessage("A private copy was saved inside Audio. You can delete the original photo from your phone and this background will remain.")
+                .setPositiveButton("OK", null)
+                .show()
         } catch (_: Exception) {
-            AlertDialog.Builder(this).setTitle("Could not use photo")
+            AlertDialog.Builder(this)
+                .setTitle("Could not save photo")
                 .setMessage("Please choose another image file.")
-                .setPositiveButton("OK", null).show()
+                .setPositiveButton("OK", null)
+                .show()
+        }
+    }
+
+    private fun confirmDeleteBackground() {
+        if (!BackgroundManager.isCustom(this)) return
+        AlertDialog.Builder(this)
+            .setTitle("Delete saved background?")
+            .setMessage("This removes the copy saved inside Audio. Your original photo in Gallery/Files will not be deleted.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Delete") { _, _ ->
+                BackgroundManager.clearCustom(this)
+                BackgroundManager.apply(this)
+                refreshBackgroundPreview()
+            }
+            .show()
+    }
+
+    private fun refreshBackgroundPreview() {
+        val path = BackgroundManager.customPath(this)
+        val file = path?.let { File(it) }
+        val exists = file?.exists() == true
+        if (exists) {
+            preview?.setImageURI(Uri.fromFile(file))
+            preview?.visibility = View.VISIBLE
+            emptyLabel?.visibility = View.GONE
+            deleteButton?.visibility = View.VISIBLE
+        } else {
+            preview?.setImageDrawable(null)
+            preview?.visibility = View.GONE
+            emptyLabel?.visibility = View.VISIBLE
+            deleteButton?.visibility = View.GONE
         }
     }
 
