@@ -1,15 +1,14 @@
 package com.surafel.audio
 
 import android.app.AlertDialog
-import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
-import android.provider.OpenableColumns
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.GridLayout
@@ -44,11 +43,11 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun addBackgroundSettings() {
-        val scroll = findViewById<ScrollView>(android.R.id.content)?.getChildAt(0) as? ScrollView ?: findViewById(R.id.settingsBack).rootView.findViewById<ScrollView>(android.R.id.content)
-        val container = findFirstVerticalContainer(scroll) ?: return
+        val scroll = findScrollView(window.decorView) ?: return
+        val container = scroll.getChildAt(0) as? LinearLayout ?: return
         val section = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(0), dp(18), dp(0), dp(0))
+            setPadding(0, dp(18), 0, 0)
         }
         section.addView(TextView(this).apply {
             text = "PLAYER BACKGROUND"
@@ -70,8 +69,7 @@ class SettingsActivity : AppCompatActivity() {
             useDefaultMargins = false
         }
         BackgroundManager.drawableIds.forEachIndexed { index, resId ->
-            val card = makeBackgroundCard(index, resId)
-            grid.addView(card, GridLayout.LayoutParams().apply {
+            grid.addView(makeBackgroundCard(index, resId), GridLayout.LayoutParams().apply {
                 width = 0
                 height = dp(118)
                 columnSpec = GridLayout.spec(index % 2, 1, 1f)
@@ -81,7 +79,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         section.addView(grid, LinearLayout.LayoutParams(-1, dp(610)))
 
-        val custom = Button(this).apply {
+        section.addView(Button(this).apply {
             text = "＋  USE PHOTO FROM MY FILES"
             setTextColor(Color.WHITE)
             textSize = 13f
@@ -92,10 +90,9 @@ class SettingsActivity : AppCompatActivity() {
                 setStroke(dp(1), Color.rgb(111, 69, 166))
             }
             setOnClickListener { imagePicker.launch(arrayOf("image/*")) }
-        }
-        section.addView(custom, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(8) })
+        }, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(8) })
 
-        val reset = TextView(this).apply {
+        section.addView(TextView(this).apply {
             text = "Reset to default background"
             gravity = Gravity.CENTER
             textSize = 12f
@@ -106,8 +103,7 @@ class SettingsActivity : AppCompatActivity() {
                 BackgroundManager.apply(this@SettingsActivity)
                 refreshCards(grid)
             }
-        }
-        section.addView(reset, LinearLayout.LayoutParams(-1, dp(40)))
+        }, LinearLayout.LayoutParams(-1, dp(40)))
         container.addView(section, 0)
     }
 
@@ -120,12 +116,11 @@ class SettingsActivity : AppCompatActivity() {
                 refreshCards(parent as? GridLayout)
             }
         }
-        val image = ImageView(this).apply {
+        frame.addView(ImageView(this).apply {
             setImageResource(resId)
             scaleType = ImageView.ScaleType.CENTER_CROP
-        }
-        frame.addView(image, FrameLayout.LayoutParams(-1, -1))
-        val label = TextView(this).apply {
+        }, FrameLayout.LayoutParams(-1, -1))
+        frame.addView(TextView(this).apply {
             text = BackgroundManager.names[index]
             textSize = 12f
             setTypeface(typeface, Typeface.BOLD)
@@ -133,8 +128,7 @@ class SettingsActivity : AppCompatActivity() {
             setShadowLayer(5f, 0f, 2f, Color.BLACK)
             gravity = Gravity.BOTTOM
             setPadding(dp(9), dp(6), dp(6), dp(8))
-        }
-        frame.addView(label, FrameLayout.LayoutParams(-1, -1))
+        }, FrameLayout.LayoutParams(-1, -1))
         updateCardBorder(frame, index)
         return frame
     }
@@ -156,18 +150,34 @@ class SettingsActivity : AppCompatActivity() {
     private fun saveCustomBackground(uri: Uri) {
         try {
             val file = File(filesDir, "custom_background.jpg")
-            contentResolver.openInputStream(uri)?.use { input -> FileOutputStream(file).use { output -> input.copyTo(output) } }
+            contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(file).use { output -> input.copyTo(output) }
+            } ?: throw IllegalStateException("No input stream")
             BackgroundManager.setCustom(this, file.absolutePath)
             BackgroundManager.apply(this)
-            AlertDialog.Builder(this).setTitle("Background updated").setMessage("Your photo is now the Audio background.").setPositiveButton("OK", null).show()
+            AlertDialog.Builder(this)
+                .setTitle("Background updated")
+                .setMessage("Your photo is now the Audio background.")
+                .setPositiveButton("OK", null)
+                .show()
         } catch (_: Exception) {
-            AlertDialog.Builder(this).setTitle("Could not use photo").setMessage("Please choose another image file.").setPositiveButton("OK", null).show()
+            AlertDialog.Builder(this)
+                .setTitle("Could not use photo")
+                .setMessage("Please choose another image file.")
+                .setPositiveButton("OK", null)
+                .show()
         }
     }
 
-    private fun findFirstVerticalContainer(scroll: ScrollView): LinearLayout? {
-        val child = scroll.getChildAt(0)
-        return child as? LinearLayout
+    private fun findScrollView(view: View): ScrollView? {
+        if (view is ScrollView) return view
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                val found = findScrollView(view.getChildAt(i))
+                if (found != null) return found
+            }
+        }
+        return null
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToInt()
