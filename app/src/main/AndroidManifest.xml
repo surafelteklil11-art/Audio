@@ -27,6 +27,7 @@
         <activity android:name=".SearchActivity" android:exported="false" />
         <activity android:name=".FullscreenVideoActivity" android:exported="false" android:screenOrientation="unspecified" android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity android:name=".VaultActivity" android:exported="false" android:excludeFromRecents="true" />
+        <activity android:name=".WeeklyReportActivity" android:exported="false" />
         <service
             android:name=".PlaybackService"
             android:exported="true"
