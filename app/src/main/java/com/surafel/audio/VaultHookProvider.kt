@@ -10,7 +10,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.ViewTreeObserver
-import android.widget.Toast
+import android.widget.TextView
 
 /** Installs the ten-tap Hidden Vault gate without changing MainActivity's existing click wiring. */
 class VaultHookProvider : ContentProvider() {
@@ -35,23 +35,26 @@ class VaultHookProvider : ContentProvider() {
         if (dot.getTag(TAG) != null) return
 
         dot.setTag(TAG, GateState())
-        dot.visibility = View.VISIBLE
+        dot.alpha = 0f
+        dot.background = null
+        dot.text = ""
+        dot.contentDescription = null
         dot.setOnClickListener { view ->
+            if (activity.findViewById<TextView>(R.id.screenTitle)?.text?.toString() != "Mine") return@setOnClickListener
             val state = view.getTag(TAG) as GateState
             state.count++
             if (state.count >= 10) {
                 state.count = 0
                 activity.startActivity(Intent(activity, VaultActivity::class.java))
-            } else if (state.count >= 7) {
-                Toast.makeText(activity, "${10 - state.count} more taps", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // MainActivity re-renders the Mine page and resets this gate's visibility.
-        // Restore the existing gate after that render without changing its click wiring.
+        // Alpha 0 is invisible but remains a real touch target.
         dot.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
-                if (dot.visibility != View.VISIBLE) dot.visibility = View.VISIBLE
+                val mine = activity.findViewById<TextView>(R.id.screenTitle)?.text?.toString() == "Mine"
+                dot.visibility = if (mine) View.VISIBLE else View.GONE
+                dot.alpha = 0f
             }
         })
     }

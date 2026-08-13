@@ -74,10 +74,18 @@ class VaultActivity : AppCompatActivity() {
         refreshCurrentPage()
     }
 
-    private val pickAudio = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { importItems(it, audioDir, CATEGORY_AUDIO) }
-    private val pickVideo = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { importItems(it, videoDir, CATEGORY_VIDEO) }
-    private val pickPhoto = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { importItems(it, photoDir, CATEGORY_PHOTO) }
-    private val pickFile = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { importItems(it, fileDir, CATEGORY_FILE) }
+    private val pickAudio = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        handlePickerResult(result.data, audioDir, CATEGORY_AUDIO)
+    }
+    private val pickVideo = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        handlePickerResult(result.data, videoDir, CATEGORY_VIDEO)
+    }
+    private val pickPhoto = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        handlePickerResult(result.data, photoDir, CATEGORY_PHOTO)
+    }
+    private val pickFile = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        handlePickerResult(result.data, fileDir, CATEGORY_FILE)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -637,12 +645,48 @@ class VaultActivity : AppCompatActivity() {
     }
 
     private fun launchPicker(category: String) {
-        when (category) {
-            CATEGORY_AUDIO -> pickAudio.launch("audio/*")
-            CATEGORY_VIDEO -> pickVideo.launch("video/*")
-            CATEGORY_PHOTO -> pickPhoto.launch("image/*")
-            CATEGORY_FILE -> pickFile.launch(arrayOf("*/*"))
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            type = when (category) {
+                CATEGORY_AUDIO -> "audio/*"
+                CATEGORY_VIDEO -> "video/*"
+                CATEGORY_PHOTO -> "image/*"
+                CATEGORY_FILE -> "application/*"
+                else -> "*/*"
+            }
+            if (category == CATEGORY_FILE) {
+                putExtra(Intent.EXTRA_MIME_TYPES, arrayOf(
+                    "application/pdf",
+                    "application/msword",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "application/vnd.ms-excel",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "application/vnd.ms-powerpoint",
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    "application/zip",
+                    "text/plain",
+                    "text/csv"
+                ))
+            }
         }
+        when (category) {
+            CATEGORY_AUDIO -> pickAudio.launch(intent)
+            CATEGORY_VIDEO -> pickVideo.launch(intent)
+            CATEGORY_PHOTO -> pickPhoto.launch(intent)
+            CATEGORY_FILE -> pickFile.launch(intent)
+        }
+    }
+
+    private fun handlePickerResult(data: Intent?, destination: File, category: String) {
+        if (data == null) return
+        val uris = buildList {
+            data.data?.let(::add)
+            data.clipData?.let { clip ->
+                for (i in 0 until clip.itemCount) add(clip.getItemAt(i).uri)
+            }
+        }.distinct()
+        importItems(uris, destination, category)
     }
 
     private fun importItems(uris: List<Uri>?, destination: File, category: String) {
