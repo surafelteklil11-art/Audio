@@ -271,6 +271,7 @@ class VaultActivity : AppCompatActivity() {
     /** Compact icon-only home so more vault categories can be added later without a tall list. */
     /** Compact, icon-first luxury vault home. */
     /** Compact, icon-first luxury vault home. */
+    /** Compact, icon-first luxury vault home. */
     private fun showVaultHome() {
         currentCategory = CATEGORY_HOME
         val root = panelRoot().apply { setPadding(dp(22), dp(24), dp(22), dp(18)) }
@@ -292,8 +293,7 @@ class VaultActivity : AppCompatActivity() {
             bottomMargin = dp(18)
         })
 
-        // No LOCK NOW button here: the device back/close flow remains available,
-        // while the category area stays clean and ready for additional vault icons.
+        // No LOCK NOW button here: keep the category area clean for future icons.
         setContentView(ScrollView(this).apply {
             setBackgroundColor(Color.rgb(9, 9, 25))
             addView(root)
@@ -325,12 +325,16 @@ class VaultActivity : AppCompatActivity() {
         rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
         setMargins(dp(4), dp(4), dp(4), dp(4))
     }
+    private fun compactRowParams() = LinearLayout.LayoutParams(0, dp(86), 1f).apply {
+        setMargins(dp(4), 0, dp(4), 0)
+    }
+
     private fun compactGridParams() = GridLayout.LayoutParams().apply {
         width = 0
-        height = dp(104)
+        height = dp(86)
         columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
         rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
-        setMargins(dp(7), dp(7), dp(7), dp(7))
+        setMargins(dp(4), dp(4), dp(4), dp(4))
     }
     private fun gridParams() = compactGridParams()
     private fun showVaultCategoryPage(category: String) {
@@ -339,9 +343,7 @@ class VaultActivity : AppCompatActivity() {
         val label = categoryLabel(category)
         val icon = categoryIcon(category)
 
-        // One continuous luxury surface from top to bottom. The old split
-        // background came from the page/scroll/content layers using different
-        // surfaces, so all three layers are explicitly synchronized.
+        // One continuous luxury surface from top to bottom.
         val vaultBackground = Color.rgb(9, 9, 25)
         val page = FrameLayout(this).apply {
             setBackgroundColor(vaultBackground)
@@ -358,8 +360,7 @@ class VaultActivity : AppCompatActivity() {
             ?.sortedBy { it.name.lowercase(Locale.getDefault()) }
             ?: emptyList()
 
-        // Empty categories are intentionally blank. Users add content with the
-        // floating + button; there is no "No items yet" card/text.
+        // Empty categories are intentionally blank; use the floating + to add.
         items.forEachIndexed { index, file ->
             content.addView(vaultItemCard(category, icon, file, index + 1))
         }
