@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 p = Path('app/src/main/java/com/surafel/audio/VaultActivity.kt')
 s = p.read_text()
@@ -6,17 +7,6 @@ s = p.read_text()
 if 'import android.widget.FrameLayout' not in s:
     s = s.replace('import android.widget.EditText\n', 'import android.widget.EditText\nimport android.widget.FrameLayout\n')
 
-# Remove the previous 2x2 helper left by the earlier refinement. The new home
-# uses a horizontal row, so only the compact row helper is needed there.
-old_grid_helper = '''    private fun compactGridParams() = GridLayout.LayoutParams().apply {
-        width = 0
-        height = dp(104)
-        columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
-        rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
-        setMargins(dp(7), dp(7), dp(7), dp(7))
-    }
-'''
-s = s.replace(old_grid_helper, '')
 
 def replace_fun(src, name, replacement):
     marker = f'    private fun {name}'
@@ -25,8 +15,17 @@ def replace_fun(src, name, replacement):
         raise SystemExit(f'missing function: {name}')
     nxt = src.find('\n    private fun ', start + len(marker))
     if nxt < 0:
-        raise SystemExit(f'no next function after: {name}')
+        nxt = src.find('\n}', start + len(marker))
+        if nxt < 0:
+            raise SystemExit(f'no function boundary after: {name}')
     return src[:start] + replacement.rstrip() + src[nxt:]
+
+
+def remove_all_helpers(src):
+    for name in ('compactRowParams', 'compactGridParams', 'gridParams'):
+        pattern = rf'\n    private fun {name}\(\).*?(?=\n    private fun |\n\}})'
+        src = re.sub(pattern, '', src, flags=re.S)
+    return src
 
 home = '''    /** Compact, icon-first luxury vault home. */
     private fun showVaultHome() {
@@ -50,7 +49,6 @@ home = '''    /** Compact, icon-first luxury vault home. */
             bottomMargin = dp(18)
         })
 
-        // No LOCK NOW button here: keep the category area clean for future icons.
         setContentView(ScrollView(this).apply {
             setBackgroundColor(Color.rgb(9, 9, 25))
             addView(root)
@@ -84,6 +82,8 @@ icon = '''    private fun iconTile(icon: String, click: () -> Unit) = TextView(t
         rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
         setMargins(dp(4), dp(4), dp(4), dp(4))
     }
+
+    private fun gridParams() = compactGridParams()
 '''
 
 category = '''    private fun showVaultCategoryPage(category: String) {
@@ -92,7 +92,6 @@ category = '''    private fun showVaultCategoryPage(category: String) {
         val label = categoryLabel(category)
         val icon = categoryIcon(category)
 
-        // One continuous luxury surface from top to bottom.
         val vaultBackground = Color.rgb(9, 9, 25)
         val page = FrameLayout(this).apply {
             setBackgroundColor(vaultBackground)
@@ -109,7 +108,6 @@ category = '''    private fun showVaultCategoryPage(category: String) {
             ?.sortedBy { it.name.lowercase(Locale.getDefault()) }
             ?: emptyList()
 
-        // Empty categories are intentionally blank; use the floating + to add.
         items.forEachIndexed { index, file ->
             content.addView(vaultItemCard(category, icon, file, index + 1))
         }
@@ -143,10 +141,15 @@ category = '''    private fun showVaultCategoryPage(category: String) {
     }
 '''
 
+# Remove all previously generated helper copies before replacing the canonical UI blocks.
+s = remove_all_helpers(s)
 s = replace_fun(s, 'showVaultHome()', home)
 s = replace_fun(s, 'iconTile(icon: String, click: () -> Unit)', icon)
-s = replace_fun(s, 'gridParams()', '    private fun gridParams() = compactGridParams()\n')
 s = replace_fun(s, 'showVaultCategoryPage(category: String)', category)
+
+# Keep the source clean and deterministic if this script is run repeatedly.
+s = re.sub(r'\n\s*// No LOCK NOW button here:.*?\n', '\n', s)
+s = re.sub(r'\n\s*/\*\* Compact icon-only home so more vault categories can be added later without a tall list\. \*/\n', '\n', s)
 
 p.write_text(s)
 print('updated', p)
