@@ -625,9 +625,9 @@ class VaultActivity : AppCompatActivity() {
 
     private fun launchPicker(category: String) {
         when (category) {
-            CATEGORY_AUDIO -> pickAudio.launch(arrayOf("audio/*"))
-            CATEGORY_VIDEO -> pickVideo.launch(arrayOf("video/*"))
-            CATEGORY_PHOTO -> pickPhoto.launch(arrayOf("image/*"))
+            CATEGORY_AUDIO -> pickAudio.launch("audio/*")
+            CATEGORY_VIDEO -> pickVideo.launch("video/*")
+            CATEGORY_PHOTO -> pickPhoto.launch("image/*")
             CATEGORY_FILE -> pickFile.launch(arrayOf("*/*"))
         }
     }
