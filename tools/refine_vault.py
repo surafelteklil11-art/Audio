@@ -22,47 +22,56 @@ home = '''    /** Compact, icon-first luxury vault home. */
         val root = panelRoot().apply { setPadding(dp(22), dp(24), dp(22), dp(18)) }
         root.addView(title("Hidden Vault"))
 
-        val grid = GridLayout(this).apply {
-            columnCount = 2
-            rowCount = 2
-            alignmentMode = GridLayout.ALIGN_BOUNDS
-            useDefaultMargins = false
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(8), 0, dp(8))
         }
-        grid.addView(iconTile("🎵") { showVaultCategoryPage(CATEGORY_AUDIO) }, compactGridParams())
-        grid.addView(iconTile("🎬") { showVaultCategoryPage(CATEGORY_VIDEO) }, compactGridParams())
-        grid.addView(iconTile("🖼") { showVaultCategoryPage(CATEGORY_PHOTO) }, compactGridParams())
-        grid.addView(iconTile("📁") { showVaultCategoryPage(CATEGORY_FILE) }, compactGridParams())
+        row.addView(iconTile("🎵") { showVaultCategoryPage(CATEGORY_AUDIO) }, compactRowParams())
+        row.addView(iconTile("🎬") { showVaultCategoryPage(CATEGORY_VIDEO) }, compactRowParams())
+        row.addView(iconTile("🖼") { showVaultCategoryPage(CATEGORY_PHOTO) }, compactRowParams())
+        row.addView(iconTile("📁") { showVaultCategoryPage(CATEGORY_FILE) }, compactRowParams())
 
-        root.addView(grid, LinearLayout.LayoutParams(-1, dp(236)).apply {
+        root.addView(row, LinearLayout.LayoutParams(-1, dp(108)).apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            topMargin = dp(24)
-            bottomMargin = dp(24)
+            topMargin = dp(18)
+            bottomMargin = dp(18)
         })
-        root.addView(luxButton("LOCK NOW") { finish() })
-        setContentView(ScrollView(this).apply { addView(root) })
+
+        // No LOCK NOW button here: the device back/close flow remains available,
+        // while the category area stays clean and ready for additional vault icons.
+        setContentView(ScrollView(this).apply {
+            setBackgroundColor(Color.rgb(9, 9, 25))
+            addView(root)
+        })
     }
 '''
 
 icon = '''    private fun iconTile(icon: String, click: () -> Unit) = TextView(this).apply {
         text = icon
-        textSize = 38f
+        textSize = 31f
         gravity = Gravity.CENTER
+        setTextColor(Color.WHITE)
         setOnClickListener { click() }
         background = GradientDrawable().apply {
             setColor(Color.rgb(18, 27, 51))
-            cornerRadius = dp(20).toFloat()
+            cornerRadius = dp(18).toFloat()
             setStroke(dp(1), Color.rgb(81, 111, 172))
         }
         elevation = dp(4).toFloat()
         contentDescription = "Private vault category"
     }
 
+    private fun compactRowParams() = LinearLayout.LayoutParams(0, dp(86), 1f).apply {
+        setMargins(dp(4), 0, dp(4), 0)
+    }
+
     private fun compactGridParams() = GridLayout.LayoutParams().apply {
         width = 0
-        height = dp(104)
+        height = dp(86)
         columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
         rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
-        setMargins(dp(7), dp(7), dp(7), dp(7))
+        setMargins(dp(4), dp(4), dp(4), dp(4))
     }
 '''
 
@@ -72,11 +81,16 @@ category = '''    private fun showVaultCategoryPage(category: String) {
         val label = categoryLabel(category)
         val icon = categoryIcon(category)
 
+        // One continuous luxury surface from top to bottom. The old split
+        // background came from the page/scroll/content layers using different
+        // surfaces, so all three layers are explicitly synchronized.
+        val vaultBackground = Color.rgb(9, 9, 25)
         val page = FrameLayout(this).apply {
-            setBackgroundColor(Color.rgb(7, 8, 22))
+            setBackgroundColor(vaultBackground)
         }
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setBackgroundColor(vaultBackground)
             setPadding(dp(22), dp(24), dp(22), dp(96))
         }
         content.addView(topBar(label) { showVaultHome() })
@@ -86,15 +100,14 @@ category = '''    private fun showVaultCategoryPage(category: String) {
             ?.sortedBy { it.name.lowercase(Locale.getDefault()) }
             ?: emptyList()
 
-        if (items.isEmpty()) {
-            content.addView(emptyState(icon, "No $label items yet", ""))
-        } else {
-            items.forEachIndexed { index, file ->
-                content.addView(vaultItemCard(category, icon, file, index + 1))
-            }
+        // Empty categories are intentionally blank. Users add content with the
+        // floating + button; there is no "No items yet" card/text.
+        items.forEachIndexed { index, file ->
+            content.addView(vaultItemCard(category, icon, file, index + 1))
         }
 
         val scroll = ScrollView(this).apply {
+            setBackgroundColor(vaultBackground)
             addView(content)
             isFillViewport = true
         }
