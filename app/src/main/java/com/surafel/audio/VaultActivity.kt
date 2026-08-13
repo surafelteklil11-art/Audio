@@ -448,7 +448,7 @@ class VaultActivity : AppCompatActivity() {
             .setNegativeButton("CANCEL", null)
             .setPositiveButton("CREATE") { _, _ ->
                 val name = input.text.toString().trim()
-                if (name.isEmpty() || name.contains("/") || name.contains("\")) {
+                if (name.isEmpty() || name.contains("/") || name.contains("\\")) {
                     Toast.makeText(this, "Invalid folder name", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
@@ -551,6 +551,37 @@ class VaultActivity : AppCompatActivity() {
             .setMessage("${formatBytes(file.length())}\nPrivate file")
             .setPositiveButton("CLOSE", null)
             .show()
+    }
+
+    private fun previewPhoto(file: File) {
+        val image = ImageView(this).apply {
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setImageURI(Uri.fromFile(file))
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+        }
+        AlertDialog.Builder(this).setTitle("Private Photo").setView(image)
+            .setPositiveButton("CLOSE", null).show()
+    }
+
+    private fun startRestore(file: File) {
+        pendingRestoreFile = file
+        restoreRequest.launch(file.name)
+    }
+
+    private fun deletePrivateFile(file: File) {
+        AlertDialog.Builder(this)
+            .setTitle("Delete from Vault?")
+            .setMessage("This permanently deletes the private vault item.")
+            .setNegativeButton("CANCEL", null)
+            .setPositiveButton("DELETE") { _, _ ->
+                if (file.deleteRecursively()) {
+                    Toast.makeText(this, "Deleted from Hidden Vault", Toast.LENGTH_SHORT).show()
+                    refreshCurrentPage()
+                } else {
+                    Toast.makeText(this, "Could not delete this item", Toast.LENGTH_LONG).show()
+                }
+            }.show()
     }
 
     private fun refreshCurrentPage() {
