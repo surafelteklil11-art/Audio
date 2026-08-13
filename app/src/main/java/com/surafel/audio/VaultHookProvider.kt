@@ -9,9 +9,10 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.view.ViewTreeObserver
 import android.widget.Toast
 
-/** Installs the ten-tap gate without changing MainActivity's existing click wiring. */
+/** Installs the ten-tap Hidden Vault gate without changing MainActivity's existing click wiring. */
 class VaultHookProvider : ContentProvider() {
     override fun onCreate(): Boolean {
         val app = context?.applicationContext as? Application ?: return false
@@ -32,6 +33,7 @@ class VaultHookProvider : ContentProvider() {
     private fun installGate(activity: MainActivity) {
         val dot = activity.findViewById<View>(R.id.weeklyReportDot) ?: return
         if (dot.getTag(TAG) != null) return
+
         dot.setTag(TAG, GateState())
         dot.visibility = View.VISIBLE
         dot.setOnClickListener { view ->
@@ -44,6 +46,14 @@ class VaultHookProvider : ContentProvider() {
                 Toast.makeText(activity, "${10 - state.count} more taps", Toast.LENGTH_SHORT).show()
             }
         }
+
+        // MainActivity re-renders the Mine page and resets this gate's visibility.
+        // Restore the existing gate after that render without changing its click wiring.
+        dot.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                if (dot.visibility != View.VISIBLE) dot.visibility = View.VISIBLE
+            }
+        })
     }
 
     private class GateState(var count: Int = 0)
