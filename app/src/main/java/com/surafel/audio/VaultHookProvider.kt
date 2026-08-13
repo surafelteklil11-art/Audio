@@ -33,6 +33,7 @@ class VaultHookProvider : ContentProvider() {
         val dot = activity.findViewById<View>(R.id.weeklyReportDot) ?: return
         if (dot.getTag(TAG) != null) return
         dot.setTag(TAG, GateState())
+        dot.visibility = View.VISIBLE
         dot.setOnClickListener { view ->
             val state = view.getTag(TAG) as GateState
             state.count++
