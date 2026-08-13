@@ -91,6 +91,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.sortVideos).setOnClickListener { showVideoSortDialog() }
         findViewById<TextView>(R.id.registerProfile).setOnClickListener { showProfileEditor() }
         findViewById<TextView>(R.id.profileEdit).setOnClickListener { showProfileEditor() }
+        findViewById<View>(R.id.weeklyReport).setOnClickListener { showWeeklyReport() }
         findViewById<TextView>(R.id.simpleAction).setOnClickListener { selectSection(Section.MUSIC) }
         findViewById<TextView>(R.id.menuButton).setOnClickListener { showMenu() }
         findViewById<TextView>(R.id.searchButton).setOnClickListener { showSearch() }
@@ -160,6 +161,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderMine() {
+        ensureWeeklyWindow()
         findViewById<TextView>(R.id.simpleIcon).visibility = View.GONE
         findViewById<TextView>(R.id.simpleTitle).visibility = View.GONE
         findViewById<TextView>(R.id.simpleBody).visibility = View.GONE
@@ -175,6 +177,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.statSongs).text = "♫\nStorage\n${allSongs.size} Songs"
         findViewById<TextView>(R.id.statToday).text = "◷\nToday Played\n${prefs.getInt("today", 0)} Times"
         findViewById<TextView>(R.id.statTime).text = "◴\nListening Time\n${prefs.getInt("minutes", 0)} Mins"
+        findViewById<View>(R.id.weeklyReport).layoutParams = findViewById<View>(R.id.weeklyReport).layoutParams.apply { height = (84 * resources.displayMetrics.density).roundToInt() }
+        findViewById<View>(R.id.weeklyReportDot).visibility = View.GONE
     }
 
     private fun updateBottomNav() {
@@ -200,12 +204,19 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.tabIndicator).translationX = floatArrayOf(0f, 82f, 180f, 286f, 395f)[selected]
     }
 
+    private fun ensureWeeklyWindow() {
+        val now = System.currentTimeMillis()
+        val start = prefs.getLong("week_start", 0L)
+        if (start == 0L || now - start >= 7L * 24L * 60L * 60L * 1000L) prefs.edit().putLong("week_start", now).putInt("week_plays", 0).apply()
+    }
+
     private fun playFrom(position: Int) {
         if (!::player.isInitialized || position !in items.indices) return
         player.setMediaItems(items.toList(), position, 0L)
         player.prepare()
         player.play()
-        prefs.edit().putInt("played", prefs.getInt("played", 0) + 1).putInt("today", prefs.getInt("today", 0) + 1).apply()
+        ensureWeeklyWindow()
+        prefs.edit().putInt("played", prefs.getInt("played", 0) + 1).putInt("today", prefs.getInt("today", 0) + 1).putInt("week_plays", prefs.getInt("week_plays", 0) + 1).apply()
         updateNowPlaying()
     }
 
@@ -214,7 +225,8 @@ class MainActivity : AppCompatActivity() {
         player.setMediaItems(items.shuffled(), 0, 0L)
         player.prepare()
         player.play()
-        prefs.edit().putInt("played", prefs.getInt("played", 0) + 1).putInt("today", prefs.getInt("today", 0) + 1).apply()
+        ensureWeeklyWindow()
+        prefs.edit().putInt("played", prefs.getInt("played", 0) + 1).putInt("today", prefs.getInt("today", 0) + 1).putInt("week_plays", prefs.getInt("week_plays", 0) + 1).apply()
         updateNowPlaying()
     }
 
@@ -335,6 +347,17 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.title).text = item?.mediaMetadata?.title ?: "Nothing playing"
         findViewById<TextView>(R.id.artist).text = item?.mediaMetadata?.artist ?: "Choose a song"
         findViewById<ImageButton>(R.id.play).setImageResource(if (player.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
+    }
+
+    private fun showWeeklyReport() {
+        ensureWeeklyWindow()
+        val weekPlays = prefs.getInt("week_plays", 0)
+        val today = prefs.getInt("today", 0)
+        val total = prefs.getInt("played", 0)
+        val songs = allSongs.size
+        val minutes = prefs.getInt("minutes", 0)
+        val message = "LAST 7 DAYS\n\n♫  Plays this week     $weekPlays\n◷  Played today        $today times\n♪  Total plays         $total\n▣  Songs in library    $songs\n◴  Listening time      $minutes mins"
+        AlertDialog.Builder(this).setTitle("Weekly Music Report").setMessage(message).setPositiveButton("DONE", null).show()
     }
 
     private fun showProfileEditor() {

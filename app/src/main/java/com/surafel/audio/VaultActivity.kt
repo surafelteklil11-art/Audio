@@ -2,7 +2,10 @@ package com.surafel.audio
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -12,6 +15,8 @@ import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.text.InputType
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -209,30 +214,26 @@ class VaultActivity : AppCompatActivity() {
     }
 
     private fun showPatternDialog(title: String, onDone: (String) -> Unit) {
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(18), dp(6), dp(18), dp(6)) }
-        val state = TextView(this).apply { text = "Tap 4–9 points in order"; setTextColor(Color.LTGRAY); gravity = Gravity.CENTER }
-        root.addView(state, LinearLayout.LayoutParams(-1, dp(42)))
-        val grid = GridLayout(this).apply { columnCount = 3; rowCount = 3 }
-        val sequence = StringBuilder()
-        for (i in 1..9) {
-            val b = TextView(this).apply {
-                text = i.toString()
-                textSize = 18f
-                gravity = Gravity.CENTER
-                setTextColor(Color.WHITE)
-                background = rounded(Color.rgb(29, 41, 70), Color.rgb(98, 127, 184), 14, 1)
-                setOnClickListener {
-                    if (!sequence.contains(i.toString())) {
-                        sequence.append(i)
-                        state.text = "Pattern: ${"• ".repeat(sequence.length)}"
-                    }
-                }
-            }
-            grid.addView(b, GridLayout.LayoutParams().apply { width = dp(76); height = dp(58); setMargins(dp(3), dp(3), dp(3), dp(3)) })
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(4), dp(12), dp(4))
         }
-        root.addView(grid)
-        root.addView(luxButton("CLEAR") { sequence.clear(); state.text = "Tap 4–9 points in order" })
-        root.addView(luxButton("CONTINUE") { onDone(sequence.toString()) })
+        val state = TextView(this).apply {
+            text = "Draw a pattern using 4–9 dots"
+            setTextColor(Color.LTGRAY)
+            gravity = Gravity.CENTER
+        }
+        root.addView(state, LinearLayout.LayoutParams(-1, dp(42)))
+        val pad = PatternPad(this) { sequence ->
+            state.text = if (sequence.isEmpty()) "Draw a pattern using 4–9 dots" else "Pattern: ${"• ".repeat(sequence.length)}"
+        }
+        root.addView(pad, LinearLayout.LayoutParams(dp(300), dp(300)))
+        root.addView(luxButton("CLEAR") { pad.clearPattern() })
+        root.addView(luxButton("CONTINUE") {
+            val pattern = pad.pattern
+            if (pattern.length < 4) Toast.makeText(this, "Use at least 4 dots", Toast.LENGTH_SHORT).show() else onDone(pattern)
+        })
         AlertDialog.Builder(this).setTitle(title).setView(root).setNegativeButton("Cancel") { _, _ -> finish() }.show()
     }
 
@@ -289,16 +290,17 @@ class VaultActivity : AppCompatActivity() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(0, dp(8), 0, dp(8))
+            clipChildren = false
+            clipToPadding = false
         }
         row.addView(iconTile("🎵") { showVaultCategoryPage(CATEGORY_AUDIO) }, compactRowParams())
         row.addView(iconTile("🎬") { showVaultCategoryPage(CATEGORY_VIDEO) }, compactRowParams())
         row.addView(iconTile("🖼") { showVaultCategoryPage(CATEGORY_PHOTO) }, compactRowParams())
         row.addView(iconTile("📁") { showVaultCategoryPage(CATEGORY_FILE) }, compactRowParams())
-        root.addView(row, LinearLayout.LayoutParams(-1, dp(92)).apply {
+        root.addView(row, LinearLayout.LayoutParams(-1, dp(82)).apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            topMargin = dp(16)
-            bottomMargin = dp(16)
+            topMargin = dp(14)
+            bottomMargin = dp(14)
         })
         setContentView(ScrollView(this).apply {
             setBackgroundColor(Color.rgb(9, 9, 25))
@@ -319,8 +321,8 @@ class VaultActivity : AppCompatActivity() {
         elevation = dp(4).toFloat()
         contentDescription = "Private vault category"
     }
-    private fun compactRowParams() = LinearLayout.LayoutParams(0, dp(86), 1f).apply {
-        setMargins(dp(4), 0, dp(4), 0)
+    private fun compactRowParams() = LinearLayout.LayoutParams(0, dp(74), 1f).apply {
+        setMargins(dp(3), 0, dp(3), 0)
     }
 
     private fun showVaultCategoryPage(category: String, dir: File = categoryDir(category)) {
@@ -599,6 +601,7 @@ class VaultActivity : AppCompatActivity() {
             textSize = 38f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
+            contentDescription = "Back"
             setOnClickListener { back() }
             layoutParams = LinearLayout.LayoutParams(dp(48), dp(56))
         })
@@ -609,6 +612,16 @@ class VaultActivity : AppCompatActivity() {
             setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, dp(56), 1f)
+        })
+        addView(TextView(this@VaultActivity).apply {
+            text = "📁+"
+            textSize = 22f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            contentDescription = "Create folder"
+            setPadding(dp(4), 0, dp(4), 0)
+            setOnClickListener { createFolder(currentDir ?: categoryDir(currentCategory), currentCategory) }
+            layoutParams = LinearLayout.LayoutParams(dp(62), dp(56))
         })
     }
 
@@ -784,6 +797,53 @@ class VaultActivity : AppCompatActivity() {
     private fun hash(value: String) = MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray(Charsets.UTF_8))
         .joinToString("") { "%02x".format(it) }
+
+    private class PatternPad(context: android.content.Context, private val onPatternChanged: (String) -> Unit) : View(context) {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val line = Path()
+        private val selected = mutableListOf<Int>()
+        private val centers = Array(9) { android.graphics.PointF() }
+        val pattern: String get() = selected.joinToString("") { (it + 1).toString() }
+        override fun onDraw(canvas: Canvas) {
+            val side = minOf(width, height) * 0.78f
+            val left = (width - side) / 2f
+            val top = (height - side) / 2f
+            val step = side / 2f
+            for (i in 0..8) centers[i].set(left + (i % 3) * step, top + (i / 3) * step)
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = dp(3).toFloat()
+            paint.color = Color.rgb(105, 145, 225)
+            line.reset()
+            selected.forEachIndexed { index, value ->
+                val p = centers[value]
+                if (index == 0) line.moveTo(p.x, p.y) else line.lineTo(p.x, p.y)
+            }
+            canvas.drawPath(line, paint)
+            for (i in 0..8) {
+                val p = centers[i]
+                paint.style = if (selected.contains(i)) Paint.Style.FILL else Paint.Style.STROKE
+                paint.color = if (selected.contains(i)) Color.rgb(145, 103, 235) else Color.rgb(105, 145, 225)
+                paint.strokeWidth = dp(2).toFloat()
+                canvas.drawCircle(p.x, p.y, dp(if (selected.contains(i)) 12 else 9).toFloat(), paint)
+            }
+        }
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+            if (event.actionMasked == MotionEvent.ACTION_DOWN || event.actionMasked == MotionEvent.ACTION_MOVE) {
+                val radius = dp(30).toFloat()
+                var hit = -1
+                var best = Float.MAX_VALUE
+                centers.forEachIndexed { i, p ->
+                    val dx = event.x - p.x; val dy = event.y - p.y; val d = dx * dx + dy * dy
+                    if (d <= radius * radius && d < best) { hit = i; best = d }
+                }
+                if (hit >= 0 && !selected.contains(hit)) { selected.add(hit); invalidate(); onPatternChanged(pattern) }
+                return true
+            }
+            return event.actionMasked == MotionEvent.ACTION_UP
+        }
+        fun clearPattern() { selected.clear(); invalidate(); onPatternChanged("") }
+        private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToInt()
+    }
 
     companion object {
         const val PREFS = "audio_vault"
