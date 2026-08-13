@@ -4,35 +4,61 @@ import re
 p = Path('app/src/main/java/com/surafel/audio/VaultActivity.kt')
 s = p.read_text()
 
+# Required imports for the upgraded vault UI.
 if 'import android.widget.FrameLayout' not in s:
     s = s.replace('import android.widget.EditText\n', 'import android.widget.EditText\nimport android.widget.FrameLayout\n')
 
+# Keep a single current folder while preserving the existing vault storage/credential keys.
+if 'private var currentDir: File? = null' not in s:
+    s = s.replace('private var currentCategory = CATEGORY_HOME\n', 'private var currentCategory = CATEGORY_HOME\n    private var currentDir: File? = null\n')
 
-def replace_fun(src, name, replacement):
-    marker = f'    private fun {name}'
+# Type-specific pickers: media categories no longer use the generic Documents/Downloads picker.
+s = s.replace('private val pickAudio = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { importItems(it, audioDir, CATEGORY_AUDIO) }',
+              'private val pickAudio = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { importItems(it, audioDir, CATEGORY_AUDIO) }')
+s = s.replace('private val pickVideo = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { importItems(it, videoDir, CATEGORY_VIDEO) }',
+              'private val pickVideo = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { importItems(it, videoDir, CATEGORY_VIDEO) }')
+s = s.replace('private val pickPhoto = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { importItems(it, photoDir, CATEGORY_PHOTO) }',
+              'private val pickPhoto = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { importItems(it, photoDir, CATEGORY_PHOTO) }')
+
+# Folder-aware back navigation.
+old_back = '''    @Deprecated("Deprecated by Android, retained for project compatibility")
+    override fun onBackPressed() {
+        if (currentCategory != CATEGORY_HOME) showVaultHome() else super.onBackPressed()
+    }'''
+new_back = '''    @Deprecated("Deprecated by Android, retained for project compatibility")
+    override fun onBackPressed() {
+        if (currentCategory != CATEGORY_HOME) {
+            val root = categoryDir(currentCategory)
+            val dir = currentDir
+            if (dir != null && dir.absolutePath != root.absolutePath) {
+                currentDir = dir.parentFile ?: root
+                showVaultCategoryPage(currentCategory, currentDir!!)
+            } else {
+                showVaultHome()
+            }
+        } else super.onBackPressed()
+    }'''
+if old_back in s:
+    s = s.replace(old_back, new_back)
+
+
+def replace_fun(src, signature, replacement):
+    marker = f'    private fun {signature}'
     start = src.find(marker)
     if start < 0:
-        raise SystemExit(f'missing function: {name}')
+        raise SystemExit(f'missing function: {signature}')
     nxt = src.find('\n    private fun ', start + len(marker))
     if nxt < 0:
         nxt = src.find('\n}', start + len(marker))
-        if nxt < 0:
-            raise SystemExit(f'no function boundary after: {name}')
+    if nxt < 0:
+        raise SystemExit(f'no function boundary after: {signature}')
     return src[:start] + replacement.rstrip() + src[nxt:]
 
-
-def remove_all_helpers(src):
-    for name in ('compactRowParams', 'compactGridParams', 'gridParams'):
-        pattern = rf'\n    private fun {name}\(\).*?(?=\n    private fun |\n\}})'
-        src = re.sub(pattern, '', src, flags=re.S)
-    return src
-
-home = '''    /** Compact, icon-first luxury vault home. */
-    private fun showVaultHome() {
+home = '''    private fun showVaultHome() {
         currentCategory = CATEGORY_HOME
+        currentDir = null
         val root = panelRoot().apply { setPadding(dp(22), dp(24), dp(22), dp(18)) }
         root.addView(title("Hidden Vault"))
-
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -42,13 +68,11 @@ home = '''    /** Compact, icon-first luxury vault home. */
         row.addView(iconTile("🎬") { showVaultCategoryPage(CATEGORY_VIDEO) }, compactRowParams())
         row.addView(iconTile("🖼") { showVaultCategoryPage(CATEGORY_PHOTO) }, compactRowParams())
         row.addView(iconTile("📁") { showVaultCategoryPage(CATEGORY_FILE) }, compactRowParams())
-
-        root.addView(row, LinearLayout.LayoutParams(-1, dp(108)).apply {
+        root.addView(row, LinearLayout.LayoutParams(-1, dp(92)).apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            topMargin = dp(18)
-            bottomMargin = dp(18)
+            topMargin = dp(16)
+            bottomMargin = dp(16)
         })
-
         setContentView(ScrollView(this).apply {
             setBackgroundColor(Color.rgb(9, 9, 25))
             addView(root)
@@ -70,86 +94,280 @@ icon = '''    private fun iconTile(icon: String, click: () -> Unit) = TextView(t
         elevation = dp(4).toFloat()
         contentDescription = "Private vault category"
     }
-
-    private fun compactRowParams() = LinearLayout.LayoutParams(0, dp(86), 1f).apply {
-        setMargins(dp(4), 0, dp(4), 0)
-    }
-
-    private fun compactGridParams() = GridLayout.LayoutParams().apply {
-        width = 0
-        height = dp(86)
-        columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
-        rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
-        setMargins(dp(4), dp(4), dp(4), dp(4))
-    }
-
-    private fun gridParams() = compactGridParams()
 '''
 
-category = '''    private fun showVaultCategoryPage(category: String) {
-        currentCategory = category
-        val dir = categoryDir(category)
-        val label = categoryLabel(category)
-        val icon = categoryIcon(category)
+# Remove stale duplicate grid helpers generated by older refinement runs.
+for name in ('compactGridParams', 'gridParams'):
+    s = re.sub(rf'\n    private fun {name}\(\).*?(?=\n    private fun |\n\}})', '', s, flags=re.S)
 
+s = replace_fun(s, 'showVaultHome()', home)
+s = replace_fun(s, 'iconTile(icon: String, click: () -> Unit)', icon)
+
+category = '''    private fun showVaultCategoryPage(category: String, dir: File = categoryDir(category)) {
+        currentCategory = category
+        currentDir = dir
+        val root = categoryDir(category)
+        val label = categoryLabel(category)
         val vaultBackground = Color.rgb(9, 9, 25)
-        val page = FrameLayout(this).apply {
-            setBackgroundColor(vaultBackground)
-        }
+        val page = FrameLayout(this).apply { setBackgroundColor(vaultBackground) }
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(vaultBackground)
             setPadding(dp(22), dp(24), dp(22), dp(96))
         }
-        content.addView(topBar(label) { showVaultHome() })
-
-        val items = dir.listFiles()
-            ?.filter { it.isFile }
-            ?.sortedBy { it.name.lowercase(Locale.getDefault()) }
+        content.addView(topBar(label) {
+            if (dir.absolutePath == root.absolutePath) showVaultHome()
+            else showVaultCategoryPage(category, dir.parentFile ?: root)
+        })
+        val entries = dir.listFiles()
+            ?.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name.lowercase(Locale.getDefault()) })
             ?: emptyList()
-
-        items.forEachIndexed { index, file ->
-            content.addView(vaultItemCard(category, icon, file, index + 1))
-        }
-
+        entries.forEach { entry -> content.addView(vaultEntryCard(category, entry)) }
         val scroll = ScrollView(this).apply {
             setBackgroundColor(vaultBackground)
             addView(content)
             isFillViewport = true
         }
         page.addView(scroll, FrameLayout.LayoutParams(-1, -1))
-
         val add = TextView(this).apply {
             text = "+"
             textSize = 30f
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
+            contentDescription = "Add $label"
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.rgb(45, 72, 128))
                 setStroke(dp(2), Color.rgb(105, 145, 225))
             }
             elevation = dp(12).toFloat()
-            contentDescription = "Add $label"
             setOnClickListener { launchPicker(category) }
         }
         page.addView(add, FrameLayout.LayoutParams(dp(62), dp(62), Gravity.BOTTOM or Gravity.END).apply {
             setMargins(0, 0, dp(22), dp(22))
         })
-
         setContentView(page)
     }
 '''
+start = s.find('    private fun showVaultCategoryPage(')
+if start < 0:
+    raise SystemExit('missing showVaultCategoryPage')
+nxt = s.find('\n    private fun ', start + 20)
+if nxt < 0:
+    raise SystemExit('missing boundary after showVaultCategoryPage')
+s = s[:start] + category.rstrip() + s[nxt:]
 
-# Remove all previously generated helper copies before replacing the canonical UI blocks.
-s = remove_all_helpers(s)
-s = replace_fun(s, 'showVaultHome()', home)
-s = replace_fun(s, 'iconTile(icon: String, click: () -> Unit)', icon)
-s = replace_fun(s, 'showVaultCategoryPage(category: String)', category)
+# Folder-aware entries, three-dot management menu, create/move folders, and in-vault previews.
+start = s.find('    private fun vaultItemCard(')
+if start < 0:
+    raise SystemExit('missing vaultItemCard')
+end = s.find('    private fun refreshCurrentPage()', start)
+if end < 0:
+    raise SystemExit('missing refreshCurrentPage')
+block = '''    private fun vaultEntryCard(category: String, entry: File) = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(12), dp(9), dp(8), dp(9))
+        background = rounded(Color.rgb(16, 24, 48), Color.rgb(67, 87, 137), 18, 1)
+        layoutParams = LinearLayout.LayoutParams(-1, dp(78)).apply { setMargins(0, dp(5), 0, dp(5)) }
+        setOnClickListener {
+            if (entry.isDirectory) showVaultCategoryPage(category, entry) else viewEntry(category, entry)
+        }
+        if (entry.isDirectory) {
+            addView(TextView(this@VaultActivity).apply { text = "📂"; textSize = 27f; gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(60), -1))
+            addView(TextView(this@VaultActivity).apply {
+                text = entry.name
+                textSize = 16f
+                setTextColor(Color.WHITE)
+                setTypeface(typeface, Typeface.BOLD)
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, -1, 1f)
+            })
+        } else {
+            if (category == CATEGORY_PHOTO) {
+                addView(ImageView(this@VaultActivity).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    setImageURI(Uri.fromFile(entry))
+                }, LinearLayout.LayoutParams(dp(62), dp(62)).apply { rightMargin = dp(10) })
+            } else {
+                addView(TextView(this@VaultActivity).apply { text = categoryIcon(category); textSize = 25f; gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(58), -1))
+            }
+            addView(LinearLayout(this@VaultActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, -1, 1f)
+                addView(TextView(this@VaultActivity).apply {
+                    text = entry.name
+                    textSize = 15f
+                    setTextColor(Color.WHITE)
+                    setTypeface(typeface, Typeface.BOLD)
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                })
+                addView(TextView(this@VaultActivity).apply {
+                    text = formatBytes(entry.length())
+                    textSize = 12f
+                    setTextColor(Color.rgb(157, 174, 208))
+                })
+            })
+        }
+        addView(TextView(this@VaultActivity).apply {
+            text = "⋮"
+            textSize = 26f
+            setTextColor(Color.rgb(196, 166, 255))
+            gravity = Gravity.CENTER
+            contentDescription = "More options"
+            setOnClickListener { showEntryMenu(category, entry) }
+        }, LinearLayout.LayoutParams(dp(42), -1))
+    }
 
-# Keep the source clean and deterministic if this script is run repeatedly.
-s = re.sub(r'\n\s*// No LOCK NOW button here:.*?\n', '\n', s)
-s = re.sub(r'\n\s*/\*\* Compact icon-only home so more vault categories can be added later without a tall list\. \*/\n', '\n', s)
+    private fun showEntryMenu(category: String, entry: File) {
+        val actions = if (entry.isDirectory) {
+            arrayOf("CREATE FOLDER", "MOVE TO OTHER FOLDER", "DELETE")
+        } else {
+            arrayOf("CREATE FOLDER", "MOVE OUT HIDDEN", "MOVE TO OTHER FOLDER", "DELETE")
+        }
+        AlertDialog.Builder(this).setTitle(entry.name).setItems(actions) { _, which ->
+            when {
+                which == 0 -> createFolder(currentDir ?: categoryDir(category), category)
+                !entry.isDirectory && which == 1 -> startRestore(entry)
+                entry.isDirectory && which == 1 -> moveEntry(category, entry)
+                !entry.isDirectory && which == 2 -> moveEntry(category, entry)
+                else -> deletePrivateFile(entry)
+            }
+        }.show()
+    }
+
+    private fun createFolder(parent: File, category: String) {
+        val input = EditText(this).apply { hint = "Folder name"; inputType = InputType.TYPE_CLASS_TEXT }
+        AlertDialog.Builder(this).setTitle("Create Folder").setView(input)
+            .setNegativeButton("CANCEL", null)
+            .setPositiveButton("CREATE") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isEmpty() || name.contains("/") || name.contains("\\")) {
+                    Toast.makeText(this, "Invalid folder name", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                val folder = File(parent, name)
+                if (folder.exists() || !folder.mkdirs()) {
+                    Toast.makeText(this, "Could not create folder", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "Folder created", Toast.LENGTH_SHORT).show()
+                    showVaultCategoryPage(category, parent)
+                }
+            }.show()
+    }
+
+    private fun moveEntry(category: String, entry: File) {
+        val root = categoryDir(category)
+        val dirs = allFolders(root).filter {
+            it.absolutePath != entry.absolutePath &&
+                !it.absolutePath.startsWith(entry.absolutePath + File.separator) &&
+                it.absolutePath != entry.parentFile?.absolutePath
+        }
+        if (dirs.isEmpty()) {
+            Toast.makeText(this, "Create another folder first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val labels = dirs.map { root.toPath().relativize(it.toPath()).toString().replace(File.separator, "/") }.toTypedArray()
+        AlertDialog.Builder(this).setTitle("Move to other folder").setItems(labels) { _, which ->
+            val dest = File(dirs[which], entry.name)
+            if (dest.exists()) Toast.makeText(this, "An item with this name already exists", Toast.LENGTH_LONG).show()
+            else if (entry.renameTo(dest)) {
+                Toast.makeText(this, "Moved successfully", Toast.LENGTH_SHORT).show()
+                refreshCurrentPage()
+            } else Toast.makeText(this, "Move failed", Toast.LENGTH_LONG).show()
+        }.setNegativeButton("CANCEL", null).show()
+    }
+
+    private fun allFolders(root: File): List<File> = buildList {
+        root.listFiles()?.forEach { child ->
+            if (child.isDirectory) {
+                add(child)
+                addAll(allFolders(child))
+            }
+        }
+    }
+
+    private fun viewEntry(category: String, file: File) {
+        when (category) {
+            CATEGORY_PHOTO -> previewPhoto(file)
+            CATEGORY_AUDIO -> previewAudio(file)
+            CATEGORY_VIDEO -> previewVideo(file)
+            else -> showFileInfo(file)
+        }
+    }
+
+    private fun previewAudio(file: File) {
+        val player = android.media.MediaPlayer()
+        val play = TextView(this).apply {
+            text = "▶  PLAY"
+            textSize = 16f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = rounded(Color.rgb(42, 65, 111), Color.rgb(94, 135, 208), 16, 1)
+            setPadding(0, dp(16), 0, dp(16))
+        }
+        try {
+            player.setDataSource(file.absolutePath)
+            player.prepare()
+        } catch (_: Exception) { }
+        play.setOnClickListener {
+            try {
+                if (player.isPlaying) {
+                    player.pause()
+                    play.text = "▶  PLAY"
+                } else {
+                    player.start()
+                    play.text = "Ⅱ  PAUSE"
+                }
+            } catch (_: Exception) {
+                Toast.makeText(this, "Cannot play this audio", Toast.LENGTH_SHORT).show()
+            }
+        }
+        AlertDialog.Builder(this).setTitle(file.name).setView(play)
+            .setPositiveButton("CLOSE") { _, _ -> try { player.release() } catch (_: Exception) { } }
+            .setOnDismissListener { try { player.release() } catch (_: Exception) { } }
+            .show()
+    }
+
+    private fun previewVideo(file: File) {
+        val video = android.widget.VideoView(this).apply {
+            setVideoURI(Uri.fromFile(file))
+            setOnPreparedListener { it.start() }
+        }
+        AlertDialog.Builder(this).setTitle(file.name).setView(video)
+            .setPositiveButton("CLOSE") { _, _ -> video.stopPlayback() }
+            .setOnDismissListener { video.stopPlayback() }
+            .show()
+    }
+
+    private fun showFileInfo(file: File) {
+        AlertDialog.Builder(this).setTitle(file.name)
+            .setMessage("${formatBytes(file.length())}\\nPrivate file")
+            .setPositiveButton("CLOSE", null)
+            .show()
+    }
+
+'''
+s = s[:start] + block + s[end:]
+
+# Refresh the currently opened folder rather than jumping back to the category root.
+s = re.sub(r'''    private fun refreshCurrentPage\(\) \{.*?\n    \}\n\n    private fun topBar''', '''    private fun refreshCurrentPage() {
+        when (currentCategory) {
+            CATEGORY_AUDIO, CATEGORY_VIDEO, CATEGORY_PHOTO, CATEGORY_FILE -> showVaultCategoryPage(currentCategory, currentDir ?: categoryDir(currentCategory))
+            else -> showVaultHome()
+        }
+    }
+
+    private fun topBar''', s, flags=re.S)
+
+# One concise confirmation line, only HIDE and CANCEL.
+s = s.replace('''            .setMessage("$copied item(s) are safely copied into the private $category folder.\\n\\nRemove the original item(s) so they are no longer visible in the normal Music / Gallery / Files locations?")
+            .setNegativeButton("KEEP ORIGINAL") { _, _ -> showVaultCategoryPage(category) }
+            .setPositiveButton("HIDE ORIGINAL") { _, _ -> removeOriginals(uris) }''', '''            .setMessage("$copied item(s) copied to the private vault. Hide the original now?")
+            .setNegativeButton("CANCEL") { _, _ -> showVaultCategoryPage(category, currentDir ?: categoryDir(category)) }
+            .setPositiveButton("HIDE") { _, _ -> removeOriginals(uris) }''')
 
 p.write_text(s)
 print('updated', p)
