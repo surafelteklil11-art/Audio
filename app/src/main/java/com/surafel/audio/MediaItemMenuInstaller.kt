@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.EditText
+import android.widget.Toast
 import androidx.media3.common.MediaItem
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -27,8 +28,8 @@ object MediaItemMenuInstaller {
     }
 
     private fun attachAll(view: View, activity: Activity) {
-        if ((view.id == R.id.songMore || view.id == R.id.videoMore) && view.getTag(R.id.media_menu_installed_tag) != true) {
-            view.setTag(R.id.media_menu_installed_tag, true)
+        if ((view.id == R.id.songMore || view.id == R.id.videoMore) && view.getTag() != TAG) {
+            view.setTag(TAG)
             view.setOnClickListener { showMenu(activity, view, view.id == R.id.videoMore) }
         }
         if (view is ViewGroup) for (i in 0 until view.childCount) attachAll(view.getChildAt(i), activity)
@@ -36,12 +37,18 @@ object MediaItemMenuInstaller {
 
     private fun showMenu(activity: Activity, moreView: View, isVideo: Boolean) {
         val item = resolveItem(moreView) ?: return
+        if (isVideo && item !is VideoEntry) return
+        if (!isVideo && item !is MediaItem) return
         val title = if (item is MediaItem) item.mediaMetadata.title?.toString() ?: "Unknown" else (item as VideoEntry).title
         val uri = if (item is MediaItem) item.localConfiguration?.uri else (item as VideoEntry).uri
         val actions = if (isVideo) arrayOf("Play next", "Rename", "Share", "Details", "Delete from device") else arrayOf("Play next", "Add to queue", "Rename", "Share", "Details", "Delete from device")
         android.app.AlertDialog.Builder(activity).setTitle(title).setItems(actions) { _, which ->
             if (uri == null) return@setItems
             when {
+                isVideo && which == 0 -> {
+                    VideoQueue.setNext(activity, item as VideoEntry)
+                    Toast.makeText(activity, "Added as next video", Toast.LENGTH_SHORT).show()
+                }
                 !isVideo && which == 0 -> playNext(activity, item as MediaItem)
                 !isVideo && which == 1 -> addToQueue(activity, item as MediaItem)
                 (!isVideo && which == 2) || (isVideo && which == 1) -> rename(activity, uri, title)
@@ -53,8 +60,14 @@ object MediaItemMenuInstaller {
     }
 
     private fun playNext(activity: Activity, item: MediaItem) = withController(activity) { c ->
-        if (c.mediaItemCount == 0) { c.setMediaItem(item); c.prepare(); c.play() }
-        else c.addMediaItem((c.currentMediaItemIndex + 1).coerceIn(0, c.mediaItemCount), item)
+        if (c.mediaItemCount == 0) {
+            c.setMediaItem(item)
+            c.prepare()
+            c.play()
+        } else {
+            val insertAt = if (c.currentMediaItemIndex >= 0) c.currentMediaItemIndex + 1 else c.mediaItemCount
+            c.addMediaItem(insertAt.coerceIn(0, c.mediaItemCount), item)
+        }
     }
 
     private fun addToQueue(activity: Activity, item: MediaItem) = withController(activity) { it.addMediaItem(item) }
@@ -62,39 +75,79 @@ object MediaItemMenuInstaller {
     private fun withController(activity: Activity, action: (MediaController) -> Unit) {
         val token = SessionToken(activity, ComponentName(activity, PlaybackService::class.java))
         val future: ListenableFuture<MediaController> = MediaController.Builder(activity, token).buildAsync()
-        future.addListener({ runCatching { future.get().also(action).release() } }, activity.mainExecutor)
+        future.addListener({
+            try {
+                val controller = future.get()
+                action(controller)
+                controller.release()
+            } catch (_: Exception) {
+                // Do not crash the main UI if the playback service is temporarily unavailable.
+            }
+        }, activity.mainExecutor)
     }
 
     private fun rename(activity: Activity, uri: Uri, current: String) {
-        val input = EditText(activity).apply { setSingleLine(true); setText(current.substringBeforeLast('.', current)); selectAll() }
-        android.app.AlertDialog.Builder(activity).setTitle("Rename").setView(input).setNegativeButton("Cancel", null).setPositiveButton("Rename") { _, _ ->
-            val requested = input.text.toString().trim()
-            if (requested.isNotEmpty()) activity.startActivity(Intent(activity, MediaActionActivity::class.java).apply {
-                putExtra(MediaActionActivity.EXTRA_ACTION, MediaActionActivity.ACTION_RENAME)
-                putExtra(MediaActionActivity.EXTRA_URI, uri.toString())
-                putExtra(MediaActionActivity.EXTRA_NAME, if (current.contains('.')) "$requested.${current.substringAfterLast('.')}" else requested)
-            })
-        }.show()
+        val input = EditText(activity).apply {
+            setSingleLine(true)
+            setText(current.substringBeforeLast('.', current))
+            selectAll()
+        }
+        android.app.AlertDialog.Builder(activity)
+            .setTitle("Rename")
+            .setView(input)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Rename") { _, _ ->
+                val requested = input.text.toString().trim()
+                if (requested.isNotEmpty()) {
+                    val name = if (current.contains('.')) "$requested.${current.substringAfterLast('.')}" else requested
+                    activity.startActivity(Intent(activity, MediaActionActivity::class.java).apply {
+                        putExtra(MediaActionActivity.EXTRA_ACTION, MediaActionActivity.ACTION_RENAME)
+                        putExtra(MediaActionActivity.EXTRA_URI, uri.toString())
+                        putExtra(MediaActionActivity.EXTRA_NAME, name)
+                    })
+                }
+            }
+            .show()
     }
 
     private fun share(activity: Activity, uri: Uri, title: String, mime: String) {
-        val intent = Intent(Intent.ACTION_SEND).apply { type = mime; putExtra(Intent.EXTRA_STREAM, uri); putExtra(Intent.EXTRA_TITLE, title); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = mime
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_TITLE, title)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
         activity.startActivity(Intent.createChooser(intent, "Share $title"))
     }
 
     private fun details(activity: Activity, uri: Uri, title: String) {
-        val message = activity.contentResolver.query(uri, arrayOf(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, android.provider.MediaStore.MediaColumns.SIZE, android.provider.MediaStore.MediaColumns.MIME_TYPE), null, null, null)?.use { c ->
-            if (c.moveToFirst()) "Name: ${c.getString(0) ?: title}\nSize: ${formatSize(c.getLong(1))}\nType: ${c.getString(2) ?: "Unknown"}" else title
+        val message = activity.contentResolver.query(
+            uri,
+            arrayOf(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, android.provider.MediaStore.MediaColumns.SIZE, android.provider.MediaStore.MediaColumns.MIME_TYPE),
+            null,
+            null,
+            null
+        )?.use { c ->
+            if (c.moveToFirst()) {
+                "Name: ${c.getString(0) ?: title}\nSize: ${formatSize(c.getLong(1))}\nType: ${c.getString(2) ?: "Unknown"}"
+            } else title
         } ?: title
         android.app.AlertDialog.Builder(activity).setTitle("Details").setMessage(message).setPositiveButton("OK", null).show()
     }
 
     private fun deleteFromDevice(activity: Activity, uri: Uri, title: String) {
-        activity.startActivity(Intent(activity, MediaActionActivity::class.java).apply {
-            putExtra(MediaActionActivity.EXTRA_ACTION, MediaActionActivity.ACTION_DELETE)
-            putExtra(MediaActionActivity.EXTRA_URI, uri.toString())
-            putExtra(MediaActionActivity.EXTRA_NAME, title)
-        })
+        android.app.AlertDialog.Builder(activity)
+            .setTitle("Delete from device?")
+            .setMessage("\"$title\" will be permanently removed from the device.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("DELETE") { _, _ ->
+                activity.startActivity(Intent(activity, MediaActionActivity::class.java).apply {
+                    putExtra(MediaActionActivity.EXTRA_ACTION, MediaActionActivity.ACTION_DELETE)
+                    putExtra(MediaActionActivity.EXTRA_URI, uri.toString())
+                    putExtra(MediaActionActivity.EXTRA_NAME, title)
+                })
+            }
+            .show()
     }
 
     private fun formatSize(bytes: Long): String {
@@ -111,9 +164,10 @@ object MediaItemMenuInstaller {
         val pos = holder.bindingAdapterPosition
         if (pos == RecyclerView.NO_POSITION) return null
         return runCatching {
-            val field = holder.bindingAdapter?.javaClass?.getDeclaredField("items") ?: return null
+            val adapter = holder.bindingAdapter ?: return@runCatching null
+            val field = adapter.javaClass.getDeclaredField("items")
             field.isAccessible = true
-            (field.get(holder.bindingAdapter) as? List<*>)?.getOrNull(pos)
+            (field.get(adapter) as? List<*>)?.getOrNull(pos)
         }.getOrNull()
     }
 }
