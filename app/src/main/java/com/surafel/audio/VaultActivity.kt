@@ -38,6 +38,7 @@ class VaultActivity : AppCompatActivity() {
     private val fileDir by lazy { File(vaultRoot, "file").apply { mkdirs() } }
 
     private var currentCategory = CATEGORY_HOME
+    private var currentDir: File? = null
     private var pendingDeleteUris: List<Uri> = emptyList()
     private var pendingRestoreFile: File? = null
 
@@ -68,9 +69,9 @@ class VaultActivity : AppCompatActivity() {
         refreshCurrentPage()
     }
 
-    private val pickAudio = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { importItems(it, audioDir, CATEGORY_AUDIO) }
-    private val pickVideo = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { importItems(it, videoDir, CATEGORY_VIDEO) }
-    private val pickPhoto = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { importItems(it, photoDir, CATEGORY_PHOTO) }
+    private val pickAudio = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { importItems(it, audioDir, CATEGORY_AUDIO) }
+    private val pickVideo = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { importItems(it, videoDir, CATEGORY_VIDEO) }
+    private val pickPhoto = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { importItems(it, photoDir, CATEGORY_PHOTO) }
     private val pickFile = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { importItems(it, fileDir, CATEGORY_FILE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,7 +85,16 @@ class VaultActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated by Android, retained for project compatibility")
     override fun onBackPressed() {
-        if (currentCategory != CATEGORY_HOME) showVaultHome() else super.onBackPressed()
+        if (currentCategory != CATEGORY_HOME) {
+            val root = categoryDir(currentCategory)
+            val dir = currentDir
+            if (dir != null && dir.absolutePath != root.absolutePath) {
+                currentDir = dir.parentFile ?: root
+                showVaultCategoryPage(currentCategory, currentDir!!)
+            } else {
+                showVaultHome()
+            }
+        } else super.onBackPressed()
     }
 
     private fun isConfigured() = prefs.getString(KEY_TYPE, null) != null && prefs.getString(KEY_HASH, null) != null
@@ -273,9 +283,9 @@ class VaultActivity : AppCompatActivity() {
     /** Compact, icon-first luxury vault home. */
     private fun showVaultHome() {
         currentCategory = CATEGORY_HOME
+        currentDir = null
         val root = panelRoot().apply { setPadding(dp(22), dp(24), dp(22), dp(18)) }
         root.addView(title("Hidden Vault"))
-
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -285,13 +295,11 @@ class VaultActivity : AppCompatActivity() {
         row.addView(iconTile("🎬") { showVaultCategoryPage(CATEGORY_VIDEO) }, compactRowParams())
         row.addView(iconTile("🖼") { showVaultCategoryPage(CATEGORY_PHOTO) }, compactRowParams())
         row.addView(iconTile("📁") { showVaultCategoryPage(CATEGORY_FILE) }, compactRowParams())
-
-        root.addView(row, LinearLayout.LayoutParams(-1, dp(108)).apply {
+        root.addView(row, LinearLayout.LayoutParams(-1, dp(92)).apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            topMargin = dp(18)
-            bottomMargin = dp(18)
+            topMargin = dp(16)
+            bottomMargin = dp(16)
         })
-
         setContentView(ScrollView(this).apply {
             setBackgroundColor(Color.rgb(9, 9, 25))
             addView(root)
@@ -311,179 +319,243 @@ class VaultActivity : AppCompatActivity() {
         elevation = dp(4).toFloat()
         contentDescription = "Private vault category"
     }
-
     private fun compactRowParams() = LinearLayout.LayoutParams(0, dp(86), 1f).apply {
         setMargins(dp(4), 0, dp(4), 0)
     }
 
-    private fun compactGridParams() = GridLayout.LayoutParams().apply {
-        width = 0
-        height = dp(86)
-        columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
-        rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
-        setMargins(dp(4), dp(4), dp(4), dp(4))
-    }
-
-    private fun gridParams() = compactGridParams()
-    private fun showVaultCategoryPage(category: String) {
+    private fun showVaultCategoryPage(category: String, dir: File = categoryDir(category)) {
         currentCategory = category
-        val dir = categoryDir(category)
+        currentDir = dir
+        val root = categoryDir(category)
         val label = categoryLabel(category)
-        val icon = categoryIcon(category)
-
         val vaultBackground = Color.rgb(9, 9, 25)
-        val page = FrameLayout(this).apply {
-            setBackgroundColor(vaultBackground)
-        }
+        val page = FrameLayout(this).apply { setBackgroundColor(vaultBackground) }
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(vaultBackground)
             setPadding(dp(22), dp(24), dp(22), dp(96))
         }
-        content.addView(topBar(label) { showVaultHome() })
-
-        val items = dir.listFiles()
-            ?.filter { it.isFile }
-            ?.sortedBy { it.name.lowercase(Locale.getDefault()) }
+        content.addView(topBar(label) {
+            if (dir.absolutePath == root.absolutePath) showVaultHome()
+            else showVaultCategoryPage(category, dir.parentFile ?: root)
+        })
+        val entries = dir.listFiles()
+            ?.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name.lowercase(Locale.getDefault()) })
             ?: emptyList()
-
-        items.forEachIndexed { index, file ->
-            content.addView(vaultItemCard(category, icon, file, index + 1))
-        }
-
+        entries.forEach { entry -> content.addView(vaultEntryCard(category, entry)) }
         val scroll = ScrollView(this).apply {
             setBackgroundColor(vaultBackground)
             addView(content)
             isFillViewport = true
         }
         page.addView(scroll, FrameLayout.LayoutParams(-1, -1))
-
         val add = TextView(this).apply {
             text = "+"
             textSize = 30f
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
+            contentDescription = "Add $label"
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.rgb(45, 72, 128))
                 setStroke(dp(2), Color.rgb(105, 145, 225))
             }
             elevation = dp(12).toFloat()
-            contentDescription = "Add $label"
             setOnClickListener { launchPicker(category) }
         }
         page.addView(add, FrameLayout.LayoutParams(dp(62), dp(62), Gravity.BOTTOM or Gravity.END).apply {
             setMargins(0, 0, dp(22), dp(22))
         })
-
         setContentView(page)
     }
-    private fun vaultItemCard(category: String, icon: String, file: File, index: Int) = LinearLayout(this).apply {
+    private fun vaultEntryCard(category: String, entry: File) = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(14), dp(10), dp(14), dp(10))
+        setPadding(dp(12), dp(9), dp(8), dp(9))
         background = rounded(Color.rgb(16, 24, 48), Color.rgb(67, 87, 137), 18, 1)
-        layoutParams = LinearLayout.LayoutParams(-1, dp(82)).apply { setMargins(0, dp(6), 0, dp(6)) }
-        setOnClickListener { showItemActions(category, file) }
-
-        if (category == CATEGORY_PHOTO) {
-            val preview = ImageView(this@VaultActivity).apply {
-                scaleType = ImageView.ScaleType.CENTER_CROP
-                setImageURI(Uri.fromFile(file))
-            }
-            addView(preview, LinearLayout.LayoutParams(dp(62), dp(62)).apply { rightMargin = dp(12) })
-        } else {
-            addView(TextView(this@VaultActivity).apply { text = icon; textSize = 26f; gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(54), dp(62)))
+        layoutParams = LinearLayout.LayoutParams(-1, dp(78)).apply { setMargins(0, dp(5), 0, dp(5)) }
+        setOnClickListener {
+            if (entry.isDirectory) showVaultCategoryPage(category, entry) else viewEntry(category, entry)
         }
-
-        addView(LinearLayout(this@VaultActivity).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, -1, 1f)
+        if (entry.isDirectory) {
+            addView(TextView(this@VaultActivity).apply { text = "📂"; textSize = 27f; gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(60), -1))
             addView(TextView(this@VaultActivity).apply {
-                text = file.name
-                textSize = 15f
+                text = entry.name
+                textSize = 16f
                 setTextColor(Color.WHITE)
                 setTypeface(typeface, Typeface.BOLD)
-                maxLines = 1
-                ellipsize = android.text.TextUtils.TruncateAt.END
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, -1, 1f)
             })
-            addView(TextView(this@VaultActivity).apply {
-                text = "${formatBytes(file.length())} • Tap to manage"
-                textSize = 12f
-                setTextColor(Color.rgb(157, 174, 208))
-                setPadding(0, dp(4), 0, 0)
+        } else {
+            if (category == CATEGORY_PHOTO) {
+                addView(ImageView(this@VaultActivity).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    setImageURI(Uri.fromFile(entry))
+                }, LinearLayout.LayoutParams(dp(62), dp(62)).apply { rightMargin = dp(10) })
+            } else {
+                addView(TextView(this@VaultActivity).apply { text = categoryIcon(category); textSize = 25f; gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(58), -1))
+            }
+            addView(LinearLayout(this@VaultActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, -1, 1f)
+                addView(TextView(this@VaultActivity).apply {
+                    text = entry.name
+                    textSize = 15f
+                    setTextColor(Color.WHITE)
+                    setTypeface(typeface, Typeface.BOLD)
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                })
+                addView(TextView(this@VaultActivity).apply {
+                    text = formatBytes(entry.length())
+                    textSize = 12f
+                    setTextColor(Color.rgb(157, 174, 208))
+                })
             })
-        })
+        }
         addView(TextView(this@VaultActivity).apply {
-            text = "›"
-            textSize = 28f
+            text = "⋮"
+            textSize = 26f
             setTextColor(Color.rgb(196, 166, 255))
             gravity = Gravity.CENTER
-        }, LinearLayout.LayoutParams(dp(32), -1))
+            contentDescription = "More options"
+            setOnClickListener { showEntryMenu(category, entry) }
+        }, LinearLayout.LayoutParams(dp(42), -1))
     }
 
-    private fun showItemActions(category: String, file: File) {
-        val title = file.name
-        val actions = when (category) {
-            CATEGORY_PHOTO -> arrayOf("VIEW PHOTO", "RESTORE TO DEVICE", "DELETE FROM VAULT", "CANCEL")
-            else -> arrayOf("RESTORE TO DEVICE", "DELETE FROM VAULT", "CANCEL")
+    private fun showEntryMenu(category: String, entry: File) {
+        val actions = if (entry.isDirectory) {
+            arrayOf("CREATE FOLDER", "MOVE TO OTHER FOLDER", "DELETE")
+        } else {
+            arrayOf("CREATE FOLDER", "MOVE OUT HIDDEN", "MOVE TO OTHER FOLDER", "DELETE")
         }
-        AlertDialog.Builder(this)
-            .setTitle(title)
-            .setItems(actions) { _, which ->
-                when {
-                    category == CATEGORY_PHOTO && which == 0 -> previewPhoto(file)
-                    category == CATEGORY_PHOTO && which == 1 -> startRestore(file)
-                    category == CATEGORY_PHOTO && which == 2 -> deletePrivateFile(file)
-                    category != CATEGORY_PHOTO && which == 0 -> startRestore(file)
-                    category != CATEGORY_PHOTO && which == 1 -> deletePrivateFile(file)
-                }
+        AlertDialog.Builder(this).setTitle(entry.name).setItems(actions) { _, which ->
+            when {
+                which == 0 -> createFolder(currentDir ?: categoryDir(category), category)
+                !entry.isDirectory && which == 1 -> startRestore(entry)
+                entry.isDirectory && which == 1 -> moveEntry(category, entry)
+                !entry.isDirectory && which == 2 -> moveEntry(category, entry)
+                else -> deletePrivateFile(entry)
             }
-            .show()
+        }.show()
     }
 
-    private fun previewPhoto(file: File) {
-        val image = ImageView(this).apply {
-            adjustViewBounds = true
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            setImageURI(Uri.fromFile(file))
-            setPadding(dp(8), dp(8), dp(8), dp(8))
-        }
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(10), dp(10), dp(10), dp(10))
-            addView(image, LinearLayout.LayoutParams(-1, dp(420)))
-        }
-        AlertDialog.Builder(this)
-            .setTitle("Private Photo")
-            .setView(box)
-            .setPositiveButton("RESTORE") { _, _ -> startRestore(file) }
-            .setNegativeButton("CLOSE", null)
-            .show()
-    }
-
-    private fun startRestore(file: File) {
-        pendingRestoreFile = file
-        restoreRequest.launch(file.name)
-    }
-
-    private fun deletePrivateFile(file: File) {
-        AlertDialog.Builder(this)
-            .setTitle("Delete from Vault?")
-            .setMessage("This permanently deletes the private vault copy. It will not restore the original device file.")
+    private fun createFolder(parent: File, category: String) {
+        val input = EditText(this).apply { hint = "Folder name"; inputType = InputType.TYPE_CLASS_TEXT }
+        AlertDialog.Builder(this).setTitle("Create Folder").setView(input)
             .setNegativeButton("CANCEL", null)
-            .setPositiveButton("DELETE") { _, _ ->
-                if (file.delete()) Toast.makeText(this, "Deleted from Hidden Vault", Toast.LENGTH_SHORT).show()
-                else Toast.makeText(this, "Could not delete this item", Toast.LENGTH_LONG).show()
+            .setPositiveButton("CREATE") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isEmpty() || name.contains("/") || name.contains("\")) {
+                    Toast.makeText(this, "Invalid folder name", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                val folder = File(parent, name)
+                if (folder.exists() || !folder.mkdirs()) {
+                    Toast.makeText(this, "Could not create folder", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "Folder created", Toast.LENGTH_SHORT).show()
+                    showVaultCategoryPage(category, parent)
+                }
+            }.show()
+    }
+
+    private fun moveEntry(category: String, entry: File) {
+        val root = categoryDir(category)
+        val dirs = allFolders(root).filter {
+            it.absolutePath != entry.absolutePath &&
+                !it.absolutePath.startsWith(entry.absolutePath + File.separator) &&
+                it.absolutePath != entry.parentFile?.absolutePath
+        }
+        if (dirs.isEmpty()) {
+            Toast.makeText(this, "Create another folder first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val labels = dirs.map { root.toPath().relativize(it.toPath()).toString().replace(File.separator, "/") }.toTypedArray()
+        AlertDialog.Builder(this).setTitle("Move to other folder").setItems(labels) { _, which ->
+            val dest = File(dirs[which], entry.name)
+            if (dest.exists()) Toast.makeText(this, "An item with this name already exists", Toast.LENGTH_LONG).show()
+            else if (entry.renameTo(dest)) {
+                Toast.makeText(this, "Moved successfully", Toast.LENGTH_SHORT).show()
                 refreshCurrentPage()
+            } else Toast.makeText(this, "Move failed", Toast.LENGTH_LONG).show()
+        }.setNegativeButton("CANCEL", null).show()
+    }
+
+    private fun allFolders(root: File): List<File> = buildList {
+        root.listFiles()?.forEach { child ->
+            if (child.isDirectory) {
+                add(child)
+                addAll(allFolders(child))
             }
+        }
+    }
+
+    private fun viewEntry(category: String, file: File) {
+        when (category) {
+            CATEGORY_PHOTO -> previewPhoto(file)
+            CATEGORY_AUDIO -> previewAudio(file)
+            CATEGORY_VIDEO -> previewVideo(file)
+            else -> showFileInfo(file)
+        }
+    }
+
+    private fun previewAudio(file: File) {
+        val player = android.media.MediaPlayer()
+        val play = TextView(this).apply {
+            text = "▶  PLAY"
+            textSize = 16f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = rounded(Color.rgb(42, 65, 111), Color.rgb(94, 135, 208), 16, 1)
+            setPadding(0, dp(16), 0, dp(16))
+        }
+        try {
+            player.setDataSource(file.absolutePath)
+            player.prepare()
+        } catch (_: Exception) { }
+        play.setOnClickListener {
+            try {
+                if (player.isPlaying) {
+                    player.pause()
+                    play.text = "▶  PLAY"
+                } else {
+                    player.start()
+                    play.text = "Ⅱ  PAUSE"
+                }
+            } catch (_: Exception) {
+                Toast.makeText(this, "Cannot play this audio", Toast.LENGTH_SHORT).show()
+            }
+        }
+        AlertDialog.Builder(this).setTitle(file.name).setView(play)
+            .setPositiveButton("CLOSE") { _, _ -> try { player.release() } catch (_: Exception) { } }
+            .setOnDismissListener { try { player.release() } catch (_: Exception) { } }
+            .show()
+    }
+
+    private fun previewVideo(file: File) {
+        val video = android.widget.VideoView(this).apply {
+            setVideoURI(Uri.fromFile(file))
+            setOnPreparedListener { it.start() }
+        }
+        AlertDialog.Builder(this).setTitle(file.name).setView(video)
+            .setPositiveButton("CLOSE") { _, _ -> video.stopPlayback() }
+            .setOnDismissListener { video.stopPlayback() }
+            .show()
+    }
+
+    private fun showFileInfo(file: File) {
+        AlertDialog.Builder(this).setTitle(file.name)
+            .setMessage("${formatBytes(file.length())}\nPrivate file")
+            .setPositiveButton("CLOSE", null)
             .show()
     }
 
     private fun refreshCurrentPage() {
         when (currentCategory) {
-            CATEGORY_AUDIO, CATEGORY_VIDEO, CATEGORY_PHOTO, CATEGORY_FILE -> showVaultCategoryPage(currentCategory)
+            CATEGORY_AUDIO, CATEGORY_VIDEO, CATEGORY_PHOTO, CATEGORY_FILE -> showVaultCategoryPage(currentCategory, currentDir ?: categoryDir(currentCategory))
             else -> showVaultHome()
         }
     }
@@ -558,9 +630,9 @@ class VaultActivity : AppCompatActivity() {
         currentCategory = category
         AlertDialog.Builder(this)
             .setTitle("Secure Move Complete")
-            .setMessage("$copied item(s) are safely copied into the private $category folder.\n\nRemove the original item(s) so they are no longer visible in the normal Music / Gallery / Files locations?")
-            .setNegativeButton("KEEP ORIGINAL") { _, _ -> showVaultCategoryPage(category) }
-            .setPositiveButton("HIDE ORIGINAL") { _, _ -> removeOriginals(uris) }
+            .setMessage("$copied item(s) copied to the private vault. Hide the original now?")
+            .setNegativeButton("CANCEL") { _, _ -> showVaultCategoryPage(category, currentDir ?: categoryDir(category)) }
+            .setPositiveButton("HIDE") { _, _ -> removeOriginals(uris) }
             .setCancelable(false)
             .show()
     }
