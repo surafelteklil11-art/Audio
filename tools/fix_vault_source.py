@@ -46,5 +46,11 @@ if 'private fun previewPhoto(file: File)' not in s:
 '''
     s = s[:pos] + helpers + s[pos:]
 
+# Fix ActivityResultContracts picker signatures. GetMultipleContents.launch() expects
+# one MIME-type String; OpenMultipleDocuments.launch() correctly expects String[].
+s = s.replace('pickAudio.launch(arrayOf("audio/*"))', 'pickAudio.launch("audio/*")')
+s = s.replace('pickVideo.launch(arrayOf("video/*"))', 'pickVideo.launch("video/*")')
+s = s.replace('pickPhoto.launch(arrayOf("image/*"))', 'pickPhoto.launch("image/*")')
+
 p.write_text(s)
 print('VaultActivity source repaired')
