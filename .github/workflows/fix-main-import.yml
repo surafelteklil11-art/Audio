@@ -1,0 +1,42 @@
+name: Fix MainActivity import
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Add missing roundToInt import
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/surafel/audio/MainActivity.kt')
+          s = p.read_text()
+          if 'import kotlin.math.roundToInt' not in s:
+              anchor = 'import java.util.Locale\n'
+              s = s.replace(anchor, anchor + 'import kotlin.math.roundToInt\n')
+              p.write_text(s)
+          PY
+      - name: Commit and dispatch build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/fix-main-import.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/surafel/audio/MainActivity.kt .github/workflows/fix-main-import.yml
+          git commit -m "Fix MainActivity roundToInt import"
+          git push origin HEAD:main
+          gh workflow run build-apk.yml --ref main
