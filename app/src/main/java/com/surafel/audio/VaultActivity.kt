@@ -40,6 +40,8 @@ class VaultActivity : AppCompatActivity() {
     private val fileDir by lazy { File(vaultRoot, "file").apply { mkdirs() } }
 
     private var pendingDeleteUris: List<Uri> = emptyList()
+    private var returnCategory: String = CATEGORY_HOME
+
     private val deleteRequest = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
         val count = pendingDeleteUris.size
         pendingDeleteUris = emptyList()
@@ -48,13 +50,13 @@ class VaultActivity : AppCompatActivity() {
         } else {
             Toast.makeText(this, "Vault copy is safe, but the original item(s) were not removed", Toast.LENGTH_LONG).show()
         }
-        showVaultHome()
+        showReturnPage()
     }
 
-    private val pickAudio = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { copyAndHide(it, audioDir) }
-    private val pickVideo = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { copyAndHide(it, videoDir) }
-    private val pickPhoto = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { copyAndHide(it, photoDir) }
-    private val pickFile = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { copyAndHide(it, fileDir) }
+    private val pickAudio = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { copyAndHide(it, audioDir, CATEGORY_AUDIO) }
+    private val pickVideo = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { copyAndHide(it, videoDir, CATEGORY_VIDEO) }
+    private val pickPhoto = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { copyAndHide(it, photoDir, CATEGORY_PHOTO) }
+    private val pickFile = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { copyAndHide(it, fileDir, CATEGORY_FILE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -191,16 +193,135 @@ class VaultActivity : AppCompatActivity() {
     }
 
     private fun showVaultHome() {
+        returnCategory = CATEGORY_HOME
         val root = panelRoot()
         root.addView(title("Hidden Vault"))
-        root.addView(text("PRIVATE • DEVICE LOCAL • LOCKED\nYour imported items stay inside Audio's private app storage. Use MOVE TO VAULT to remove the original after Android confirmation."))
-        root.addView(secureCard("🎵", "AUDIO", count(audioDir), "Move music into Safe Folder") { pickAudio.launch(arrayOf("audio/*")) })
-        root.addView(secureCard("🎬", "VIDEO", count(videoDir), "Move videos into Safe Folder") { pickVideo.launch(arrayOf("video/*")) })
-        root.addView(secureCard("🖼", "PHOTO", count(photoDir), "Move photos into Safe Folder") { pickPhoto.launch(arrayOf("image/*")) })
-        root.addView(secureCard("📁", "FILE", count(fileDir), "Move documents into Safe Folder") { pickFile.launch(arrayOf("*/*")) })
-        root.addView(secureCard("📱", "APP HIDDEN", 0, "Private list • system hiding requires special Android privileges") { showHiddenApps() })
+        root.addView(text("PRIVATE • DEVICE LOCAL • LOCKED\nYour imported items stay inside Audio's private app storage. Open a category to view its private page, then use + to import."))
+        root.addView(secureCard("🎵", "AUDIO", count(audioDir), "Private audio collection") { showVaultCategoryPage(CATEGORY_AUDIO) })
+        root.addView(secureCard("🎬", "VIDEO", count(videoDir), "Private video collection") { showVaultCategoryPage(CATEGORY_VIDEO) })
+        root.addView(secureCard("🖼", "PHOTO", count(photoDir), "Private photo collection") { showVaultCategoryPage(CATEGORY_PHOTO) })
+        root.addView(secureCard("📁", "FILE", count(fileDir), "Private file collection") { showVaultCategoryPage(CATEGORY_FILE) })
+        root.addView(secureCard("📱", "APP HIDDEN", hiddenAppCount(), "Private app list") { showAppHiddenPage() })
         root.addView(button("LOCK NOW") { finish() })
         setContentView(ScrollView(this).apply { addView(root) })
+    }
+
+    private fun showVaultCategoryPage(category: String) {
+        returnCategory = category
+        val root = panelRoot()
+        val dir = categoryDir(category)
+        val icon = categoryIcon(category)
+        val label = categoryLabel(category)
+        root.addView(topBar(label) { showVaultHome() })
+        root.addView(text("PRIVATE • SAFE FOLDER\nOnly items imported into this vault category are shown here."))
+
+        val list = dir.listFiles()?.filter { it.isFile }?.sortedBy { it.name.lowercase(Locale.getDefault()) } ?: emptyList()
+        if (list.isEmpty()) {
+            root.addView(emptyState(icon, "No $label items yet", "Tap + below to add items to the private vault."))
+        } else {
+            list.forEachIndexed { index, file ->
+                root.addView(vaultItemCard(icon, file.name, formatBytes(file.length()), index + 1))
+            }
+        }
+
+        val add = button("＋  ADD $label") { launchPicker(category) }
+        add.layoutParams = LinearLayout.LayoutParams(-1, dp(58)).apply { setMargins(0, dp(16), 0, dp(10)) }
+        root.addView(add)
+        root.addView(button("BACK TO HIDDEN VAULT") { showVaultHome() })
+        setContentView(ScrollView(this).apply { addView(root) })
+    }
+
+    private fun showAppHiddenPage() {
+        returnCategory = CATEGORY_APP
+        val root = panelRoot()
+        root.addView(topBar("APP HIDDEN") { showVaultHome() })
+        root.addView(text("PRIVATE • APP LIST\nChoose apps from the + button. The selection is stored privately in the vault."))
+        val pm = packageManager
+        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val apps = pm.queryIntentActivities(launcher, PackageManager.MATCH_ALL)
+            .filter { it.activityInfo.packageName != packageName }
+            .distinctBy { it.activityInfo.packageName }
+            .sortedBy { it.loadLabel(pm).toString().lowercase(Locale.getDefault()) }
+        val hidden = prefs.getStringSet(KEY_HIDDEN_APPS, emptySet()) ?: emptySet()
+        val selected = apps.filter { hidden.contains(it.activityInfo.packageName) }
+        if (selected.isEmpty()) {
+            root.addView(emptyState("📱", "No hidden apps selected", "Tap + below to choose apps."))
+        } else {
+            selected.forEachIndexed { index, info ->
+                root.addView(vaultItemCard("📱", info.loadLabel(pm).toString(), info.activityInfo.packageName, index + 1))
+            }
+        }
+        val add = button("＋  ADD APP") { showHiddenApps() }
+        add.layoutParams = LinearLayout.LayoutParams(-1, dp(58)).apply { setMargins(0, dp(16), 0, dp(10)) }
+        root.addView(add)
+        root.addView(button("BACK TO HIDDEN VAULT") { showVaultHome() })
+        setContentView(ScrollView(this).apply { addView(root) })
+    }
+
+    private fun topBar(label: String, back: () -> Unit) = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        addView(TextView(this@VaultActivity).apply {
+            text = "‹"
+            textSize = 38f
+            setTextColor(Color.WHITE)
+            setOnClickListener { back() }
+            layoutParams = LinearLayout.LayoutParams(dp(48), dp(56))
+        })
+        addView(TextView(this@VaultActivity).apply {
+            text = label
+            textSize = 27f
+            setTextColor(Color.WHITE)
+            setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, dp(56), 1f)
+        })
+    }
+
+    private fun emptyState(icon: String, heading: String, detail: String) = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER
+        setPadding(dp(24), dp(38), dp(24), dp(38))
+        background = rounded(Color.rgb(16, 23, 45), Color.rgb(68, 87, 132), 20, 1)
+        layoutParams = LinearLayout.LayoutParams(-1, dp(190)).apply { setMargins(0, dp(10), 0, dp(10)) }
+        addView(TextView(this@VaultActivity).apply { text = icon; textSize = 34f; gravity = Gravity.CENTER })
+        addView(TextView(this@VaultActivity).apply { text = heading; textSize = 19f; setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD); gravity = Gravity.CENTER; setPadding(0, dp(8), 0, dp(4)) })
+        addView(TextView(this@VaultActivity).apply { text = detail; textSize = 14f; setTextColor(Color.rgb(170, 183, 214)); gravity = Gravity.CENTER })
+    }
+
+    private fun vaultItemCard(icon: String, name: String, detail: String, index: Int) = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(16), dp(12), dp(16), dp(12))
+        background = rounded(Color.rgb(18, 25, 49), Color.rgb(70, 89, 136), 17, 1)
+        layoutParams = LinearLayout.LayoutParams(-1, dp(78)).apply { setMargins(0, dp(6), 0, dp(6)) }
+        addView(TextView(this@VaultActivity).apply { text = icon; textSize = 25f; gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(dp(52), -1) })
+        addView(LinearLayout(this@VaultActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, -1, 1f)
+            addView(TextView(this@VaultActivity).apply { text = name; textSize = 16f; setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
+            addView(TextView(this@VaultActivity).apply { text = detail; textSize = 12f; setTextColor(Color.rgb(157, 173, 207)); setPadding(0, dp(4), 0, 0) })
+        })
+        addView(TextView(this@VaultActivity).apply { text = "#${index}"; textSize = 12f; setTextColor(Color.rgb(190, 151, 255)); gravity = Gravity.CENTER })
+    }
+
+    private fun launchPicker(category: String) {
+        returnCategory = category
+        when (category) {
+            CATEGORY_AUDIO -> pickAudio.launch(arrayOf("audio/*"))
+            CATEGORY_VIDEO -> pickVideo.launch(arrayOf("video/*"))
+            CATEGORY_PHOTO -> pickPhoto.launch(arrayOf("image/*"))
+            CATEGORY_FILE -> pickFile.launch(arrayOf("*/*"))
+            CATEGORY_APP -> showHiddenApps()
+        }
+    }
+
+    private fun showReturnPage() {
+        when (returnCategory) {
+            CATEGORY_AUDIO, CATEGORY_VIDEO, CATEGORY_PHOTO, CATEGORY_FILE -> showVaultCategoryPage(returnCategory)
+            CATEGORY_APP -> showAppHiddenPage()
+            else -> showVaultHome()
+        }
     }
 
     private fun secureCard(icon: String, label: String, items: Int, detail: String, click: () -> Unit) = LinearLayout(this).apply {
@@ -210,7 +331,33 @@ class VaultActivity : AppCompatActivity() {
         addView(TextView(this@VaultActivity).apply { text = "$items ITEMS   •   $detail"; textSize = 13f; setTextColor(Color.rgb(171, 184, 215)); setPadding(0, dp(4), 0, 0) })
     }
 
+    private fun categoryDir(category: String): File = when (category) {
+        CATEGORY_AUDIO -> audioDir
+        CATEGORY_VIDEO -> videoDir
+        CATEGORY_PHOTO -> photoDir
+        CATEGORY_FILE -> fileDir
+        else -> vaultRoot
+    }
+
+    private fun categoryLabel(category: String): String = when (category) {
+        CATEGORY_AUDIO -> "AUDIO"
+        CATEGORY_VIDEO -> "VIDEO"
+        CATEGORY_PHOTO -> "PHOTO"
+        CATEGORY_FILE -> "FILE"
+        else -> "HIDDEN"
+    }
+
+    private fun categoryIcon(category: String): String = when (category) {
+        CATEGORY_AUDIO -> "🎵"
+        CATEGORY_VIDEO -> "🎬"
+        CATEGORY_PHOTO -> "🖼"
+        CATEGORY_FILE -> "📁"
+        else -> "🔒"
+    }
+
     private fun count(dir: File) = dir.listFiles()?.count { it.isFile } ?: 0
+
+    private fun hiddenAppCount(): Int = prefs.getStringSet(KEY_HIDDEN_APPS, emptySet())?.size ?: 0
 
     private fun showHiddenApps() {
         val pm = packageManager
@@ -224,14 +371,15 @@ class VaultActivity : AppCompatActivity() {
             val cb = CheckBox(this).apply { text = info.loadLabel(pm); isChecked = hidden.contains(pkg) }
             checks[pkg] = cb; box.addView(cb)
         }
-        AlertDialog.Builder(this).setTitle("App Hidden").setMessage("This private list is saved inside the vault. Android does not allow a normal app to silently remove another app from the launcher; true system-level app hiding requires device-owner, managed-device, or root privileges.").setView(ScrollView(this).apply { addView(box) }).setNegativeButton("Cancel", null).setPositiveButton("Save") { _, _ ->
-            hidden.clear(); checks.filterValues { it.isChecked }.keys.forEach { hidden.add(it) }; prefs.edit().putStringSet(KEY_HIDDEN_APPS, hidden).apply()
+        AlertDialog.Builder(this).setTitle("Add Apps to Hidden List").setMessage("Select apps to keep in the private list. Android does not allow a normal app to silently remove another app from the launcher; true system-level hiding requires device-owner, managed-device, or root privileges.").setView(ScrollView(this).apply { addView(box) }).setNegativeButton("Cancel", null).setPositiveButton("SAVE") { _, _ ->
+            hidden.clear(); checks.filterValues { it.isChecked }.keys.forEach { hidden.add(it) }; prefs.edit().putStringSet(KEY_HIDDEN_APPS, hidden).apply(); showAppHiddenPage()
         }.show()
     }
 
     /** Copies selected content into private storage, then asks Android to remove the originals. */
-    private fun copyAndHide(uris: List<Uri>?, destination: File) {
+    private fun copyAndHide(uris: List<Uri>?, destination: File, category: String) {
         if (uris.isNullOrEmpty()) return
+        returnCategory = category
         val successfulOriginals = mutableListOf<Uri>()
         var copied = 0
         uris.forEach { uri ->
@@ -243,9 +391,9 @@ class VaultActivity : AppCompatActivity() {
                 copied++; successfulOriginals.add(uri)
             } catch (_: Exception) { }
         }
-        if (copied == 0) { Toast.makeText(this, "Nothing was imported", Toast.LENGTH_SHORT).show(); return }
+        if (copied == 0) { Toast.makeText(this, "Nothing was imported", Toast.LENGTH_SHORT).show(); showVaultCategoryPage(category); return }
         prefs.edit().putLong(KEY_LAST_IMPORT, System.currentTimeMillis()).apply()
-        askRemoveOriginals(successfulOriginals, copied)
+        askRemoveOriginals(successfulOriginals, copied, category)
     }
 
     private fun uniqueFile(dir: File, name: String): File {
@@ -254,18 +402,19 @@ class VaultActivity : AppCompatActivity() {
         return f
     }
 
-    private fun askRemoveOriginals(uris: List<Uri>, copied: Int) {
+    private fun askRemoveOriginals(uris: List<Uri>, copied: Int, category: String) {
+        returnCategory = category
         AlertDialog.Builder(this)
             .setTitle("Secure Move Complete")
             .setMessage("$copied item(s) are now copied into the private Hidden Vault.\n\nRemove the original item(s) from their normal Music / Gallery / Files location so they are no longer visible there?")
-            .setNegativeButton("KEEP ORIGINAL") { _, _ -> Toast.makeText(this, "Saved in Vault • original kept", Toast.LENGTH_LONG).show(); showVaultHome() }
+            .setNegativeButton("KEEP ORIGINAL") { _, _ -> Toast.makeText(this, "Saved in Vault • original kept", Toast.LENGTH_LONG).show(); showVaultCategoryPage(category) }
             .setPositiveButton("HIDE ORIGINAL") { _, _ -> removeOriginals(uris) }
             .setCancelable(false)
             .show()
     }
 
     private fun removeOriginals(uris: List<Uri>) {
-        if (uris.isEmpty()) { showVaultHome(); return }
+        if (uris.isEmpty()) { showReturnPage(); return }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
                 pendingDeleteUris = uris
@@ -283,12 +432,22 @@ class VaultActivity : AppCompatActivity() {
             } catch (_: Exception) { }
         }
         Toast.makeText(this, if (removed == uris.size) "Originals hidden successfully" else "Vault saved, but Android kept some originals", Toast.LENGTH_LONG).show()
-        showVaultHome()
+        showReturnPage()
     }
 
     private fun queryDisplayName(uri: Uri): String? {
         contentResolver.query(uri, arrayOf("_display_name"), null, null, null)?.use { c -> if (c.moveToFirst()) return c.getString(0) }
         return uri.lastPathSegment
+    }
+
+    private fun formatBytes(bytes: Long): String {
+        if (bytes < 1024) return "$bytes B"
+        val kb = bytes / 1024.0
+        if (kb < 1024) return String.format(Locale.getDefault(), "%.1f KB", kb)
+        val mb = kb / 1024.0
+        if (mb < 1024) return String.format(Locale.getDefault(), "%.1f MB", mb)
+        val gb = mb / 1024.0
+        return String.format(Locale.getDefault(), "%.1f GB", gb)
     }
 
     private fun panelRoot() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(28), dp(34), dp(28), dp(28)); background = GradientDrawable().apply { setColor(Color.rgb(9, 9, 25)) } }
@@ -310,5 +469,11 @@ class VaultActivity : AppCompatActivity() {
         const val TYPE_PATTERN = "pattern"
         const val TYPE_PASSWORD = "password"
         const val TYPE_PIN = "pin"
+        const val CATEGORY_HOME = "home"
+        const val CATEGORY_AUDIO = "audio"
+        const val CATEGORY_VIDEO = "video"
+        const val CATEGORY_PHOTO = "photo"
+        const val CATEGORY_FILE = "file"
+        const val CATEGORY_APP = "app"
     }
 }
