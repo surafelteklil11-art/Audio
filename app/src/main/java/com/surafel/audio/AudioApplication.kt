@@ -30,6 +30,7 @@ class AudioApplication : Application() {
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityResumed(activity: Activity) {
                 BackgroundManager.apply(activity)
+                MediaItemMenuInstaller.install(activity)
                 if (activity is MainActivity) {
                     activity.findViewById<View>(R.id.searchButton)?.setOnClickListener {
                         activity.startActivity(Intent(activity, SearchActivity::class.java))
