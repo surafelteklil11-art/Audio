@@ -6,6 +6,18 @@ s = p.read_text()
 if 'import android.widget.FrameLayout' not in s:
     s = s.replace('import android.widget.EditText\n', 'import android.widget.EditText\nimport android.widget.FrameLayout\n')
 
+# Remove the previous 2x2 helper left by the earlier refinement. The new home
+# uses a horizontal row, so only the compact row helper is needed there.
+old_grid_helper = '''    private fun compactGridParams() = GridLayout.LayoutParams().apply {
+        width = 0
+        height = dp(104)
+        columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
+        rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
+        setMargins(dp(7), dp(7), dp(7), dp(7))
+    }
+'''
+s = s.replace(old_grid_helper, '')
+
 def replace_fun(src, name, replacement):
     marker = f'    private fun {name}'
     start = src.find(marker)
@@ -38,8 +50,7 @@ home = '''    /** Compact, icon-first luxury vault home. */
             bottomMargin = dp(18)
         })
 
-        // No LOCK NOW button here: the device back/close flow remains available,
-        // while the category area stays clean and ready for additional vault icons.
+        // No LOCK NOW button here: keep the category area clean for future icons.
         setContentView(ScrollView(this).apply {
             setBackgroundColor(Color.rgb(9, 9, 25))
             addView(root)
@@ -81,9 +92,7 @@ category = '''    private fun showVaultCategoryPage(category: String) {
         val label = categoryLabel(category)
         val icon = categoryIcon(category)
 
-        // One continuous luxury surface from top to bottom. The old split
-        // background came from the page/scroll/content layers using different
-        // surfaces, so all three layers are explicitly synchronized.
+        // One continuous luxury surface from top to bottom.
         val vaultBackground = Color.rgb(9, 9, 25)
         val page = FrameLayout(this).apply {
             setBackgroundColor(vaultBackground)
@@ -100,8 +109,7 @@ category = '''    private fun showVaultCategoryPage(category: String) {
             ?.sortedBy { it.name.lowercase(Locale.getDefault()) }
             ?: emptyList()
 
-        // Empty categories are intentionally blank. Users add content with the
-        // floating + button; there is no "No items yet" card/text.
+        // Empty categories are intentionally blank; use the floating + to add.
         items.forEachIndexed { index, file ->
             content.addView(vaultItemCard(category, icon, file, index + 1))
         }
