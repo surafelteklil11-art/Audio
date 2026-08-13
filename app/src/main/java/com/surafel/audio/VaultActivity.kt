@@ -267,8 +267,7 @@ class VaultActivity : AppCompatActivity() {
         root.addView(luxButton("CLOSE") { finish() })
         setContentView(root)
     }
-
-    /** Compact icon-only home so more vault categories can be added later without a tall list. */
+    /** Compact, icon-first luxury vault home. */
     /** Compact, icon-first luxury vault home. */
     /** Compact, icon-first luxury vault home. */
     /** Compact, icon-first luxury vault home. */
@@ -293,7 +292,6 @@ class VaultActivity : AppCompatActivity() {
             bottomMargin = dp(18)
         })
 
-        // No LOCK NOW button here: keep the category area clean for future icons.
         setContentView(ScrollView(this).apply {
             setBackgroundColor(Color.rgb(9, 9, 25))
             addView(root)
@@ -325,17 +323,7 @@ class VaultActivity : AppCompatActivity() {
         rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
         setMargins(dp(4), dp(4), dp(4), dp(4))
     }
-    private fun compactRowParams() = LinearLayout.LayoutParams(0, dp(86), 1f).apply {
-        setMargins(dp(4), 0, dp(4), 0)
-    }
 
-    private fun compactGridParams() = GridLayout.LayoutParams().apply {
-        width = 0
-        height = dp(86)
-        columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
-        rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
-        setMargins(dp(4), dp(4), dp(4), dp(4))
-    }
     private fun gridParams() = compactGridParams()
     private fun showVaultCategoryPage(category: String) {
         currentCategory = category
@@ -343,7 +331,6 @@ class VaultActivity : AppCompatActivity() {
         val label = categoryLabel(category)
         val icon = categoryIcon(category)
 
-        // One continuous luxury surface from top to bottom.
         val vaultBackground = Color.rgb(9, 9, 25)
         val page = FrameLayout(this).apply {
             setBackgroundColor(vaultBackground)
@@ -360,7 +347,6 @@ class VaultActivity : AppCompatActivity() {
             ?.sortedBy { it.name.lowercase(Locale.getDefault()) }
             ?: emptyList()
 
-        // Empty categories are intentionally blank; use the floating + to add.
         items.forEachIndexed { index, file ->
             content.addView(vaultItemCard(category, icon, file, index + 1))
         }
