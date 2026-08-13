@@ -17,6 +17,11 @@
             android:authorities="${applicationId}.vault-hook"
             android:exported="false"
             android:initOrder="100" />
+        <provider
+            android:name=".WeeklyReportRedirectProvider"
+            android:authorities="${applicationId}.weekly-report-redirect"
+            android:exported="false"
+            android:initOrder="90" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
