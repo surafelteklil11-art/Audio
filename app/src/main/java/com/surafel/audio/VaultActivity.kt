@@ -14,6 +14,7 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -268,65 +269,107 @@ class VaultActivity : AppCompatActivity() {
     }
 
     /** Compact icon-only home so more vault categories can be added later without a tall list. */
+    /** Compact, icon-first luxury vault home. */
     private fun showVaultHome() {
         currentCategory = CATEGORY_HOME
-        val root = panelRoot()
+        val root = panelRoot().apply { setPadding(dp(22), dp(24), dp(22), dp(18)) }
         root.addView(title("Hidden Vault"))
-        root.addView(text("PRIVATE • DEVICE LOCAL • LOCKED\nYour secure collections are stored inside Audio's private storage."))
-        val grid = GridLayout(this).apply { columnCount = 2; rowCount = 2; alignmentMode = GridLayout.ALIGN_MARGINS }
-        grid.addView(iconTile("🎵") { showVaultCategoryPage(CATEGORY_AUDIO) }, gridParams())
-        grid.addView(iconTile("🎬") { showVaultCategoryPage(CATEGORY_VIDEO) }, gridParams())
-        grid.addView(iconTile("🖼") { showVaultCategoryPage(CATEGORY_PHOTO) }, gridParams())
-        grid.addView(iconTile("📁") { showVaultCategoryPage(CATEGORY_FILE) }, gridParams())
-        root.addView(grid, LinearLayout.LayoutParams(-1, dp(310)).apply { bottomMargin = dp(12) })
-        root.addView(text("Tap an icon to open its private page. Use + inside the page to add items; open an item to preview, restore, or delete it."))
+
+        val grid = GridLayout(this).apply {
+            columnCount = 2
+            rowCount = 2
+            alignmentMode = GridLayout.ALIGN_BOUNDS
+            useDefaultMargins = false
+        }
+        grid.addView(iconTile("🎵") { showVaultCategoryPage(CATEGORY_AUDIO) }, compactGridParams())
+        grid.addView(iconTile("🎬") { showVaultCategoryPage(CATEGORY_VIDEO) }, compactGridParams())
+        grid.addView(iconTile("🖼") { showVaultCategoryPage(CATEGORY_PHOTO) }, compactGridParams())
+        grid.addView(iconTile("📁") { showVaultCategoryPage(CATEGORY_FILE) }, compactGridParams())
+
+        root.addView(grid, LinearLayout.LayoutParams(-1, dp(236)).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            topMargin = dp(24)
+            bottomMargin = dp(24)
+        })
         root.addView(luxButton("LOCK NOW") { finish() })
         setContentView(ScrollView(this).apply { addView(root) })
     }
-
     private fun iconTile(icon: String, click: () -> Unit) = TextView(this).apply {
         text = icon
-        textSize = 48f
+        textSize = 38f
         gravity = Gravity.CENTER
         setOnClickListener { click() }
         background = GradientDrawable().apply {
             setColor(Color.rgb(18, 27, 51))
-            cornerRadius = dp(24).toFloat()
+            cornerRadius = dp(20).toFloat()
             setStroke(dp(1), Color.rgb(81, 111, 172))
         }
         elevation = dp(4).toFloat()
+        contentDescription = "Private vault category"
     }
 
-    private fun gridParams() = GridLayout.LayoutParams().apply {
+    private fun compactGridParams() = GridLayout.LayoutParams().apply {
         width = 0
-        height = dp(142)
+        height = dp(104)
         columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
-        setMargins(dp(6), dp(6), dp(6), dp(6))
+        rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f)
+        setMargins(dp(7), dp(7), dp(7), dp(7))
     }
-
+    private fun gridParams() = compactGridParams()
     private fun showVaultCategoryPage(category: String) {
         currentCategory = category
-        val root = panelRoot()
         val dir = categoryDir(category)
         val label = categoryLabel(category)
         val icon = categoryIcon(category)
-        root.addView(topBar(label) { showVaultHome() })
-        root.addView(text("PRIVATE • SAFE FOLDER\nOnly items inside this private $label collection are shown here."))
 
-        val items = dir.listFiles()?.filter { it.isFile }?.sortedBy { it.name.lowercase(Locale.getDefault()) } ?: emptyList()
+        val page = FrameLayout(this).apply {
+            setBackgroundColor(Color.rgb(7, 8, 22))
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(24), dp(22), dp(96))
+        }
+        content.addView(topBar(label) { showVaultHome() })
+
+        val items = dir.listFiles()
+            ?.filter { it.isFile }
+            ?.sortedBy { it.name.lowercase(Locale.getDefault()) }
+            ?: emptyList()
+
         if (items.isEmpty()) {
-            root.addView(emptyState(icon, "No $label items yet", "Tap + below to add items to the private vault."))
+            content.addView(emptyState(icon, "No $label items yet", ""))
         } else {
-            items.forEachIndexed { index, file -> root.addView(vaultItemCard(category, icon, file, index + 1)) }
+            items.forEachIndexed { index, file ->
+                content.addView(vaultItemCard(category, icon, file, index + 1))
+            }
         }
 
-        root.addView(luxButton("＋  ADD $label") { launchPicker(category) }.also {
-            it.layoutParams = LinearLayout.LayoutParams(-1, dp(58)).apply { setMargins(0, dp(16), 0, dp(10)) }
-        })
-        root.addView(luxButton("BACK TO HIDDEN VAULT") { showVaultHome() })
-        setContentView(ScrollView(this).apply { addView(root) })
-    }
+        val scroll = ScrollView(this).apply {
+            addView(content)
+            isFillViewport = true
+        }
+        page.addView(scroll, FrameLayout.LayoutParams(-1, -1))
 
+        val add = TextView(this).apply {
+            text = "+"
+            textSize = 30f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.rgb(45, 72, 128))
+                setStroke(dp(2), Color.rgb(105, 145, 225))
+            }
+            elevation = dp(12).toFloat()
+            contentDescription = "Add $label"
+            setOnClickListener { launchPicker(category) }
+        }
+        page.addView(add, FrameLayout.LayoutParams(dp(62), dp(62), Gravity.BOTTOM or Gravity.END).apply {
+            setMargins(0, 0, dp(22), dp(22))
+        })
+
+        setContentView(page)
+    }
     private fun vaultItemCard(category: String, icon: String, file: File, index: Int) = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
