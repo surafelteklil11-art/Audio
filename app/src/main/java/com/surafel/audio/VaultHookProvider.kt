@@ -37,7 +37,6 @@ class VaultHookProvider : ContentProvider() {
         dot.setTag(TAG, GateState())
         dot.alpha = 0f
         dot.background = null
-        dot.text = ""
         dot.contentDescription = null
         dot.setOnClickListener { view ->
             if (activity.findViewById<TextView>(R.id.screenTitle)?.text?.toString() != "Mine") return@setOnClickListener
