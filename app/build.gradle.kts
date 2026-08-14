@@ -11,8 +11,8 @@ android {
         applicationId = "com.surafel.audio"
         minSdk = 24
         targetSdk = 35
-        versionCode = 313
-        versionName = "1.0.313"
+        versionCode = 316
+        versionName = "1.0.316"
     }
 
     compileOptions {
