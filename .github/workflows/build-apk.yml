@@ -69,9 +69,20 @@ jobs:
             echo 'Stale fullscreen implementation references found.'
             exit 1
           fi
+          grep -q 'versionCode = 313' app/build.gradle.kts
+          grep -q 'addMenuItem("☷", "Themes")' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'addMenuItem("▦", "Widgets")' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'addMenuItem("≋", "Equalizer")' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'addMenuItem("◷", "Sleep Timer")' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'addMenuItem("🚗", "Drive Mode")' app/src/main/java/com/surafel/audio/MainActivity.kt
+          if grep -q 'addMenuItem(".*", "Refresh Library")' app/src/main/java/com/surafel/audio/MainActivity.kt; then exit 1; fi
+          if grep -q 'addMenuItem(".*", "Play Queue")' app/src/main/java/com/surafel/audio/MainActivity.kt; then exit 1; fi
+
+      - name: Clean previous build outputs
+        run: gradle clean --no-daemon
 
       - name: Compile and build debug APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+        run: gradle assembleDebug --no-daemon --rerun-tasks --stacktrace
 
       - name: Verify APK exists
         shell: bash
@@ -81,16 +92,20 @@ jobs:
           ls -lh app/build/outputs/apk/debug/app-debug.apk
 
       - name: Give APK a unique filename
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Copy APK with build identity
         shell: bash
         run: |
           set -euo pipefail
-          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}.apk"
-          test -s "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}.apk"
-          ls -lh "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v313.apk"
+          test -s "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v313.apk"
+          ls -lh "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v313.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Audio-debug-apk-${{ github.run_number }}
-          path: app/build/outputs/apk/debug/Audio-debug-${{ github.run_number }}.apk
+          name: Audio-debug-apk-${{ github.run_number }}-v313
+          path: app/build/outputs/apk/debug/Audio-debug-${{ github.run_number }}-v313.apk
           if-no-files-found: error
