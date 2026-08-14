@@ -4,6 +4,7 @@ import kotlin.math.roundToInt
 
 import android.Manifest
 import android.app.AlertDialog
+import android.app.Dialog
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -358,7 +359,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showMenu() {
-        lateinit var dialog: AlertDialog
+        lateinit var dialog: Dialog
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(8), dp(20), dp(14))
@@ -409,23 +410,28 @@ class MainActivity : AppCompatActivity() {
 
         panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        dialog = AlertDialog.Builder(this, R.style.Theme_Audio_SideDrawer).setView(panel).create()
+        dialog = Dialog(this, R.style.Theme_Audio_SideDrawer).apply { setContentView(panel) }
         close.setOnClickListener { dialog.dismiss() }
         dialog.setCanceledOnTouchOutside(true)
         dialog.setOnShowListener {
-            dialog.window?.let { WindowCompat.setDecorFitsSystemWindows(it, false) }
-            dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-            dialog.window?.setDimAmount(0.62f)
-            dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            dialog.window?.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)
-            dialog.window?.setGravity(Gravity.START or Gravity.TOP)
+            dialog.window?.let { window ->
+                        WindowCompat.setDecorFitsSystemWindows(window, false)
+                        window.setBackgroundDrawableResource(android.R.color.transparent)
+                        window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                        window.setDimAmount(0.62f)
+                        window.setGravity(Gravity.START or Gravity.TOP)
+                        window.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)
+                    }
         }
         dialog.show()
-        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-        dialog.window?.setDimAmount(0.62f)
-        dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-        dialog.window?.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)
-        dialog.window?.setGravity(Gravity.START or Gravity.TOP)
+        dialog.window?.let { window ->
+                    WindowCompat.setDecorFitsSystemWindows(window, false)
+                    window.setBackgroundDrawableResource(android.R.color.transparent)
+                    window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                    window.setDimAmount(0.62f)
+                    window.setGravity(Gravity.START or Gravity.TOP)
+                    window.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)
+                }
     }
 
     private fun showEqualizer() {
