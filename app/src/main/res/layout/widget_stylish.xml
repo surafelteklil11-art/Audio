@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widgetStylishRoot" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="center_vertical" android:padding="8dp" android:background="@drawable/widget_bg_stylish">
+    <ImageView android:id="@+id/stylishArtwork" android:layout_width="78dp" android:layout_height="match_parent" android:src="@drawable/bg_reference_sunset" android:scaleType="centerCrop" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="10dp">
+        <TextView android:id="@+id/stylishTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Music Player" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:id="@+id/stylishArtist" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Enjoy Listening" android:textColor="#DDE0F0" android:textSize="9sp" android:maxLines="1" android:ellipsize="end" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:paddingTop="4dp">
+            <TextView android:id="@+id/stylishPrev" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:gravity="center" android:text="◀" android:textColor="#FFFFFF" android:textSize="15sp" />
+            <TextView android:id="@+id/stylishPlay" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:gravity="center" android:text="▶" android:textColor="#FFFFFF" android:textSize="18sp" />
+            <TextView android:id="@+id/stylishNext" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:gravity="center" android:text="▶" android:textColor="#FFFFFF" android:textSize="15sp" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
