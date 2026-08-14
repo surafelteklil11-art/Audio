@@ -32,6 +32,7 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -412,6 +413,7 @@ class MainActivity : AppCompatActivity() {
         close.setOnClickListener { dialog.dismiss() }
         dialog.setCanceledOnTouchOutside(true)
         dialog.setOnShowListener {
+            dialog.window?.let { WindowCompat.setDecorFitsSystemWindows(it, false) }
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
             dialog.window?.setDimAmount(0.62f)
             dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
