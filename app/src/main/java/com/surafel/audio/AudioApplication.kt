@@ -80,8 +80,7 @@ object SideMenuInstaller {
         panel.addView(header)
         panel.addView(View(activity).apply { setBackgroundColor(Color.rgb(45, 49, 75)) }, LinearLayout.LayoutParams(-1, dp(activity, 1)).apply { topMargin = dp(activity, 14); bottomMargin = dp(activity, 12) })
 
-        addMenuItem(activity, panel, "⌂", "Home", false) {}
-        // The four requested entries are intentionally NOT added.
+        // Intentionally omitted: Home, Audio/Music, Vedio/Video, My Profile.
         addMenuItem(activity, panel, "☷", "Themes", true) { showThemes(activity) }
         addMenuItem(activity, panel, "▦", "Widgets", true) { showWidgets(activity) }
         addMenuItem(activity, panel, "☷", "Play Queue", true) {
@@ -107,7 +106,6 @@ object SideMenuInstaller {
             dialog.window?.setGravity(Gravity.START or Gravity.TOP)
             dialog.window?.attributes?.y = dp(activity, 48)
         }
-        dialog.setOnDismissListener { if (installedFor === activity) activity.findViewById<TextView>(R.id.menuButton)?.setTag(R.id.menuButton, true) }
         dialog.show()
         dialog.window?.setLayout(dp(activity, 310), -1)
         dialog.window?.setGravity(Gravity.START or Gravity.TOP)
@@ -120,7 +118,6 @@ object SideMenuInstaller {
             isClickable = enabled
             isFocusable = enabled
             if (enabled) setOnClickListener { action() }
-            alpha = if (enabled) 1f else 0f
             setPadding(dp(activity, 18), 0, dp(activity, 8), 0)
         }
         val icon = text(activity, glyph, 25, Color.rgb(205, 202, 238), Typeface.NORMAL).apply { gravity = Gravity.CENTER }
