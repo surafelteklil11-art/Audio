@@ -40,7 +40,7 @@ jobs:
             git push origin HEAD:main
           fi
 
-      - name: Repair and validate side drawer
+      - name: Repair and validate side drawer and Widgets page
         shell: bash
         run: |
           set -euo pipefail
@@ -50,6 +50,9 @@ jobs:
 
           main = Path("app/src/main/java/com/surafel/audio/MainActivity.kt").read_text(encoding="utf-8")
           app = Path("app/src/main/java/com/surafel/audio/AudioApplication.kt").read_text(encoding="utf-8")
+          widget_page = Path("app/src/main/java/com/surafel/audio/WidgetCatalogActivity.kt").read_text(encoding="utf-8")
+          widget_providers = Path("app/src/main/java/com/surafel/audio/AudioWidgetProviders.kt").read_text(encoding="utf-8")
+          manifest = Path("app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
 
           start = main.find("    private fun showMenu() {")
           end = main.find("    private fun showEqualizer() {")
@@ -93,13 +96,42 @@ jobs:
           if 'findViewById<TextView>(R.id.menuButton)?.setOnClickListener' in app:
               raise SystemExit("Application-level menuButton listener override detected")
 
-          print("Single side drawer owner validation passed")
+          widgets_start = main.find("    private fun showWidgets() {")
+          widgets_end = main.find("    private fun showPremiumInfo() {")
+          if widgets_start < 0 or widgets_end <= widgets_start:
+              raise SystemExit("Unable to locate showWidgets()")
+          widgets = main[widgets_start:widgets_end]
+          if 'startActivity(Intent(this, WidgetCatalogActivity::class.java))' not in widgets:
+              raise SystemExit("Widgets menu does not launch the dedicated WidgetCatalogActivity")
+          if 'AlertDialog.Builder' in widgets:
+              raise SystemExit("Legacy Widgets AlertDialog remains")
+
+          for name in (
+              'Practical', 'Feature-Rich', 'Standard', 'Stylish',
+              'Classic', 'Lite', 'Simple', 'Mini'
+          ):
+              if f'WidgetStyle("{name}"' not in widget_page:
+                  raise SystemExit(f"Missing widget catalog style: {name}")
+
+          for provider in (
+              'AudioWidgetPracticalProvider', 'AudioWidgetFeatureRichProvider',
+              'AudioWidgetStandardProvider', 'AudioWidgetStylishProvider',
+              'AudioWidgetClassicProvider', 'AudioWidgetLiteProvider',
+              'AudioWidgetSimpleProvider', 'AudioWidgetMiniProvider'
+          ):
+              if provider not in widget_providers:
+                  raise SystemExit(f"Missing real widget provider: {provider}")
+
+          if 'android:name=".WidgetCatalogActivity"' not in manifest:
+              raise SystemExit("WidgetCatalogActivity is missing from AndroidManifest")
+
+          print("Single side drawer owner + dedicated Widgets page validation passed")
           PY
           if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add app/src/main/java/com/surafel/audio/MainActivity.kt
-            git commit -m "fix: use full-height in-activity side drawer overlay [skip ci]"
+            git commit -m "fix: use full-height in-activity side drawer and real Widgets page [skip ci]"
             git push origin HEAD:main
           fi
 
@@ -108,6 +140,8 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/src/main/java/com/surafel/audio/MainActivity.kt
+          test -f app/src/main/java/com/surafel/audio/WidgetCatalogActivity.kt
+          test -f app/src/main/java/com/surafel/audio/AudioWidgetProviders.kt
           test -f app/src/main/java/com/surafel/audio/FullscreenVideoActivity.kt
           test -f app/src/main/java/com/surafel/audio/PlaybackService.kt
           test -f app/src/main/java/com/surafel/audio/VaultActivity.kt
