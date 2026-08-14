@@ -69,14 +69,16 @@ jobs:
             echo 'Stale fullscreen implementation references found.'
             exit 1
           fi
-          grep -q 'versionCode = 316' app/build.gradle.kts
-          grep -q 'versionName = "1.0.316"' app/build.gradle.kts
+          grep -q 'versionCode = 317' app/build.gradle.kts
+          grep -q 'versionName = "1.0.317"' app/build.gradle.kts
           grep -q 'addMenuItem("☷", "Themes")' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("▦", "Widgets")' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("≋", "Equalizer")' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("◷", "Sleep Timer")' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("🚗", "Drive Mode")' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("⚙", "Settings")' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'Theme_Audio_SideDrawer' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'windowIsFloating">false' app/src/main/res/values/styles.xml
           if grep -q 'addMenuItem(".*", "Refresh Library")' app/src/main/java/com/surafel/audio/MainActivity.kt; then exit 1; fi
           if grep -q 'addMenuItem(".*", "Play Queue")' app/src/main/java/com/surafel/audio/MainActivity.kt; then exit 1; fi
           if grep -q 'addMenuItem(".*", "Search")' app/src/main/java/com/surafel/audio/MainActivity.kt; then exit 1; fi
@@ -93,21 +95,21 @@ jobs:
           set -euo pipefail
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "versionCode='316'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "versionName='1.0.316'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "versionCode='317'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "versionName='1.0.317'"
           ls -lh "$APK"
 
       - name: Copy APK with build identity
         shell: bash
         run: |
           set -euo pipefail
-          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v316.apk"
-          test -s "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v316.apk"
-          ls -lh "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v316.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v317.apk"
+          test -s "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v317.apk"
+          ls -lh "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v317.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Audio-debug-apk-${{ github.run_number }}-v316
-          path: app/build/outputs/apk/debug/Audio-debug-${{ github.run_number }}-v316.apk
+          name: Audio-debug-apk-${{ github.run_number }}-v317
+          path: app/build/outputs/apk/debug/Audio-debug-${{ github.run_number }}-v317.apk
           if-no-files-found: error
