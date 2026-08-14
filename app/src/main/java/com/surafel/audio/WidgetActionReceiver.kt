@@ -29,11 +29,11 @@ class WidgetActionReceiver : BroadcastReceiver() {
                     ACTION_PLAY_PAUSE -> if (controller.isPlaying) controller.pause() else controller.play()
                     ACTION_PREVIOUS -> controller.seekToPreviousMediaItem()
                     ACTION_NEXT -> controller.seekToNextMediaItem()
-                    ACTION_SHUFFLE -> controller.shuffleModeEnabled = !controller.shuffleModeEnabled
+                    ACTION_SHUFFLE -> controller.setShuffleModeEnabled(!controller.shuffleModeEnabled)
                 }
                 controller.release()
             } catch (_: Exception) {
-                // A widget can be pressed before the MediaSession is ready. Fail silently.
+                // The widget may be pressed before the media session is ready; never crash the launcher.
             } finally {
                 pendingResult.finish()
             }
