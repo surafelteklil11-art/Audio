@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widgetMiniRoot" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="center_vertical" android:padding="8dp" android:background="@drawable/widget_bg_mini">
+    <ImageView android:id="@+id/miniArtwork" android:layout_width="54dp" android:layout_height="match_parent" android:src="@drawable/widget_art_neon" android:scaleType="centerCrop" />
+    <TextView android:id="@+id/miniTitle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:paddingStart="8dp" android:text="Music Player" android:textColor="#FFFFFF" android:textSize="11sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/miniPrev" android:layout_width="32dp" android:layout_height="42dp" android:gravity="center" android:text="◀" android:textColor="#FFFFFF" android:textSize="15sp" />
+    <TextView android:id="@+id/miniPlay" android:layout_width="38dp" android:layout_height="42dp" android:gravity="center" android:text="▶" android:textColor="#FFFFFF" android:textSize="18sp" />
+    <TextView android:id="@+id/miniNext" android:layout_width="32dp" android:layout_height="42dp" android:gravity="center" android:text="▶" android:textColor="#FFFFFF" android:textSize="15sp" />
+</LinearLayout>
