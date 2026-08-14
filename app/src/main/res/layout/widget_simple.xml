@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widgetSimpleRoot" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="bottom" android:padding="12dp" android:background="@drawable/widget_bg_simple">
+    <ImageView android:id="@+id/simpleArtwork" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:src="@drawable/widget_art_ocean" android:scaleType="centerCrop" />
+    <TextView android:id="@+id/simpleTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Music Player" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" android:paddingTop="6dp" />
+    <TextView android:id="@+id/simpleArtist" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Enjoy Listening" android:textColor="#D8DDF0" android:textSize="9sp" android:maxLines="1" android:ellipsize="end" />
+    <ProgressBar android:id="@+id/simpleProgress" android:layout_width="match_parent" android:layout_height="3dp" android:layout_marginTop="7dp" android:max="100" android:progress="48" style="?android:attr/progressBarStyleHorizontal" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:paddingTop="3dp">
+        <TextView android:id="@+id/simpleShuffle" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:gravity="center" android:text="↻" android:textColor="#FFFFFF" android:textSize="15sp" />
+        <TextView android:id="@+id/simplePrev" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:gravity="center" android:text="◀" android:textColor="#FFFFFF" android:textSize="15sp" />
+        <TextView android:id="@+id/simplePlay" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:gravity="center" android:text="▶" android:textColor="#FFFFFF" android:textSize="18sp" />
+        <TextView android:id="@+id/simpleNext" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:gravity="center" android:text="▶" android:textColor="#FFFFFF" android:textSize="15sp" />
+        <TextView android:id="@+id/simpleHeart" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:gravity="center" android:text="♡" android:textColor="#FFFFFF" android:textSize="18sp" />
+    </LinearLayout>
+</LinearLayout>
