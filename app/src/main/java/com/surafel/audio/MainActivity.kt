@@ -575,8 +575,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showWidgets() {
-        val widgets = arrayOf("Now Playing", "Quick Access", "Soundstream", "Weekly Report")
-        AlertDialog.Builder(this).setTitle("Home Widgets").setMultiChoiceItems(widgets, null) { _, _, _ -> }.setPositiveButton("APPLY") { _, _ -> }.setNegativeButton("CLOSE", null).show()
+        startActivity(Intent(this, WidgetCatalogActivity::class.java))
     }
 
     private fun showPremiumInfo() { AlertDialog.Builder(this).setTitle("Audio Player").setMessage("Luxury local music and video experience.\nBackground audio playback enabled.\nYour library stays on your device.").setPositiveButton("OK", null).show() }
