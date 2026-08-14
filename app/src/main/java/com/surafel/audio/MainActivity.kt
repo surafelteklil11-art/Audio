@@ -35,7 +35,6 @@ import androidx.media3.session.SessionToken
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.common.util.concurrent.ListenableFuture
-import java.io.File
 
 class MainActivity : AppCompatActivity() {
     private lateinit var player: MediaController
@@ -55,32 +54,17 @@ class MainActivity : AppCompatActivity() {
     private enum class Tab { SONGS, PLAYLISTS, FOLDERS, ARTISTS, ALBUMS }
     private enum class Section { HOME, MUSIC, VIDEO, MINE }
 
-    private val permissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { renderSection() }
+    private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { renderSection() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         setupFuturisticShell()
-
         adapter = SongAdapter(items) { playFrom(it) }
-        findViewById<RecyclerView>(R.id.list).apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = this@MainActivity.adapter
-        }
-
+        findViewById<RecyclerView>(R.id.list).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = this@MainActivity.adapter }
         videoAdapter = VideoAdapter(videos) { playVideo(it) }
-        findViewById<RecyclerView>(R.id.videoList).apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = videoAdapter
-        }
-
-        findViewById<ImageButton>(R.id.play).setOnClickListener {
-            if (!::player.isInitialized) return@setOnClickListener
-            if (player.isPlaying) player.pause() else if (player.mediaItemCount > 0) player.play()
-            updateNowPlaying()
-        }
+        findViewById<RecyclerView>(R.id.videoList).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = videoAdapter }
+        findViewById<ImageButton>(R.id.play).setOnClickListener { if (!::player.isInitialized) return@setOnClickListener; if (player.isPlaying) player.pause() else if (player.mediaItemCount > 0) player.play(); updateNowPlaying() }
         findViewById<TextView>(R.id.playAll).setOnClickListener { if (items.isNotEmpty()) playFrom(0) }
         findViewById<TextView>(R.id.shuffleAll).setOnClickListener { shuffleAndPlay() }
         findViewById<TextView>(R.id.sortSongs).setOnClickListener { showAudioSortDialog() }
@@ -117,7 +101,6 @@ class MainActivity : AppCompatActivity() {
             updateNowPlaying()
             requestAudioPermissionIfNeeded()
         }, mainExecutor)
-
         updateBottomNav()
         renderSection()
     }
@@ -130,36 +113,17 @@ class MainActivity : AppCompatActivity() {
             box.setPadding(dp(3), dp(3), dp(3), dp(3))
         }
         findViewById<View>(R.id.bottomNav).setPadding(dp(10), dp(4), dp(10), dp(5))
-        findViewById<View>(R.id.miniPlayer).background = roundedGradient(
-            intArrayOf(Color.rgb(13, 17, 36), Color.rgb(20, 12, 42)),
-            Color.rgb(91, 52, 190), dp(1), dp(18)
-        )
+        findViewById<View>(R.id.miniPlayer).background = roundedGradient(intArrayOf(Color.rgb(13, 17, 36), Color.rgb(20, 12, 42)), Color.rgb(91, 52, 190), dp(1), dp(18))
     }
 
-    private fun selectSection(section: Section) {
-        currentSection = section
-        if (section == Section.MUSIC) currentTab = Tab.SONGS
-        updateBottomNav()
-        renderSection()
-    }
-
-    private fun selectTab(tab: Tab) {
-        currentSection = Section.MUSIC
-        currentTab = tab
-        updateBottomNav()
-        renderSection()
-    }
+    private fun selectSection(section: Section) { currentSection = section; if (section == Section.MUSIC) currentTab = Tab.SONGS; updateBottomNav(); renderSection() }
+    private fun selectTab(tab: Tab) { currentSection = Section.MUSIC; currentTab = tab; updateBottomNav(); renderSection() }
 
     private fun renderSection() {
         findViewById<View>(R.id.musicContent).visibility = if (currentSection == Section.MUSIC) View.VISIBLE else View.GONE
         findViewById<View>(R.id.videoContent).visibility = if (currentSection == Section.VIDEO) View.VISIBLE else View.GONE
         findViewById<View>(R.id.simpleContent).visibility = if (currentSection == Section.MUSIC || currentSection == Section.VIDEO) View.GONE else View.VISIBLE
-        findViewById<TextView>(R.id.screenTitle).text = when (currentSection) {
-            Section.HOME -> "Home"
-            Section.MUSIC -> "Music"
-            Section.VIDEO -> "Video"
-            Section.MINE -> "Mine"
-        }
+        findViewById<TextView>(R.id.screenTitle).text = when (currentSection) { Section.HOME -> "Home"; Section.MUSIC -> "Music"; Section.VIDEO -> "Video"; Section.MINE -> "Mine" }
         when (currentSection) {
             Section.HOME -> renderHome()
             Section.MUSIC -> { updateTabStyle(); if (hasAudioPermission()) loadSongs() else requestAudioPermissionIfNeeded() }
@@ -176,7 +140,6 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.simpleAction).visibility = View.GONE
         findViewById<View>(R.id.mineProfile).visibility = View.GONE
         findViewById<View>(R.id.weeklyReport).visibility = View.GONE
-
         if (homeView == null) homeView = buildHomeView()
         val view = homeView ?: return
         if (view.parent == null) container.addView(view, 0)
@@ -185,9 +148,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderMine() {
         ensureWeeklyWindow()
-        homeView?.let { view ->
-            (view.parent as? ViewGroup)?.removeView(view)
-        }
+        homeView?.let { view -> (view.parent as? ViewGroup)?.removeView(view) }
         findViewById<TextView>(R.id.simpleIcon).visibility = View.GONE
         findViewById<TextView>(R.id.simpleTitle).visibility = View.GONE
         findViewById<TextView>(R.id.simpleBody).visibility = View.GONE
@@ -208,78 +169,39 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun buildHomeView(): View {
-        val scroll = android.widget.ScrollView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(-1, -2)
-            isFillViewport = true
-            overScrollMode = View.OVER_SCROLL_NEVER
-        }
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(2), dp(2), dp(2), dp(24))
-        }
+        val scroll = android.widget.ScrollView(this).apply { layoutParams = LinearLayout.LayoutParams(-1, -2); isFillViewport = true; overScrollMode = View.OVER_SCROLL_NEVER }
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(2), dp(2), dp(2), dp(24)) }
         scroll.addView(root)
-
-        val greeting = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(2), dp(2), dp(2), dp(8))
-        }
+        val greeting = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(2), dp(2), dp(2), dp(8)) }
         greeting.addView(label("GOOD EVENING  •  AUDIO CORE", 11, Color.rgb(170, 106, 255), Typeface.BOLD))
         greeting.addView(label("Welcome Back", 29, Color.WHITE, Typeface.BOLD).apply { setPadding(0, dp(3), 0, 0) })
         greeting.addView(label("Your sound universe is ready.", 13, Color.rgb(132, 145, 177), Typeface.NORMAL).apply { setPadding(0, dp(3), 0, 0) })
         root.addView(greeting)
-
-        val search = card(intArrayOf(Color.rgb(15, 20, 43), Color.rgb(11, 15, 31)), Color.rgb(51, 113, 255), dp(1), dp(16)).apply {
-            isClickable = true
-            isFocusable = true
-            setPadding(dp(14), dp(11), dp(14), dp(11))
-            setOnClickListener { showSearch() }
-        }
+        val search = card(intArrayOf(Color.rgb(15, 20, 43), Color.rgb(11, 15, 31)), Color.rgb(51, 113, 255), dp(1), dp(16)).apply { isClickable = true; isFocusable = true; setPadding(dp(14), dp(11), dp(14), dp(11)); setOnClickListener { showSearch() } }
         val searchRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         searchRow.addView(label("⌕", 27, Color.rgb(122, 179, 255), Typeface.NORMAL))
         searchRow.addView(label("Search songs, artists, albums…", 14, Color.rgb(136, 149, 180), Typeface.NORMAL).apply { setPadding(dp(12), 0, 0, 0) }, LinearLayout.LayoutParams(0, -2, 1f))
         searchRow.addView(label("◈", 19, Color.rgb(188, 117, 255), Typeface.NORMAL))
         search.addView(searchRow)
         root.addView(search, LinearLayout.LayoutParams(-1, dp(56)).apply { setMargins(0, 0, 0, dp(14)) })
-
         val hero = card(intArrayOf(Color.rgb(20, 9, 50), Color.rgb(7, 25, 58)), Color.rgb(151, 66, 255), dp(1), dp(22)).apply { setPadding(dp(18), dp(17), dp(14), dp(17)) }
         val heroRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val heroCopy = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         heroCopy.addView(label("✦  FEATURED SIGNAL", 10, Color.rgb(190, 126, 255), Typeface.BOLD))
         heroCopy.addView(label("Feel The\nFuture of Sound", 25, Color.WHITE, Typeface.BOLD).apply { setPadding(0, dp(7), 0, dp(7)) })
         heroCopy.addView(label("Explore a new way to listen\nand experience your library.", 12, Color.rgb(178, 190, 218), Typeface.NORMAL))
-        val listen = label("  ▶  LISTEN NOW  ", 12, Color.WHITE, Typeface.BOLD).apply {
-            gravity = Gravity.CENTER
-            background = roundedGradient(intArrayOf(Color.rgb(137, 63, 255), Color.rgb(42, 154, 255)), Color.rgb(204, 136, 255), dp(1), dp(16))
-            setPadding(dp(4), dp(10), dp(4), dp(10))
-            isClickable = true
-            setOnClickListener { if (allSongs.isNotEmpty()) playFrom(0) else selectSection(Section.MUSIC) }
-        }
+        val listen = label("  ▶  LISTEN NOW  ", 12, Color.WHITE, Typeface.BOLD).apply { gravity = Gravity.CENTER; background = roundedGradient(intArrayOf(Color.rgb(137, 63, 255), Color.rgb(42, 154, 255)), Color.rgb(204, 136, 255), dp(1), dp(16)); setPadding(dp(4), dp(10), dp(4), dp(10)); isClickable = true; setOnClickListener { if (allSongs.isNotEmpty()) playFrom(0) else selectSection(Section.MUSIC) } }
         heroCopy.addView(listen, LinearLayout.LayoutParams(dp(128), dp(42)).apply { topMargin = dp(13) })
         heroRow.addView(heroCopy, LinearLayout.LayoutParams(0, -2, 1f))
-        val orb = label("◉\n∿∿∿", 25, Color.rgb(120, 204, 255), Typeface.BOLD).apply {
-            gravity = Gravity.CENTER
-            background = roundedGradient(intArrayOf(Color.rgb(40, 21, 94), Color.rgb(7, 54, 94)), Color.rgb(83, 185, 255), dp(1), dp(48))
-            setShadowLayer(dp(14).toFloat(), 0f, 0f, Color.rgb(139, 67, 255))
-        }
+        val orb = label("◉\n∿∿∿", 25, Color.rgb(120, 204, 255), Typeface.BOLD).apply { gravity = Gravity.CENTER; background = roundedGradient(intArrayOf(Color.rgb(40, 21, 94), Color.rgb(7, 54, 94)), Color.rgb(83, 185, 255), dp(1), dp(48)); setShadowLayer(dp(14).toFloat(), 0f, 0f, Color.rgb(139, 67, 255)) }
         heroRow.addView(orb, LinearLayout.LayoutParams(dp(96), dp(96)).apply { leftMargin = dp(8) })
         hero.addView(heroRow)
         root.addView(hero, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(14) })
-
-        root.addView(label("QUICK ACCESS", 12, Color.rgb(139, 151, 184), Typeface.BOLD).apply { setPadding(dp(2), dp(2), 0, dp(8) ) })
+        root.addView(label("QUICK ACCESS", 12, Color.rgb(139, 151, 184), Typeface.BOLD).apply { setPadding(dp(2), dp(2), 0, dp(8)) })
         val quickRow = LinearLayout(this).apply { gravity = Gravity.CENTER }
-        val quickItems = listOf(
-            Triple("♬", "Trending", Section.MUSIC),
-            Triple("♡", "Favorites", Section.MINE),
-            Triple("⇩", "Downloads", Section.MUSIC),
-            Triple("◷", "History", Section.MINE)
-        )
+        val quickItems = listOf(Triple("♬", "Trending", Section.MUSIC), Triple("♡", "Favorites", Section.MINE), Triple("⇩", "Downloads", Section.MUSIC), Triple("◷", "History", Section.MINE))
         quickItems.forEachIndexed { index, item ->
-            val q = card(intArrayOf(Color.rgb(13, 19, 39), Color.rgb(18, 13, 42)), if (index % 2 == 0) Color.rgb(92, 99, 255) else Color.rgb(207, 67, 201), dp(1), dp(16)).apply {
-                isClickable = true
-                isFocusable = true
-                setPadding(dp(5), dp(8), dp(5), dp(7))
-                setOnClickListener { selectSection(item.third) }
-            }
+            val q = card(intArrayOf(Color.rgb(13, 19, 39), Color.rgb(18, 13, 42)), if (index % 2 == 0) Color.rgb(92, 99, 255) else Color.rgb(207, 67, 201), dp(1), dp(16)).apply { isClickable = true; isFocusable = true; setPadding(dp(5), dp(8), dp(5), dp(7)); setOnClickListener { selectSection(item.third) } }
             val qbox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
             qbox.addView(label(item.first, 23, if (index % 2 == 0) Color.rgb(101, 193, 255) else Color.rgb(242, 116, 232), Typeface.NORMAL))
             qbox.addView(label(item.second, 10, Color.rgb(206, 214, 233), Typeface.BOLD).apply { setPadding(0, dp(5), 0, 0) })
@@ -287,12 +209,10 @@ class MainActivity : AppCompatActivity() {
             quickRow.addView(q, LinearLayout.LayoutParams(0, dp(76), 1f).apply { leftMargin = if (index == 0) 0 else dp(6) })
         }
         root.addView(quickRow, LinearLayout.LayoutParams(-1, dp(76)).apply { bottomMargin = dp(17) })
-
         val songsTitle = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         songsTitle.addView(label("Your Soundstream", 20, Color.WHITE, Typeface.BOLD), LinearLayout.LayoutParams(0, -2, 1f))
         songsTitle.addView(label("${allSongs.size} TRACKS  ›", 10, Color.rgb(166, 104, 255), Typeface.BOLD).apply { isClickable = true; setOnClickListener { selectSection(Section.MUSIC) } })
         root.addView(songsTitle, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
-
         if (allSongs.isEmpty()) {
             val empty = card(intArrayOf(Color.rgb(12, 18, 36), Color.rgb(17, 12, 35)), Color.rgb(54, 68, 112), dp(1), dp(18)).apply { setPadding(dp(16), dp(15), dp(16), dp(15)) }
             empty.addView(label("No local tracks detected yet.", 15, Color.WHITE, Typeface.BOLD))
@@ -300,16 +220,9 @@ class MainActivity : AppCompatActivity() {
             root.addView(empty)
         } else {
             allSongs.take(4).forEachIndexed { index, song ->
-                val track = card(intArrayOf(Color.rgb(10, 15, 31), Color.rgb(17, 13, 35)), Color.rgb(39, 55, 92), dp(1), dp(15)).apply {
-                    isClickable = true
-                    setPadding(dp(11), dp(9), dp(10), dp(9))
-                    setOnClickListener { playFrom(index) }
-                }
+                val track = card(intArrayOf(Color.rgb(10, 15, 31), Color.rgb(17, 13, 35)), Color.rgb(39, 55, 92), dp(1), dp(15)).apply { isClickable = true; setPadding(dp(11), dp(9), dp(10), dp(9)); setOnClickListener { playFrom(index) } }
                 val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-                val art = label("${index + 1}", 15, Color.WHITE, Typeface.BOLD).apply {
-                    gravity = Gravity.CENTER
-                    background = roundedGradient(intArrayOf(Color.rgb(46, 22, 82), Color.rgb(11, 51, 75)), Color.rgb(107, 80, 220), dp(1), dp(12))
-                }
+                val art = label("${index + 1}", 15, Color.WHITE, Typeface.BOLD).apply { gravity = Gravity.CENTER; background = roundedGradient(intArrayOf(Color.rgb(46, 22, 82), Color.rgb(11, 51, 75)), Color.rgb(107, 80, 220), dp(1), dp(12)) }
                 row.addView(art, LinearLayout.LayoutParams(dp(48), dp(48)))
                 val meta = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(11), 0, 0, 0) }
                 meta.addView(label(song.mediaMetadata.title?.toString() ?: "Unknown track", 14, Color.WHITE, Typeface.BOLD).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
@@ -323,28 +236,9 @@ class MainActivity : AppCompatActivity() {
         return scroll
     }
 
-    private fun label(text: String, sizeSp: Int, color: Int, style: Int): TextView = TextView(this).apply {
-        this.text = text
-        textSize = sizeSp.toFloat()
-        setTextColor(color)
-        typeface = Typeface.create(Typeface.DEFAULT, style)
-        includeFontPadding = false
-    }
-
-    private fun card(colors: IntArray, strokeColor: Int, strokeWidth: Int, radius: Int): LinearLayout = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        background = roundedGradient(colors, strokeColor, strokeWidth, radius)
-        elevation = dp(2).toFloat()
-    }
-
-    private fun roundedGradient(colors: IntArray, strokeColor: Int, strokeWidth: Int, radius: Int): GradientDrawable = GradientDrawable(
-        GradientDrawable.Orientation.TL_BR,
-        colors
-    ).apply {
-        cornerRadius = radius.toFloat()
-        setStroke(strokeWidth, strokeColor)
-    }
-
+    private fun label(text: String, sizeSp: Int, color: Int, style: Int): TextView = TextView(this).apply { this.text = text; textSize = sizeSp.toFloat(); setTextColor(color); typeface = Typeface.create(Typeface.DEFAULT, style); includeFontPadding = false }
+    private fun card(colors: IntArray, strokeColor: Int, strokeWidth: Int, radius: Int): LinearLayout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = roundedGradient(colors, strokeColor, strokeWidth, radius); elevation = dp(2).toFloat() }
+    private fun roundedGradient(colors: IntArray, strokeColor: Int, strokeWidth: Int, radius: Int): GradientDrawable = GradientDrawable(GradientDrawable.Orientation.TL_BR, colors).apply { cornerRadius = radius.toFloat(); setStroke(strokeWidth, strokeColor) }
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToInt()
 
     private fun updateBottomNav() {
@@ -354,29 +248,15 @@ class MainActivity : AppCompatActivity() {
             val box = findViewById<ViewGroup>(id)
             val selectedNow = index == selected
             val color = if (selectedNow) Color.WHITE else Color.rgb(110, 120, 144)
-            box.background = roundedGradient(
-                if (selectedNow) intArrayOf(Color.rgb(51, 19, 91), Color.rgb(18, 33, 70)) else intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT),
-                if (selectedNow) Color.rgb(139, 75, 255) else Color.rgb(31, 42, 67),
-                if (selectedNow) dp(1) else 0,
-                dp(17)
-            )
-            for (i in 0 until box.childCount) (box.getChildAt(i) as? TextView)?.apply {
-                setTextColor(color)
-                if (i == 0) setTypeface(typeface, if (selectedNow) Typeface.BOLD else Typeface.NORMAL)
-            }
+            box.background = roundedGradient(if (selectedNow) intArrayOf(Color.rgb(51, 19, 91), Color.rgb(18, 33, 70)) else intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT), if (selectedNow) Color.rgb(139, 75, 255) else Color.rgb(31, 42, 67), if (selectedNow) dp(1) else 0, dp(17))
+            for (i in 0 until box.childCount) (box.getChildAt(i) as? TextView)?.apply { setTextColor(color); if (i == 0) setTypeface(typeface, if (selectedNow) Typeface.BOLD else Typeface.NORMAL) }
         }
     }
 
     private fun updateTabStyle() {
         val ids = listOf(R.id.songsTab, R.id.playlistsTab, R.id.foldersTab, R.id.artistsTab, R.id.albumsTab)
         val selected = when (currentTab) { Tab.SONGS -> 0; Tab.PLAYLISTS -> 1; Tab.FOLDERS -> 2; Tab.ARTISTS -> 3; Tab.ALBUMS -> 4 }
-        ids.forEachIndexed { i, id ->
-            findViewById<TextView>(id).apply {
-                setTextColor(if (i == selected) Color.WHITE else Color.rgb(101, 113, 139))
-                textSize = if (i == selected) 25f else 21f
-                setTypeface(typeface, if (i == selected) Typeface.BOLD else Typeface.NORMAL)
-            }
-        }
+        ids.forEachIndexed { i, id -> findViewById<TextView>(id).apply { setTextColor(if (i == selected) Color.WHITE else Color.rgb(101, 113, 139)); textSize = if (i == selected) 25f else 21f; setTypeface(typeface, if (i == selected) Typeface.BOLD else Typeface.NORMAL) } }
         findViewById<View>(R.id.tabIndicator).translationX = floatArrayOf(0f, 82f, 180f, 286f, 395f)[selected]
     }
 
@@ -388,167 +268,72 @@ class MainActivity : AppCompatActivity() {
 
     private fun playFrom(position: Int) {
         if (!::player.isInitialized || position !in items.indices) return
-        player.setMediaItems(items.toList(), position, 0L)
-        player.prepare()
-        player.play()
-        ensureWeeklyWindow()
-        prefs.edit().putInt("played", prefs.getInt("played", 0) + 1).putInt("today", prefs.getInt("today", 0) + 1).putInt("week_plays", prefs.getInt("week_plays", 0) + 1).apply()
-        updateNowPlaying()
+        player.setMediaItems(items.toList(), position, 0L); player.prepare(); player.play(); ensureWeeklyWindow()
+        prefs.edit().putInt("played", prefs.getInt("played", 0) + 1).putInt("today", prefs.getInt("today", 0) + 1).putInt("week_plays", prefs.getInt("week_plays", 0) + 1).apply(); updateNowPlaying()
     }
 
     private fun shuffleAndPlay() {
         if (!::player.isInitialized || items.isEmpty()) return
-        player.setMediaItems(items.shuffled(), 0, 0L)
-        player.prepare()
-        player.play()
-        ensureWeeklyWindow()
-        prefs.edit().putInt("played", prefs.getInt("played", 0) + 1).putInt("today", prefs.getInt("today", 0) + 1).putInt("week_plays", prefs.getInt("week_plays", 0) + 1).apply()
-        updateNowPlaying()
+        player.setMediaItems(items.shuffled(), 0, 0L); player.prepare(); player.play(); ensureWeeklyWindow()
+        prefs.edit().putInt("played", prefs.getInt("played", 0) + 1).putInt("today", prefs.getInt("today", 0) + 1).putInt("week_plays", prefs.getInt("week_plays", 0) + 1).apply(); updateNowPlaying()
     }
 
     private fun requestAudioPermissionIfNeeded() {
         val permission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
         if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) permissionLauncher.launch(arrayOf(permission))
     }
-
-    private fun hasAudioPermission(): Boolean {
-        val permission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
-        return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun requestVideoPermission() {
-        if (Build.VERSION.SDK_INT >= 33) permissionLauncher.launch(arrayOf(Manifest.permission.READ_MEDIA_VIDEO))
-    }
-
+    private fun hasAudioPermission(): Boolean { val permission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE; return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED }
+    private fun requestVideoPermission() { if (Build.VERSION.SDK_INT >= 33) permissionLauncher.launch(arrayOf(Manifest.permission.READ_MEDIA_VIDEO)) }
     private fun hasVideoPermission(): Boolean = Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
 
     private fun loadSongs() {
         if (!hasAudioPermission()) return
-        val found = mutableListOf<MediaItem>()
-        val base = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        val found = mutableListOf<MediaItem>(); val base = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         val projection = arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST)
-        val sortOrder = when (audioSortMode) {
-            1 -> "${MediaStore.Audio.Media.ARTIST} COLLATE NOCASE ASC, ${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
-            2 -> "${MediaStore.Audio.Media.DATE_ADDED} DESC"
-            else -> "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
-        }
+        val sortOrder = when (audioSortMode) { 1 -> "${MediaStore.Audio.Media.ARTIST} COLLATE NOCASE ASC, ${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"; 2 -> "${MediaStore.Audio.Media.DATE_ADDED} DESC"; else -> "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC" }
         contentResolver.query(base, projection, "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, sortOrder)?.use { cursor ->
-            val id = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val title = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val artist = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            while (cursor.moveToNext()) {
-                val uri = android.content.ContentUris.withAppendedId(base, cursor.getLong(id))
-                found += mediaItem(uri, cursor.getString(title), cursor.getString(artist))
-            }
+            val id = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID); val title = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE); val artist = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+            while (cursor.moveToNext()) { val uri = android.content.ContentUris.withAppendedId(base, cursor.getLong(id)); found += mediaItem(uri, cursor.getString(title), cursor.getString(artist)) }
         }
-        allSongs.clear()
-        allSongs.addAll(found)
-        replaceItems(found)
+        allSongs.clear(); allSongs.addAll(found); replaceItems(found)
     }
 
     private fun loadVideos() {
         if (!hasVideoPermission()) return
-        val base = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-        videos.clear()
+        val base = MediaStore.Video.Media.EXTERNAL_CONTENT_URI; videos.clear()
         val projection = arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.TITLE, MediaStore.Video.Media.SIZE, MediaStore.Video.Media.DURATION)
-        val sortOrder = when (videoSortMode) {
-            1 -> "${MediaStore.Video.Media.TITLE} COLLATE NOCASE ASC"
-            2 -> "${MediaStore.Video.Media.SIZE} DESC"
-            3 -> "${MediaStore.Video.Media.DURATION} DESC"
-            else -> "${MediaStore.Video.Media.DATE_ADDED} DESC"
-        }
+        val sortOrder = when (videoSortMode) { 1 -> "${MediaStore.Video.Media.TITLE} COLLATE NOCASE ASC"; 2 -> "${MediaStore.Video.Media.SIZE} DESC"; 3 -> "${MediaStore.Video.Media.DURATION} DESC"; else -> "${MediaStore.Video.Media.DATE_ADDED} DESC" }
         contentResolver.query(base, projection, null, null, sortOrder)?.use { cursor ->
-            val id = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
-            val title = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.TITLE)
-            val size = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
-            val duration = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
-            while (cursor.moveToNext()) {
-                val uri = android.content.ContentUris.withAppendedId(base, cursor.getLong(id))
-                videos += VideoEntry(uri, cursor.getString(title) ?: "Video", cursor.getLong(size), cursor.getLong(duration))
-            }
+            val id = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID); val title = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.TITLE); val size = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE); val duration = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+            while (cursor.moveToNext()) { val uri = android.content.ContentUris.withAppendedId(base, cursor.getLong(id)); videos += VideoEntry(uri, cursor.getString(title) ?: "Video", cursor.getLong(size), cursor.getLong(duration)) }
         }
-        videoAdapter.notifyDataSetChanged()
-        findViewById<TextView>(R.id.videoCount).text = "${videos.size} Videos"
+        videoAdapter.notifyDataSetChanged(); findViewById<TextView>(R.id.videoCount).text = "${videos.size} Videos"
     }
 
     private fun showAudioSortDialog() {
         val options = arrayOf("Title A–Z", "Artist A–Z", "Recently added")
-        AlertDialog.Builder(this)
-            .setTitle("Sort Audio by")
-            .setSingleChoiceItems(options, audioSortMode) { dialog, which ->
-                audioSortMode = which
-                dialog.dismiss()
-                loadSongs()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+        AlertDialog.Builder(this).setTitle("Sort Audio by").setSingleChoiceItems(options, audioSortMode) { dialog, which -> audioSortMode = which; dialog.dismiss(); loadSongs() }.setNegativeButton("Cancel", null).show()
     }
-
     private fun showVideoSortDialog() {
         val options = arrayOf("Recently added", "Title A–Z", "Largest first", "Longest first")
-        AlertDialog.Builder(this)
-            .setTitle("Sort Video by")
-            .setSingleChoiceItems(options, videoSortMode) { dialog, which ->
-                videoSortMode = which
-                dialog.dismiss()
-                loadVideos()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+        AlertDialog.Builder(this).setTitle("Sort Video by").setSingleChoiceItems(options, videoSortMode) { dialog, which -> videoSortMode = which; dialog.dismiss(); loadVideos() }.setNegativeButton("Cancel", null).show()
     }
-
-    private fun playVideo(entry: VideoEntry) {
-        if (!hasVideoPermission()) return
-        startActivity(Intent(this, FullscreenVideoActivity::class.java).apply {
-            putExtra(FullscreenVideoActivity.EXTRA_VIDEO_URI, entry.uri.toString())
-            putExtra(FullscreenVideoActivity.EXTRA_VIDEO_TITLE, entry.title)
-        })
-    }
-
-    private fun replaceItems(found: List<MediaItem>) {
-        items.clear()
-        items.addAll(found)
-        adapter.notifyDataSetChanged()
-        findViewById<TextView>(R.id.playAll).text = "▶  Play (${items.size})"
-    }
-
-    private fun mediaItem(uri: Uri, title: String?, artist: String?) = MediaItem.Builder()
-        .setUri(uri)
-        .setMediaMetadata(MediaMetadata.Builder().setTitle(title ?: "Unknown").setArtist(artist ?: "Unknown artist").build())
-        .build()
-
-    private fun updateNowPlaying() {
-        if (!::player.isInitialized) return
-        val item = player.currentMediaItem
-        findViewById<TextView>(R.id.title).text = item?.mediaMetadata?.title ?: "Nothing playing"
-        findViewById<TextView>(R.id.artist).text = item?.mediaMetadata?.artist ?: "Choose a song"
-        findViewById<ImageButton>(R.id.play).setImageResource(if (player.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
-    }
+    private fun playVideo(entry: VideoEntry) { if (!hasVideoPermission()) return; startActivity(Intent(this, FullscreenVideoActivity::class.java).apply { putExtra(FullscreenVideoActivity.EXTRA_VIDEO_URI, entry.uri.toString()); putExtra(FullscreenVideoActivity.EXTRA_VIDEO_TITLE, entry.title) }) }
+    private fun replaceItems(found: List<MediaItem>) { items.clear(); items.addAll(found); adapter.notifyDataSetChanged(); findViewById<TextView>(R.id.playAll).text = "▶  Play (${items.size})" }
+    private fun mediaItem(uri: Uri, title: String?, artist: String?) = MediaItem.Builder().setUri(uri).setMediaMetadata(MediaMetadata.Builder().setTitle(title ?: "Unknown").setArtist(artist ?: "Unknown artist").build()).build()
+    private fun updateNowPlaying() { if (!::player.isInitialized) return; val item = player.currentMediaItem; findViewById<TextView>(R.id.title).text = item?.mediaMetadata?.title ?: "Nothing playing"; findViewById<TextView>(R.id.artist).text = item?.mediaMetadata?.artist ?: "Choose a song"; findViewById<ImageButton>(R.id.play).setImageResource(if (player.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play) }
 
     private fun showWeeklyReport() {
-        ensureWeeklyWindow()
-        val weekPlays = prefs.getInt("week_plays", 0)
-        val today = prefs.getInt("today", 0)
-        val total = prefs.getInt("played", 0)
-        val songs = allSongs.size
-        val minutes = prefs.getInt("minutes", 0)
-        val message = "LAST 7 DAYS\n\n♫  Plays this week     $weekPlays\n◷  Played today        $today times\n♪  Total plays         $total\n▣  Songs in library    $songs\n◴  Listening time      $minutes mins"
-        AlertDialog.Builder(this).setTitle("Weekly Music Report").setMessage(message).setPositiveButton("DONE", null).show()
+        ensureWeeklyWindow(); val weekPlays = prefs.getInt("week_plays", 0); val today = prefs.getInt("today", 0); val total = prefs.getInt("played", 0); val songs = allSongs.size; val minutes = prefs.getInt("minutes", 0)
+        AlertDialog.Builder(this).setTitle("Weekly Music Report").setMessage("LAST 7 DAYS\n\n♫  Plays this week     $weekPlays\n◷  Played today        $today times\n♪  Total plays         $total\n▣  Songs in library    $songs\n◴  Listening time      $minutes mins").setPositiveButton("DONE", null).show()
     }
 
     private fun showProfileEditor() {
-        val box = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(35, 10, 35, 0)
-        }
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(35, 10, 35, 0) }
         val name = EditText(this).apply { hint = "Your name"; setSingleLine(); setText(prefs.getString("name", "")) }
         val subtitle = EditText(this).apply { hint = "Profile subtitle"; setSingleLine(); setText(prefs.getString("subtitle", "Enjoy Listening")) }
-        box.addView(name)
-        box.addView(subtitle)
-        AlertDialog.Builder(this).setTitle("Create your profile").setView(box).setNegativeButton("Cancel", null).setPositiveButton("Save") { _, _ ->
-            prefs.edit().putString("name", name.text.toString().trim().ifEmpty { "Music Lover" }).putString("subtitle", subtitle.text.toString().trim().ifEmpty { "Enjoy Listening" }).apply()
-            renderMine()
-        }.show()
+        box.addView(name); box.addView(subtitle)
+        AlertDialog.Builder(this).setTitle("Create your profile").setView(box).setNegativeButton("Cancel", null).setPositiveButton("Save") { _, _ -> prefs.edit().putString("name", name.text.toString().trim().ifEmpty { "Music Lover" }).putString("subtitle", subtitle.text.toString().trim().ifEmpty { "Enjoy Listening" }).apply(); renderMine() }.show()
     }
 
     private fun showQueue() {
@@ -559,80 +344,65 @@ class MainActivity : AppCompatActivity() {
 
     private fun showSearch() {
         val input = EditText(this).apply { hint = "Search songs, artists"; setSingleLine(true) }
-        AlertDialog.Builder(this).setTitle("Search").setView(input).setNegativeButton("Cancel", null).setPositiveButton("Search") { _, _ ->
-            val q = input.text.toString().trim()
-            replaceItems(if (q.isEmpty()) allSongs else allSongs.filter { it.mediaMetadata.title?.toString()?.contains(q, true) == true || it.mediaMetadata.artist?.toString()?.contains(q, true) == true })
-        }.show()
-        input.requestFocus()
-        input.postDelayed({ (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input, InputMethodManager.SHOW_IMPLICIT) }, 150)
+        AlertDialog.Builder(this).setTitle("Search").setView(input).setNegativeButton("Cancel", null).setPositiveButton("Search") { _, _ -> val q = input.text.toString().trim(); replaceItems(if (q.isEmpty()) allSongs else allSongs.filter { it.mediaMetadata.title?.toString()?.contains(q, true) == true || it.mediaMetadata.artist?.toString()?.contains(q, true) == true }) }.show()
+        input.requestFocus(); input.postDelayed({ (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input, InputMethodManager.SHOW_IMPLICIT) }, 150)
     }
 
     private fun showMenu() {
-        AlertDialog.Builder(this).setTitle("Audio").setItems(arrayOf("Refresh library", "Repeat off", "About")) { _, which ->
-            when (which) {
-                0 -> loadSongs()
-                1 -> if (::player.isInitialized) player.repeatMode = Player.REPEAT_MODE_OFF
-                2 -> showPremiumInfo()
-            }
-        }.show()
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(16))
+            background = roundedGradient(intArrayOf(Color.rgb(10, 15, 34), Color.rgb(25, 12, 48)), Color.rgb(126, 67, 255), dp(1), dp(22))
+        }
+        panel.addView(TextView(this).apply { text = "AUDIO MENU"; textSize = 12f; setTextColor(Color.rgb(177, 115, 255)); setTypeface(typeface, Typeface.BOLD); setPadding(0, dp(6), 0, dp(10)) })
+        panel.addView(TextView(this).apply { text = "Themes"; textSize = 18f; setTextColor(Color.WHITE); gravity = Gravity.CENTER_VERTICAL; setPadding(dp(12), 0, dp(12), 0); background = roundedGradient(intArrayOf(Color.rgb(21, 27, 53), Color.rgb(30, 16, 56)), Color.rgb(70, 91, 160), dp(1), dp(16)); setOnClickListener { showThemes() } }, LinearLayout.LayoutParams(-1, dp(58)).apply { bottomMargin = dp(9) })
+        panel.addView(TextView(this).apply { text = "Widgets"; textSize = 18f; setTextColor(Color.WHITE); gravity = Gravity.CENTER_VERTICAL; setPadding(dp(12), 0, dp(12), 0); background = roundedGradient(intArrayOf(Color.rgb(21, 27, 53), Color.rgb(30, 16, 56)), Color.rgb(70, 91, 160), dp(1), dp(16)); setOnClickListener { showWidgets() } }, LinearLayout.LayoutParams(-1, dp(58)))
+        val dialog = AlertDialog.Builder(this).setView(panel).create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.setOnShowListener { dialog.window?.setLayout(dp(310), -2); dialog.window?.setGravity(Gravity.START or Gravity.TOP); dialog.window?.attributes?.y = dp(58) }
+        dialog.show()
+        dialog.window?.setLayout(dp(310), -2)
+        dialog.window?.setGravity(Gravity.START or Gravity.TOP)
+        dialog.window?.attributes?.y = dp(58)
     }
 
-    private fun showPremiumInfo() {
-        AlertDialog.Builder(this).setTitle("Audio Player").setMessage("Luxury local music and video experience.\nBackground audio playback enabled.\nYour library stays on your device.").setPositiveButton("OK", null).show()
+    private fun showThemes() {
+        val themes = arrayOf("Nebula Violet", "Cyber Blue", "Midnight Space")
+        val current = prefs.getInt("theme", 0)
+        AlertDialog.Builder(this).setTitle("Themes").setSingleChoiceItems(themes, current) { dialog, which -> prefs.edit().putInt("theme", which).apply(); dialog.dismiss(); applyTheme(which) }.setNegativeButton("Close", null).show()
     }
 
-    override fun onResume() {
-        super.onResume()
-        if (::player.isInitialized) renderSection()
+    private fun applyTheme(theme: Int) {
+        val root = findViewById<View>(android.R.id.content)
+        val colors = when (theme) { 1 -> intArrayOf(Color.rgb(5, 18, 40), Color.rgb(9, 42, 72)); 2 -> intArrayOf(Color.rgb(6, 9, 20), Color.rgb(20, 12, 31)); else -> intArrayOf(Color.rgb(10, 9, 29), Color.rgb(31, 11, 58)) }
+        root.background = roundedGradient(colors, Color.TRANSPARENT, 0, 0)
     }
 
-    override fun onDestroy() {
-        if (::controllerFuture.isInitialized) MediaController.releaseFuture(controllerFuture)
-        super.onDestroy()
+    private fun showWidgets() {
+        val widgets = arrayOf("Now Playing", "Quick Access", "Soundstream", "Weekly Report")
+        AlertDialog.Builder(this).setTitle("Home Widgets").setMultiChoiceItems(widgets, null) { _, _, _ -> }.setPositiveButton("APPLY") { _, _ -> }.setNegativeButton("CLOSE", null).show()
     }
+
+    private fun showPremiumInfo() { AlertDialog.Builder(this).setTitle("Audio Player").setMessage("Luxury local music and video experience.\nBackground audio playback enabled.\nYour library stays on your device.").setPositiveButton("OK", null).show() }
+    override fun onResume() { super.onResume(); if (::player.isInitialized) renderSection() }
+    override fun onDestroy() { if (::controllerFuture.isInitialized) MediaController.releaseFuture(controllerFuture); super.onDestroy() }
 }
 
 data class VideoEntry(val uri: Uri, val title: String, val size: Long, val duration: Long)
 
 private class SongAdapter(private val items: List<MediaItem>, private val onClick: (Int) -> Unit) : RecyclerView.Adapter<SongAdapter.Holder>() {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = Holder(LayoutInflater.from(parent.context).inflate(R.layout.item_song, parent, false))
-    override fun onBindViewHolder(holder: Holder, position: Int) {
-        val item = items[position]
-        holder.title.text = item.mediaMetadata.title ?: "Unknown"
-        holder.artist.text = item.mediaMetadata.artist ?: "Unknown artist"
-        holder.itemView.setOnClickListener { onClick(position) }
-    }
+    override fun onBindViewHolder(holder: Holder, position: Int) { val item = items[position]; holder.title.text = item.mediaMetadata.title ?: "Unknown"; holder.artist.text = item.mediaMetadata.artist ?: "Unknown artist"; holder.itemView.setOnClickListener { onClick(position) } }
     override fun getItemCount() = items.size
-    class Holder(view: View) : RecyclerView.ViewHolder(view) {
-        val title: TextView = view.findViewById(R.id.songTitle)
-        val artist: TextView = view.findViewById(R.id.songArtist)
-    }
+    class Holder(view: View) : RecyclerView.ViewHolder(view) { val title: TextView = view.findViewById(R.id.songTitle); val artist: TextView = view.findViewById(R.id.songArtist) }
 }
 
 private class VideoAdapter(private val items: List<VideoEntry>, private val onClick: (VideoEntry) -> Unit) : RecyclerView.Adapter<VideoAdapter.Holder>() {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = Holder(LayoutInflater.from(parent.context).inflate(R.layout.item_video, parent, false))
-    override fun onBindViewHolder(holder: Holder, position: Int) {
-        val item = items[position]
-        holder.title.text = item.title
-        holder.meta.text = "${formatSize(item.size)} • ${formatDuration(item.duration)}"
-        holder.thumb.setVideoUri(item.uri)
-        holder.itemView.setOnClickListener { onClick(item) }
-    }
+    override fun onBindViewHolder(holder: Holder, position: Int) { val item = items[position]; holder.title.text = item.title; holder.meta.text = "${formatSize(item.size)} • ${formatDuration(item.duration)}"; holder.thumb.setVideoUri(item.uri); holder.itemView.setOnClickListener { onClick(item) } }
     override fun getItemCount() = items.size
-    class Holder(view: View) : RecyclerView.ViewHolder(view) {
-        val title: TextView = view.findViewById(R.id.videoTitle)
-        val meta: TextView = view.findViewById(R.id.videoMeta)
-        val thumb: VideoThumbnailView = view.findViewById(R.id.videoThumbnail)
-    }
+    class Holder(view: View) : RecyclerView.ViewHolder(view) { val title: TextView = view.findViewById(R.id.videoTitle); val meta: TextView = view.findViewById(R.id.videoMeta); val thumb: VideoThumbnailView = view.findViewById(R.id.videoThumbnail) }
 }
 
-private fun formatSize(bytes: Long): String {
-    if (bytes <= 0) return "Unknown size"
-    val mb = bytes / 1024.0 / 1024.0
-    return if (mb < 1024) String.format("%.1f MB", mb) else String.format("%.1f GB", mb / 1024)
-}
-
-private fun formatDuration(ms: Long): String {
-    val seconds = (ms / 1000).coerceAtLeast(0)
-    return String.format("%02d:%02d", seconds / 60, seconds % 60)
-}
+private fun formatSize(bytes: Long): String { if (bytes <= 0) return "Unknown size"; val mb = bytes / 1024.0 / 1024.0; return if (mb < 1024) String.format("%.1f MB", mb) else String.format("%.1f GB", mb / 1024) }
+private fun formatDuration(ms: Long): String { val seconds = (ms / 1000).coerceAtLeast(0); return String.format("%02d:%02d", seconds / 60, seconds % 60) }
