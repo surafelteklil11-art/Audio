@@ -140,7 +140,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun renderHome() {
+    private fun renderHome(): Unit {
         val container = findViewById<LinearLayout>(R.id.simpleContainer)
         findViewById<TextView>(R.id.simpleIcon).visibility = View.GONE
         findViewById<TextView>(R.id.simpleTitle).visibility = View.GONE
@@ -196,7 +196,7 @@ class MainActivity : AppCompatActivity() {
         val heroRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val heroCopy = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         heroCopy.addView(label("✦  FEATURED SIGNAL", 10, Color.rgb(190, 126, 255), Typeface.BOLD))
-        heroCopy.addView(label("Feel The\nFuture of Sound", 25, Color.WHITE, Typeface.BOLD).apply { setPadding(0, dp(7), 0, dp(7) ) })
+        heroCopy.addView(label("Feel The\nFuture of Sound", 25, Color.WHITE, Typeface.BOLD).apply { setPadding(0, dp(7), 0, dp(7)) })
         heroCopy.addView(label("Explore a new way to listen\nand experience your library.", 12, Color.rgb(178, 190, 218), Typeface.NORMAL))
         val listen = label("  ▶  LISTEN NOW  ", 12, Color.WHITE, Typeface.BOLD).apply { gravity = Gravity.CENTER; background = roundedGradient(intArrayOf(Color.rgb(137, 63, 255), Color.rgb(42, 154, 255)), Color.rgb(204, 136, 255), dp(1), dp(16)); setPadding(dp(4), dp(10), dp(4), dp(10)); isClickable = true; setOnClickListener { if (allSongs.isNotEmpty()) playFrom(0) else selectSection(Section.MUSIC) } }
         heroCopy.addView(listen, LinearLayout.LayoutParams(dp(128), dp(42)).apply { topMargin = dp(13) })
@@ -357,46 +357,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showMenu() {
+        lateinit var dialog: AlertDialog
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(8), dp(20), dp(14))
             background = roundedGradient(intArrayOf(Color.rgb(9, 14, 33), Color.rgb(25, 10, 49)), Color.rgb(126, 67, 255), dp(1), dp(22))
         }
 
-        val header = LinearLayout(this).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(4), dp(8), 0, dp(8))
-        }
-        val icon = TextView(this).apply {
-            text = "♫"
-            textSize = 28f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            background = roundedGradient(intArrayOf(Color.rgb(55, 22, 104), Color.rgb(31, 20, 72)), Color.rgb(137, 66, 255), dp(1), dp(18))
-        }
+        val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(4), dp(8), 0, dp(8)) }
+        val icon = TextView(this).apply { text = "♫"; textSize = 28f; gravity = Gravity.CENTER; setTextColor(Color.WHITE); background = roundedGradient(intArrayOf(Color.rgb(55, 22, 104), Color.rgb(31, 20, 72)), Color.rgb(137, 66, 255), dp(1), dp(18)) }
         header.addView(icon, LinearLayout.LayoutParams(dp(58), dp(58)))
         val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }
         titleBox.addView(label("Audio", 22, Color.WHITE, Typeface.BOLD))
         titleBox.addView(label("Music & video", 13, Color.rgb(184, 190, 217), Typeface.BOLD).apply { setPadding(0, dp(3), 0, 0) })
         header.addView(titleBox, LinearLayout.LayoutParams(0, -2, 1f))
-        val close = TextView(this).apply {
-            text = "×"
-            textSize = 31f
-            gravity = Gravity.CENTER
-            setTextColor(Color.rgb(218, 221, 235))
-            isClickable = true
-        }
+        val close = TextView(this).apply { text = "×"; textSize = 31f; gravity = Gravity.CENTER; setTextColor(Color.rgb(218, 221, 235)); isClickable = true }
         header.addView(close, LinearLayout.LayoutParams(dp(44), dp(58)))
         panel.addView(header)
-
         panel.addView(View(this).apply { setBackgroundColor(Color.rgb(48, 56, 84)) }, LinearLayout.LayoutParams(-1, dp(1)).apply { bottomMargin = dp(8) })
 
-        val scroll = ScrollView(this).apply {
-            isFillViewport = true
-            overScrollMode = View.OVER_SCROLL_NEVER
-            clipToPadding = false
-            setPadding(0, dp(2), 0, dp(10))
-        }
+        val scroll = ScrollView(this).apply { isFillViewport = true; overScrollMode = View.OVER_SCROLL_NEVER; clipToPadding = false; setPadding(0, dp(2), 0, dp(10)) }
         val menu = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroll.addView(menu, ViewGroup.LayoutParams(-1, -1))
 
@@ -406,8 +386,7 @@ class MainActivity : AppCompatActivity() {
                 isClickable = true
                 isFocusable = true
                 setPadding(dp(6), 0, dp(6), 0)
-                setOnClickListener(onClick)
-                background = roundedGradient(intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT), Color.TRANSPARENT, 0, dp(14))
+                setOnClickListener { onClick() }
             }
             row.addView(label(iconText, 22, Color.rgb(211, 205, 244), Typeface.NORMAL).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(54), dp(58)))
             row.addView(label(title, 17, Color.rgb(228, 230, 243), Typeface.NORMAL).apply { gravity = Gravity.CENTER_VERTICAL }, LinearLayout.LayoutParams(0, dp(58), 1f))
@@ -420,18 +399,16 @@ class MainActivity : AppCompatActivity() {
 
         addMenuItem("☷", "Themes") { dialog.dismiss(); showThemes() }
         addMenuItem("▦", "Widgets") { dialog.dismiss(); showWidgets() }
-
         addSection("PLAYER")
         addMenuItem("≋", "Equalizer") { dialog.dismiss(); showEqualizer() }
         addMenuItem("◷", "Sleep Timer") { dialog.dismiss(); showSleepTimer() }
         addMenuItem("🚗", "Drive Mode") { toggleDriveMode() }
-
         addSection("APP")
         addMenuItem("⚙", "Settings") { dialog.dismiss(); startActivity(Intent(this, SettingsActivity::class.java)) }
 
         panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        val dialog = AlertDialog.Builder(this).setView(panel).create()
+        dialog = AlertDialog.Builder(this).setView(panel).create()
         close.setOnClickListener { dialog.dismiss() }
         dialog.setCanceledOnTouchOutside(true)
         dialog.setOnShowListener {
@@ -440,7 +417,6 @@ class MainActivity : AppCompatActivity() {
             dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
             dialog.window?.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)
             dialog.window?.setGravity(Gravity.START or Gravity.TOP)
-            dialog.window?.attributes?.y = 0
         }
         dialog.show()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
@@ -448,7 +424,6 @@ class MainActivity : AppCompatActivity() {
         dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         dialog.window?.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)
         dialog.window?.setGravity(Gravity.START or Gravity.TOP)
-        dialog.window?.attributes?.y = 0
     }
 
     private fun showEqualizer() {
@@ -460,33 +435,20 @@ class MainActivity : AppCompatActivity() {
         try {
             startActivity(equalizerIntent)
         } catch (_: Exception) {
-            AlertDialog.Builder(this)
-                .setTitle("Equalizer")
-                .setMessage("Your device does not provide a system equalizer panel for Audio.")
-                .setPositiveButton("OK", null)
-                .show()
+            AlertDialog.Builder(this).setTitle("Equalizer").setMessage("Your device does not provide a system equalizer panel for Audio.").setPositiveButton("OK", null).show()
         }
     }
 
     private fun showSleepTimer() {
         val options = arrayOf("Off", "15 minutes", "30 minutes", "45 minutes", "60 minutes", "90 minutes", "120 minutes")
+        val values = intArrayOf(0, 15, 30, 45, 60, 90, 120)
         val currentEnd = prefs.getLong("sleep_timer_end", 0L)
-        val current = if (currentEnd > System.currentTimeMillis()) {
-            val remaining = ((currentEnd - System.currentTimeMillis()) / 60000L).toInt()
-            options.indices.minByOrNull { index -> kotlin.math.abs((if (index == 0) 0 else index * 15) - remaining) } ?: 0
-        } else 0
-        AlertDialog.Builder(this)
-            .setTitle("Sleep Timer")
-            .setSingleChoiceItems(options, current) { dialog, which ->
-                if (which == 0) {
-                    cancelSleepTimer()
-                } else {
-                    scheduleSleepTimer(which * 15L)
-                }
-                dialog.dismiss()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+        val currentRemaining = if (currentEnd > System.currentTimeMillis()) ((currentEnd - System.currentTimeMillis()) / 60000L).toInt() else 0
+        val current = if (currentRemaining > 0) values.indices.minByOrNull { kotlin.math.abs(values[it] - currentRemaining) } ?: 0 else 0
+        AlertDialog.Builder(this).setTitle("Sleep Timer").setSingleChoiceItems(options, current) { dialog, which ->
+            if (which == 0) cancelSleepTimer() else scheduleSleepTimer(values[which].toLong())
+            dialog.dismiss()
+        }.setNegativeButton("Cancel", null).show()
     }
 
     private fun scheduleSleepTimer(minutes: Long) {
@@ -532,11 +494,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyDriveMode() {
-        if (prefs.getBoolean("drive_mode", false)) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        } else {
-            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
+        if (prefs.getBoolean("drive_mode", false)) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     private fun showThemes() {
