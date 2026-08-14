@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widgetLiteRoot" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="center_vertical" android:padding="10dp" android:background="@drawable/widget_bg_lite">
+    <TextView android:id="@+id/liteTitle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Music Player" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/liteShuffle" android:layout_width="32dp" android:layout_height="44dp" android:gravity="center" android:text="↻" android:textColor="#FFFFFF" android:textSize="17sp" />
+    <TextView android:id="@+id/litePrev" android:layout_width="32dp" android:layout_height="44dp" android:gravity="center" android:text="◀" android:textColor="#FFFFFF" android:textSize="15sp" />
+    <TextView android:id="@+id/litePlay" android:layout_width="38dp" android:layout_height="44dp" android:gravity="center" android:text="▶" android:textColor="#FFFFFF" android:textSize="18sp" />
+    <TextView android:id="@+id/liteNext" android:layout_width="32dp" android:layout_height="44dp" android:gravity="center" android:text="▶" android:textColor="#FFFFFF" android:textSize="15sp" />
+    <TextView android:id="@+id/liteHeart" android:layout_width="32dp" android:layout_height="44dp" android:gravity="center" android:text="♡" android:textColor="#FFFFFF" android:textSize="18sp" />
+</LinearLayout>
