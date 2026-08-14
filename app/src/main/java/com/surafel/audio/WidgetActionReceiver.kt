@@ -4,6 +4,8 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import androidx.core.content.ContextCompat
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -25,18 +27,53 @@ class WidgetActionReceiver : BroadcastReceiver() {
         future.addListener({
             try {
                 val controller = future.get()
-                when (intent.action) {
-                    ACTION_PLAY_PAUSE -> if (controller.isPlaying) controller.pause() else controller.play()
-                    ACTION_PREVIOUS -> controller.seekToPreviousMediaItem()
-                    ACTION_NEXT -> controller.seekToNextMediaItem()
-                    ACTION_SHUFFLE -> controller.setShuffleModeEnabled(!controller.shuffleModeEnabled)
+                executeAction(controller, intent.action)
+                AudioWidgetRenderer.updateAll(appContext, controller)
+
+                // If the service was just started, its MediaStore queue can finish loading
+                // shortly after the controller connects. Retry navigation once so the first
+                // widget press is not lost while the queue is being built.
+                if (intent.action == ACTION_NEXT || intent.action == ACTION_PREVIOUS) {
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        try {
+                            if (controller.mediaItemCount > 1) {
+                                executeAction(controller, intent.action)
+                                AudioWidgetRenderer.updateAll(appContext, controller)
+                            }
+                        } finally {
+                            controller.release()
+                            pendingResult.finish()
+                        }
+                    }, 350L)
+                } else {
+                    controller.release()
+                    pendingResult.finish()
                 }
-                controller.release()
             } catch (_: Exception) {
-                // The widget may be pressed before the media session is ready; never crash the launcher.
-            } finally {
+                // Widget taps must never crash the launcher.
                 pendingResult.finish()
             }
         }, ContextCompat.getMainExecutor(appContext))
+    }
+
+    private fun executeAction(controller: MediaController, action: String?) {
+        when (action) {
+            ACTION_PLAY_PAUSE -> if (controller.isPlaying) controller.pause() else controller.play()
+            ACTION_PREVIOUS -> {
+                if (controller.mediaItemCount > 1 && controller.currentMediaItemIndex == 0) {
+                    controller.seekToDefaultPosition(controller.mediaItemCount - 1)
+                } else {
+                    controller.seekToPreviousMediaItem()
+                }
+            }
+            ACTION_NEXT -> {
+                if (controller.mediaItemCount > 1 && controller.currentMediaItemIndex >= controller.mediaItemCount - 1) {
+                    controller.seekToDefaultPosition(0)
+                } else {
+                    controller.seekToNextMediaItem()
+                }
+            }
+            ACTION_SHUFFLE -> controller.setShuffleModeEnabled(!controller.shuffleModeEnabled)
+        }
     }
 }
