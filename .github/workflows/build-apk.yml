@@ -101,9 +101,16 @@ jobs:
           test -f app/src/main/java/com/surafel/audio/FullscreenVideoActivity.kt
           test -f app/src/main/java/com/surafel/audio/PlaybackService.kt
           test -f app/src/main/java/com/surafel/audio/VaultActivity.kt
-          grep -q 'versionCode = 319' app/build.gradle.kts
-          grep -q 'versionName = "1.0.319"' app/build.gradle.kts
-          grep -q 'Theme_Audio_SideDrawer' app/src/main/res/values/styles.xml
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle = Path("app/build.gradle.kts").read_text(encoding="utf-8")
+          if 'versionCode = 319' not in gradle or 'versionName = "1.0.319"' not in gradle:
+              raise SystemExit("Expected Audio version 1.0.319 is missing")
+          styles = Path("app/src/main/res/values/styles.xml").read_text(encoding="utf-8")
+          if 'Theme.Audio.SideDrawer' not in styles:
+              raise SystemExit("Side drawer style declaration is missing")
+          print("Project source validation passed")
+          PY
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
