@@ -27,30 +27,30 @@ class WidgetActionReceiver : BroadcastReceiver() {
         future.addListener({
             try {
                 val controller = future.get()
-                executeAction(controller, intent.action)
-                AudioWidgetRenderer.updateAll(appContext, controller)
+                val navigation = intent.action == ACTION_NEXT || intent.action == ACTION_PREVIOUS
 
-                // If the service was just started, its MediaStore queue can finish loading
-                // shortly after the controller connects. Retry navigation once so the first
-                // widget press is not lost while the queue is being built.
-                if (intent.action == ACTION_NEXT || intent.action == ACTION_PREVIOUS) {
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        try {
-                            if (controller.mediaItemCount > 1) {
-                                executeAction(controller, intent.action)
-                                AudioWidgetRenderer.updateAll(appContext, controller)
-                            }
-                        } finally {
-                            controller.release()
-                            pendingResult.finish()
-                        }
-                    }, 350L)
-                } else {
+                if (!navigation || controller.mediaItemCount > 1) {
+                    executeAction(controller, intent.action)
+                    AudioWidgetRenderer.updateAll(appContext, controller)
                     controller.release()
                     pendingResult.finish()
+                    return@addListener
                 }
+
+                // PlaybackService may still be loading MediaStore. Wait once and execute
+                // the navigation command only after a real queue exists, avoiding a lost tap.
+                Handler(Looper.getMainLooper()).postDelayed({
+                    try {
+                        if (controller.mediaItemCount > 1) {
+                            executeAction(controller, intent.action)
+                            AudioWidgetRenderer.updateAll(appContext, controller)
+                        }
+                    } finally {
+                        controller.release()
+                        pendingResult.finish()
+                    }
+                }, 500L)
             } catch (_: Exception) {
-                // Widget taps must never crash the launcher.
                 pendingResult.finish()
             }
         }, ContextCompat.getMainExecutor(appContext))
