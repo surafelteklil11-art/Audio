@@ -29,6 +29,7 @@
         <activity android:name=".MediaActionActivity" android:exported="false" />
         <activity android:name=".AudioLibraryPageActivity" android:exported="false" />
 
+        <receiver android:name=".WidgetActionReceiver" android:exported="false" />
         <receiver android:name=".AudioWidgetClassicProvider" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_classic" /></receiver>
         <receiver android:name=".AudioWidgetLiteProvider" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_lite" /></receiver>
         <receiver android:name=".AudioWidgetSimpleProvider" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_simple" /></receiver>
