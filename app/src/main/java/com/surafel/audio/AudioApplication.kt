@@ -20,7 +20,6 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import java.io.File
 
-/** Application-level background and media-menu wiring. */
 class AudioApplication : Application() {
     override fun onCreate() {
         super.onCreate()
@@ -40,10 +39,6 @@ class AudioApplication : Application() {
     }
 }
 
-/**
- * Owns the app side menu. Only the four requested navigation entries are removed:
- * Home, Audio/Music, Vedio/Video and My Profile. Other utility actions remain.
- */
 object SideMenuInstaller {
     private var installedFor: Activity? = null
 
@@ -61,13 +56,9 @@ object SideMenuInstaller {
             setPadding(dp(activity, 20), dp(activity, 12), dp(activity, 20), dp(activity, 18))
             background = rounded(intArrayOf(Color.rgb(9, 14, 34), Color.rgb(24, 11, 48)), Color.rgb(126, 67, 255), dp(activity, 1), dp(activity, 24))
         }
-
         val header = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL }
         val icon = TextView(activity).apply {
-            text = "♫"
-            textSize = 26f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
+            text = "♫"; textSize = 26f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
             background = rounded(intArrayOf(Color.rgb(63, 25, 111), Color.rgb(30, 17, 70)), Color.rgb(137, 65, 255), dp(activity, 1), dp(activity, 18))
         }
         header.addView(icon, LinearLayout.LayoutParams(dp(activity, 62), dp(activity, 62)))
@@ -80,23 +71,17 @@ object SideMenuInstaller {
         panel.addView(header)
         panel.addView(View(activity).apply { setBackgroundColor(Color.rgb(45, 49, 75)) }, LinearLayout.LayoutParams(-1, dp(activity, 1)).apply { topMargin = dp(activity, 14); bottomMargin = dp(activity, 12) })
 
-        // Intentionally omitted: Home, Audio/Music, Vedio/Video, My Profile.
+        // Keep the requested utilities. Only Home, Audio/Music, Vedio/Video and My Profile are removed.
         addMenuItem(activity, panel, "☷", "Themes", true) { showThemes(activity) }
-        addMenuItem(activity, panel, "▦", "Widgets", true) { showWidgets(activity) }
-        addMenuItem(activity, panel, "☷", "Play Queue", true) {
-            activity.findViewById<TextView>(R.id.queueButton)?.performClick()
-        }
+        addMenuItem(activity, panel, "▦", "Widgets", true) { activity.startActivity(Intent(activity, WidgetCatalogActivity::class.java)) }
+        addMenuItem(activity, panel, "☷", "Play Queue", true) { activity.findViewById<TextView>(R.id.queueButton)?.performClick() }
 
         panel.addView(text(activity, "LIBRARY", 12, Color.rgb(112, 129, 165), Typeface.BOLD).apply { setPadding(dp(activity, 2), dp(activity, 14), 0, dp(activity, 4)) })
         addMenuItem(activity, panel, "↻", "Refresh Library", true) { activity.recreate() }
-        addMenuItem(activity, panel, "⌕", "Search", true) {
-            activity.findViewById<TextView>(R.id.searchButton)?.performClick()
-        }
+        addMenuItem(activity, panel, "⌕", "Search", true) { activity.findViewById<TextView>(R.id.searchButton)?.performClick() }
 
         panel.addView(text(activity, "APP", 12, Color.rgb(112, 129, 165), Typeface.BOLD).apply { setPadding(dp(activity, 2), dp(activity, 14), 0, dp(activity, 4)) })
-        addMenuItem(activity, panel, "⚙", "Settings", true) {
-            activity.startActivity(Intent(activity, SettingsActivity::class.java))
-        }
+        addMenuItem(activity, panel, "⚙", "Settings", true) { activity.startActivity(Intent(activity, SettingsActivity::class.java)) }
 
         val dialog = AlertDialog.Builder(activity).setView(panel).create()
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
@@ -114,9 +99,7 @@ object SideMenuInstaller {
 
     private fun addMenuItem(activity: Activity, panel: LinearLayout, glyph: String, label: String, enabled: Boolean, action: () -> Unit) {
         val row = LinearLayout(activity).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            isClickable = enabled
-            isFocusable = enabled
+            gravity = Gravity.CENTER_VERTICAL; isClickable = enabled; isFocusable = enabled
             if (enabled) setOnClickListener { action() }
             setPadding(dp(activity, 18), 0, dp(activity, 8), 0)
         }
@@ -130,15 +113,9 @@ object SideMenuInstaller {
         val prefs = activity.getSharedPreferences("audio_profile", Context.MODE_PRIVATE)
         val themes = arrayOf("Nebula Violet", "Cyber Blue", "Midnight Space")
         val current = prefs.getInt("theme", 0)
-        AlertDialog.Builder(activity)
-            .setTitle("Themes")
-            .setSingleChoiceItems(themes, current) { dialog, which ->
-                prefs.edit().putInt("theme", which).apply()
-                applyTheme(activity, which)
-                dialog.dismiss()
-            }
-            .setNegativeButton("Close", null)
-            .show()
+        AlertDialog.Builder(activity).setTitle("Themes").setSingleChoiceItems(themes, current) { dialog, which ->
+            prefs.edit().putInt("theme", which).apply(); applyTheme(activity, which); dialog.dismiss()
+        }.setNegativeButton("Close", null).show()
     }
 
     private fun applyTheme(activity: Activity, theme: Int) {
@@ -151,66 +128,24 @@ object SideMenuInstaller {
         root.background = rounded(colors, Color.TRANSPARENT, 0, 0)
     }
 
-    private fun showWidgets(activity: Activity) {
-        val widgets = arrayOf("Now Playing", "Quick Access", "Soundstream", "Weekly Report")
-        val checked = booleanArrayOf(true, true, true, true)
-        AlertDialog.Builder(activity)
-            .setTitle("Home Widgets")
-            .setMultiChoiceItems(widgets, checked) { _, _, _ -> }
-            .setPositiveButton("APPLY", null)
-            .setNegativeButton("CLOSE", null)
-            .show()
-    }
-
     private fun text(activity: Activity, value: String, size: Int, color: Int, style: Int): TextView = TextView(activity).apply {
-        text = value
-        textSize = size.toFloat()
-        setTextColor(color)
-        typeface = Typeface.create(Typeface.DEFAULT, style)
-        includeFontPadding = false
+        text = value; textSize = size.toFloat(); setTextColor(color); typeface = Typeface.create(Typeface.DEFAULT, style); includeFontPadding = false
     }
-
-    private fun rounded(colors: IntArray, stroke: Int, width: Int, radius: Int): GradientDrawable = GradientDrawable(GradientDrawable.Orientation.TL_BR, colors).apply {
-        cornerRadius = radius.toFloat()
-        if (width > 0) setStroke(width, stroke)
-    }
-
+    private fun rounded(colors: IntArray, stroke: Int, width: Int, radius: Int): GradientDrawable = GradientDrawable(GradientDrawable.Orientation.TL_BR, colors).apply { cornerRadius = radius.toFloat(); if (width > 0) setStroke(width, stroke) }
     private fun dp(activity: Activity, value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()
 }
 
-/**
- * Stores only the user's chosen background image.
- * The selected image is copied into app-private storage, so deleting or moving
- * the original image from Downloads/Gallery does not remove the saved background.
- */
 object BackgroundManager {
     private const val PREFS = "audio_profile"
     private const val MODE = "background_mode"
     private const val CUSTOM = "background_custom_path"
     private const val CUSTOM_FILE = "saved_player_background"
 
-    fun isCustom(context: Context): Boolean = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .getString(MODE, "default") == "custom"
-
-    fun setCustom(context: Context, path: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(MODE, "custom")
-            .putString(CUSTOM, path)
-            .apply()
-    }
-
-    fun customPath(context: Context): String? = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .getString(CUSTOM, null)
-
+    fun isCustom(context: Context): Boolean = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(MODE, "default") == "custom"
+    fun setCustom(context: Context, path: String) { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(MODE, "custom").putString(CUSTOM, path).apply() }
+    fun customPath(context: Context): String? = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(CUSTOM, null)
     fun savedFile(context: Context): File = File(context.filesDir, CUSTOM_FILE)
-
-    fun clearCustom(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .remove(MODE)
-            .remove(CUSTOM)
-            .apply()
-        savedFile(context).delete()
-    }
+    fun clearCustom(context: Context) { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(MODE).remove(CUSTOM).apply(); savedFile(context).delete() }
 
     fun apply(activity: Activity) {
         val content = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
@@ -219,12 +154,8 @@ object BackgroundManager {
         val custom = prefs.getString(MODE, "default") == "custom"
         val path = prefs.getString(CUSTOM, null)
         val bitmap = if (custom && path != null) BitmapFactory.decodeFile(path) else null
-
         if (bitmap != null) {
-            root.background = LayerDrawable(arrayOf(
-                BitmapDrawable(activity.resources, bitmap).apply { gravity = Gravity.FILL },
-                ColorDrawable(0x52000000)
-            ))
+            root.background = LayerDrawable(arrayOf(BitmapDrawable(activity.resources, bitmap).apply { gravity = Gravity.FILL }, ColorDrawable(0x52000000)))
         } else {
             root.background = ContextCompat.getDrawable(activity, R.drawable.bg_art)
         }
