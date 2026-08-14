@@ -91,10 +91,6 @@ jobs:
           test -s app/build/outputs/apk/debug/app-debug.apk
           ls -lh app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Give APK a unique filename
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: Copy APK with build identity
         shell: bash
         run: |
