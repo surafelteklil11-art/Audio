@@ -1,5 +1,9 @@
-<?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <gradient android:angle="135" android:startColor="#184C76" android:centerColor="#1598A8" android:endColor="#A8D8E8" />
-    <corners android:radius="10dp" />
-</shape>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="360dp" android:height="220dp" android:viewportWidth="360" android:viewportHeight="220">
+    <path android:fillColor="#16345D" android:pathData="M0,0H360V220H0Z"/>
+    <path android:fillColor="#3D78A1" android:pathData="M0,20C72,5 124,38 190,20C255,2 302,28 360,10V112H0Z"/>
+    <path android:fillColor="#68B7C4" android:pathData="M0,76C70,60 118,88 180,70C245,52 305,82 360,62V142H0Z"/>
+    <path android:fillColor="#A6DDE0" android:pathData="M0,122C72,105 128,136 190,116C250,97 310,130 360,108V220H0Z"/>
+    <path android:fillColor="#385B6E" android:pathData="M0,150L55,115 104,150 154,108 202,153 250,119 302,151 332,128 360,145V220H0Z"/>
+    <path android:fillColor="#234255" android:pathData="M0,182L50,148 96,183 145,142 198,186 246,150 296,184 340,151 360,166V220H0Z"/>
+    <path android:fillColor="#D6F0E6" android:pathData="M270,34C286,28 303,29 318,38C304,42 289,43 270,34Z"/>
+</vector>
