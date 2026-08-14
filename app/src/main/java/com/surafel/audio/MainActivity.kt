@@ -408,7 +408,7 @@ class MainActivity : AppCompatActivity() {
 
         panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        dialog = AlertDialog.Builder(this).setView(panel).create()
+        dialog = AlertDialog.Builder(this, R.style.Theme_Audio_SideDrawer).setView(panel).create()
         close.setOnClickListener { dialog.dismiss() }
         dialog.setCanceledOnTouchOutside(true)
         dialog.setOnShowListener {
