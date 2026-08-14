@@ -154,6 +154,21 @@ new_show_menu = '''    private fun showMenu() {
 
 text = text[:start] + new_show_menu + text[end:]
 
+# The Widgets entry must open the real dedicated catalog Activity. The old
+# implementation was only an AlertDialog with placeholder choices, so none of
+# the eight real launcher widget providers could be reached from the menu.
+widgets_start = text.find("    private fun showWidgets() {")
+widgets_end = text.find("    private fun showPremiumInfo() {")
+if widgets_start < 0 or widgets_end < 0 or widgets_end <= widgets_start:
+    raise SystemExit("Unable to locate showWidgets() boundaries")
+
+new_show_widgets = '''    private fun showWidgets() {
+        startActivity(Intent(this, WidgetCatalogActivity::class.java))
+    }
+
+'''
+text = text[:widgets_start] + new_show_widgets + text[widgets_end:]
+
 menu_start = text.index("    private fun showMenu()")
 menu_end = text.index("    private fun showEqualizer()")
 menu_source = text[menu_start:menu_end]
@@ -181,5 +196,13 @@ for forbidden in ['"Refresh Library"', '"Play Queue"', '"Search"']:
 if 'Dialog(this, R.style.Theme_Audio_SideDrawer)' in menu_source:
     raise SystemExit('Legacy Dialog side drawer construction remains')
 
+widgets_start = text.index("    private fun showWidgets()")
+widgets_end = text.index("    private fun showPremiumInfo()")
+widgets_source = text[widgets_start:widgets_end]
+if 'startActivity(Intent(this, WidgetCatalogActivity::class.java))' not in widgets_source:
+    raise SystemExit('Widgets menu does not launch WidgetCatalogActivity')
+if 'AlertDialog.Builder' in widgets_source:
+    raise SystemExit('Legacy Widgets AlertDialog still exists')
+
 path.write_text(text, encoding="utf-8")
-print("Side drawer rebuilt as a full-height in-Activity overlay")
+print("Side drawer rebuilt and Widgets routed to the dedicated catalog page")
