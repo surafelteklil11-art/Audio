@@ -48,13 +48,14 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path("app/src/main/java/com/surafel/audio/MainActivity.kt")
-          text = path.read_text(encoding="utf-8")
-          start = text.find("    private fun showMenu() {")
-          end = text.find("    private fun showEqualizer() {")
+          main = Path("app/src/main/java/com/surafel/audio/MainActivity.kt").read_text(encoding="utf-8")
+          app = Path("app/src/main/java/com/surafel/audio/AudioApplication.kt").read_text(encoding="utf-8")
+
+          start = main.find("    private fun showMenu() {")
+          end = main.find("    private fun showEqualizer() {")
           if start < 0 or end <= start:
               raise SystemExit("Unable to isolate showMenu() for validation")
-          menu = text[start:end]
+          menu = main[start:end]
 
           required = [
               'import android.widget.FrameLayout',
@@ -72,7 +73,7 @@ jobs:
               'addMenuItem("⚙", "Settings")',
           ]
           for needle in required:
-              haystack = text if needle.startswith('import ') else menu
+              haystack = main if needle.startswith('import ') else menu
               if needle not in haystack:
                   raise SystemExit(f"Missing side drawer implementation: {needle}")
 
@@ -83,7 +84,16 @@ jobs:
           if 'Dialog(this, R.style.Theme_Audio_SideDrawer)' in menu:
               raise SystemExit("Legacy Dialog side drawer construction remains")
 
-          print("Side drawer source validation passed")
+          if 'SideMenuInstaller' in app:
+              raise SystemExit("Duplicate legacy SideMenuInstaller still exists in AudioApplication")
+
+          if 'SideMenuInstaller.install(activity)' in app:
+              raise SystemExit("Application lifecycle still overrides MainActivity side drawer")
+
+          if 'findViewById<TextView>(R.id.menuButton)?.setOnClickListener' in app:
+              raise SystemExit("Application-level menuButton listener override detected")
+
+          print("Single side drawer owner validation passed")
           PY
           if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
