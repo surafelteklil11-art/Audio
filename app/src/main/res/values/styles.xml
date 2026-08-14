@@ -34,6 +34,5 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowMinHeightMajor">100%</item>
         <item name="android:windowMinHeightMinor">100%</item>
-        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 </resources>
