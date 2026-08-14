@@ -1,74 +1,168 @@
 from pathlib import Path
-import re
 
 path = Path("app/src/main/java/com/surafel/audio/MainActivity.kt")
 text = path.read_text(encoding="utf-8")
 
-# The drawer must be a real non-floating Dialog. The local variable is declared
-# before the menu lambdas because those lambdas close over it.
-if "import android.app.Dialog\n" not in text:
-    marker = "import android.app.AlertDialog\n"
+# Deep-review conclusion: the original drawer was an AlertDialog and the later
+# Dialog/Window attempts still depended on Android window measurement. The
+# reliable way to make this drawer exactly as tall as the app surface is to
+# render it inside the Activity content itself.
+if "import android.widget.FrameLayout" not in text:
+    marker = "import android.widget.EditText\n"
     if marker not in text:
-        raise SystemExit("Unable to locate android.app.AlertDialog import")
-    text = text.replace(marker, marker + "import android.app.Dialog\n", 1)
+        raise SystemExit("Unable to locate widget import section")
+    text = text.replace(marker, marker + "import android.widget.FrameLayout\n", 1)
 
-# Replace the actual legacy declaration first. This is intentionally separate
-# from the construction replacement because the dialog is referenced by the
-# menu-item lambdas before its construction line.
-text, decl_count = re.subn(
-    r"lateinit var dialog:\s*AlertDialog",
-    "lateinit var dialog: Dialog",
-    text,
-    count=1,
-)
-if decl_count != 1 and "lateinit var dialog: Dialog" not in text:
-    raise SystemExit("Unable to locate side drawer dialog declaration")
+start = text.find("    private fun showMenu() {")
+end = text.find("    private fun showEqualizer() {")
+if start < 0 or end < 0 or end <= start:
+    raise SystemExit("Unable to locate complete side drawer function boundaries")
 
-# Replace the actual AlertDialog.Builder construction with a non-floating Dialog.
-new_dialog = "dialog = Dialog(this, R.style.Theme_Audio_SideDrawer).apply { setContentView(panel) }"
-if new_dialog not in text:
-    pattern = r"dialog\s*=\s*AlertDialog\.Builder\(this(?:\s*,\s*R\.style\.Theme_Audio_SideDrawer)?\)\s*\.setView\(panel\)\s*\.create\(\)"
-    text, count = re.subn(pattern, new_dialog, text, count=1)
-    if count != 1:
-        raise SystemExit("Unable to locate side drawer dialog construction")
+new_show_menu = '''    private fun showMenu() {
+        val content = findViewById<ViewGroup>(android.R.id.content)
+        if (content.findViewWithTag<View>("audio_side_drawer") != null) return
 
-# Keep one authoritative window configuration block. It is applied after
-# show() because Android creates the dialog window dimensions at that point.
-config_block = '''dialog.window?.let { window ->
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-            window.setBackgroundDrawableResource(android.R.color.transparent)
-            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            window.setDimAmount(0.62f)
-            window.setGravity(Gravity.START or Gravity.TOP)
-            window.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)
-        }'''
+        val overlay = FrameLayout(this).apply {
+            tag = "audio_side_drawer"
+            isClickable = true
+            isFocusable = true
+        }
 
-# Replace any existing onShow body that only configured the window.
-text = re.sub(
-    r"dialog\.setOnShowListener \{.*?\n        \}",
-    "dialog.setOnShowListener {\n            " + config_block.replace("\n", "\n            ") + "\n        }",
-    text,
-    count=1,
-    flags=re.S,
-)
+        val dim = View(this).apply {
+            setBackgroundColor(Color.argb(158, 0, 0, 0))
+            isClickable = true
+        }
+        overlay.addView(dim, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
 
-# Remove duplicated post-show window configuration and replace it with the
-# same authoritative block. The show() call itself must remain.
-post_show_pattern = r"dialog\.show\(\)\n(?:\s*dialog\.window\?.*\n){1,8}"
-text = re.sub(
-    post_show_pattern,
-    "dialog.show()\n        " + config_block.replace("\n", "\n        ") + "\n",
-    text,
-    count=1,
-)
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(14))
+            background = roundedGradient(
+                intArrayOf(Color.rgb(9, 14, 33), Color.rgb(25, 10, 49)),
+                Color.rgb(126, 67, 255), dp(1), dp(22)
+            )
+            isClickable = true
+            isFocusable = true
+        }
+
+        val header = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4), dp(8), 0, dp(8))
+        }
+        val icon = TextView(this).apply {
+            text = "♫"
+            textSize = 28f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = roundedGradient(
+                intArrayOf(Color.rgb(55, 22, 104), Color.rgb(31, 20, 72)),
+                Color.rgb(137, 66, 255), dp(1), dp(18)
+            )
+        }
+        header.addView(icon, LinearLayout.LayoutParams(dp(58), dp(58)))
+        val titleBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, 0, 0)
+        }
+        titleBox.addView(label("Audio", 22, Color.WHITE, Typeface.BOLD))
+        titleBox.addView(label("Music & video", 13, Color.rgb(184, 190, 217), Typeface.BOLD).apply {
+            setPadding(0, dp(3), 0, 0)
+        })
+        header.addView(titleBox, LinearLayout.LayoutParams(0, -2, 1f))
+
+        val close = TextView(this).apply {
+            text = "×"
+            textSize = 31f
+            gravity = Gravity.CENTER
+            setTextColor(Color.rgb(218, 221, 235))
+            isClickable = true
+            isFocusable = true
+        }
+        header.addView(close, LinearLayout.LayoutParams(dp(44), dp(58)))
+        panel.addView(header)
+        panel.addView(View(this).apply {
+            setBackgroundColor(Color.rgb(48, 56, 84))
+        }, LinearLayout.LayoutParams(-1, dp(1)).apply { bottomMargin = dp(8) })
+
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            overScrollMode = View.OVER_SCROLL_NEVER
+            clipToPadding = false
+            setPadding(0, dp(2), 0, dp(10))
+        }
+        val menu = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        scroll.addView(menu, ViewGroup.LayoutParams(-1, -1))
+
+        fun closeDrawer() {
+            content.removeView(overlay)
+        }
+
+        fun addMenuItem(iconText: String, title: String, onClick: () -> Unit) {
+            val row = LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                isClickable = true
+                isFocusable = true
+                setPadding(dp(6), 0, dp(6), 0)
+                setOnClickListener { onClick() }
+            }
+            row.addView(label(iconText, 22, Color.rgb(211, 205, 244), Typeface.NORMAL).apply {
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(dp(54), dp(58)))
+            row.addView(label(title, 17, Color.rgb(228, 230, 243), Typeface.NORMAL).apply {
+                gravity = Gravity.CENTER_VERTICAL
+            }, LinearLayout.LayoutParams(0, dp(58), 1f))
+            menu.addView(row, LinearLayout.LayoutParams(-1, dp(58)).apply { bottomMargin = dp(3) })
+        }
+
+        fun addSection(title: String) {
+            menu.addView(label(title, 11, Color.rgb(117, 134, 170), Typeface.BOLD).apply {
+                setPadding(dp(6), dp(17), 0, dp(7))
+            }, LinearLayout.LayoutParams(-1, dp(38)))
+        }
+
+        addMenuItem("☷", "Themes") { closeDrawer(); showThemes() }
+        addMenuItem("▦", "Widgets") { closeDrawer(); showWidgets() }
+        addSection("PLAYER")
+        addMenuItem("≋", "Equalizer") { closeDrawer(); showEqualizer() }
+        addMenuItem("◷", "Sleep Timer") { closeDrawer(); showSleepTimer() }
+        addMenuItem("🚗", "Drive Mode") { toggleDriveMode() }
+        addSection("APP")
+        addMenuItem("⚙", "Settings") {
+            closeDrawer()
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        overlay.addView(panel, FrameLayout.LayoutParams(
+            dp(326),
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            Gravity.START
+        ))
+
+        dim.setOnClickListener { closeDrawer() }
+        close.setOnClickListener { closeDrawer() }
+        content.addView(overlay, ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+    }
+
+'''
+
+text = text[:start] + new_show_menu + text[end:]
+
+menu_start = text.index("    private fun showMenu()")
+menu_end = text.index("    private fun showEqualizer()")
+menu_source = text[menu_start:menu_end]
 
 required = [
-    "import android.app.Dialog",
-    "import androidx.core.view.WindowCompat",
-    "lateinit var dialog: Dialog",
-    new_dialog,
-    "WindowCompat.setDecorFitsSystemWindows(window, false)",
-    "window.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)",
+    'tag = "audio_side_drawer"',
+    'content.findViewWithTag<View>("audio_side_drawer")',
+    'FrameLayout.LayoutParams(',
+    'ViewGroup.LayoutParams.MATCH_PARENT',
     'addMenuItem("☷", "Themes")',
     'addMenuItem("▦", "Widgets")',
     'addMenuItem("≋", "Equalizer")',
@@ -77,19 +171,15 @@ required = [
     'addMenuItem("⚙", "Settings")',
 ]
 for needle in required:
-    if needle not in text:
+    if needle not in menu_source:
         raise SystemExit(f"Missing required side drawer source: {needle}")
 
-# The drawer must never regress to an AlertDialog construction.
-if "AlertDialog.Builder(this, R.style.Theme_Audio_SideDrawer)" in text:
-    raise SystemExit("Legacy floating AlertDialog side drawer construction remains")
-
-menu_start = text.index("private fun showMenu()")
-menu_end = text.index("private fun showEqualizer()")
-menu_source = text[menu_start:menu_end]
 for forbidden in ['"Refresh Library"', '"Play Queue"', '"Search"']:
     if forbidden in menu_source:
         raise SystemExit(f"Forbidden side drawer item remains: {forbidden}")
 
+if 'Dialog(this, R.style.Theme_Audio_SideDrawer)' in menu_source:
+    raise SystemExit('Legacy Dialog side drawer construction remains')
+
 path.write_text(text, encoding="utf-8")
-print("Side drawer repaired as a true full-height non-floating Dialog")
+print("Side drawer rebuilt as a full-height in-Activity overlay")
