@@ -469,7 +469,6 @@ class MainActivity : AppCompatActivity() {
         addMenuItem("▦", "Widgets") { closeDrawer(); showWidgets() }
         addSection("PLAYER")
         addMenuItem("≋", "Equalizer") { closeDrawer(); showEqualizer() }
-        addMenuItem("◉", "Volume Booster") { closeDrawer(); showVolumeBooster() }
         addMenuItem("◷", "Sleep Timer") { closeDrawer(); showSleepTimer() }
         addMenuItem("🚗", "Drive Mode") { toggleDriveMode() }
         addSection("APP")
