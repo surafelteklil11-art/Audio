@@ -47,9 +47,15 @@ jobs:
           python3 tools/fix_side_drawer.py
           grep -q 'import android.app.Dialog' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'import androidx.core.view.WindowCompat' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'val dialog = Dialog(this, R.style.Theme_Audio_SideDrawer).apply { setContentView(panel) }' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'lateinit var dialog: Dialog' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'dialog = Dialog(this, R.style.Theme_Audio_SideDrawer).apply { setContentView(panel) }' app/src/main/java/com/surafel/audio/MainActivity.kt
+          if grep -q 'AlertDialog.Builder(this, R.style.Theme_Audio_SideDrawer)' app/src/main/java/com/surafel/audio/MainActivity.kt; then
+            echo 'Legacy floating AlertDialog side drawer construction remains.'
+            exit 1
+          fi
           grep -q 'WindowCompat.setDecorFitsSystemWindows(window, false)' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'window.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'window.setGravity(Gravity.START or Gravity.TOP)' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("☷", "Themes")' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("▦", "Widgets")' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("≋", "Equalizer")' app/src/main/java/com/surafel/audio/MainActivity.kt
