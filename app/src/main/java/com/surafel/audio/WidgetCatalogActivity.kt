@@ -27,16 +27,17 @@ class WidgetCatalogActivity : AppCompatActivity() {
         val previewMode: Int
     )
 
+    /** Keep the catalog order aligned with the requested widget gallery designs. */
     private val styles by lazy {
         listOf(
-            WidgetStyle("Classic", "4×1", AudioWidgetClassicProvider::class.java, Color.rgb(178, 53, 180), R.drawable.widget_art_sunset, 0),
-            WidgetStyle("Lite", "4×1", AudioWidgetLiteProvider::class.java, Color.rgb(21, 180, 207), R.drawable.widget_art_ocean, 1),
-            WidgetStyle("Simple", "3×2", AudioWidgetSimpleProvider::class.java, Color.rgb(111, 91, 255), R.drawable.widget_art_ocean, 2),
-            WidgetStyle("Mini", "3×1", AudioWidgetMiniProvider::class.java, Color.rgb(198, 82, 224), R.drawable.widget_art_neon, 3),
             WidgetStyle("Practical", "4×3", AudioWidgetPracticalProvider::class.java, Color.rgb(224, 88, 155), R.drawable.widget_art_sunset, 4),
             WidgetStyle("Feature-Rich", "4×3", AudioWidgetFeatureRichProvider::class.java, Color.rgb(105, 62, 229), R.drawable.widget_art_neon, 5),
             WidgetStyle("Standard", "4×2", AudioWidgetStandardProvider::class.java, Color.rgb(72, 111, 255), R.drawable.widget_art_ocean, 6),
-            WidgetStyle("Stylish", "4×2", AudioWidgetStylishProvider::class.java, Color.rgb(190, 72, 145), R.drawable.widget_art_sunset, 7)
+            WidgetStyle("Stylish", "4×2", AudioWidgetStylishProvider::class.java, Color.rgb(190, 72, 145), R.drawable.widget_art_sunset, 7),
+            WidgetStyle("Classic", "4×1", AudioWidgetClassicProvider::class.java, Color.rgb(178, 53, 180), R.drawable.widget_art_sunset, 0),
+            WidgetStyle("Lite", "4×1", AudioWidgetLiteProvider::class.java, Color.rgb(21, 180, 207), R.drawable.widget_art_ocean, 1),
+            WidgetStyle("Simple", "3×2", AudioWidgetSimpleProvider::class.java, Color.rgb(111, 91, 255), R.drawable.widget_art_ocean, 2),
+            WidgetStyle("Mini", "3×1", AudioWidgetMiniProvider::class.java, Color.rgb(198, 82, 224), R.drawable.widget_art_neon, 3)
         )
     }
 
