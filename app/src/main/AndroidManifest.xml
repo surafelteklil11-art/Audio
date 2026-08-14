@@ -12,16 +12,8 @@
         android:label="Audio"
         android:icon="@drawable/ic_audio"
         android:allowBackup="true">
-        <provider
-            android:name=".VaultHookProvider"
-            android:authorities="${applicationId}.vault-hook"
-            android:exported="false"
-            android:initOrder="100" />
-        <provider
-            android:name=".WeeklyReportRedirectProvider"
-            android:authorities="${applicationId}.weekly-report-redirect"
-            android:exported="false"
-            android:initOrder="90" />
+        <provider android:name=".VaultHookProvider" android:authorities="${applicationId}.vault-hook" android:exported="false" android:initOrder="100" />
+        <provider android:name=".WeeklyReportRedirectProvider" android:authorities="${applicationId}.weekly-report-redirect" android:exported="false" android:initOrder="90" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -34,14 +26,9 @@
         <activity android:name=".VaultActivity" android:exported="false" android:excludeFromRecents="true" />
         <activity android:name=".WeeklyReportActivity" android:exported="false" />
         <activity android:name=".MediaActionActivity" android:exported="false" />
-        <service
-            android:name=".PlaybackService"
-            android:exported="true"
-            android:stopWithTask="false"
-            android:foregroundServiceType="mediaPlayback">
-            <intent-filter>
-                <action android:name="androidx.media3.session.MediaSessionService" />
-            </intent-filter>
+        <activity android:name=".AudioLibraryPageActivity" android:exported="false" />
+        <service android:name=".PlaybackService" android:exported="true" android:stopWithTask="false" android:foregroundServiceType="mediaPlayback">
+            <intent-filter><action android:name="androidx.media3.session.MediaSessionService" /></intent-filter>
         </service>
     </application>
 </manifest>
