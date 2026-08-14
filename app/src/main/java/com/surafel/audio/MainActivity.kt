@@ -10,16 +10,19 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -46,6 +49,7 @@ class MainActivity : AppCompatActivity() {
     private var currentTab = Tab.SONGS
     private var audioSortMode = 0
     private var videoSortMode = 0
+    private var homeView: View? = null
     private val prefs by lazy { getSharedPreferences("audio_profile", MODE_PRIVATE) }
 
     private enum class Tab { SONGS, PLAYLISTS, FOLDERS, ARTISTS, ALBUMS }
@@ -58,6 +62,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        setupFuturisticShell()
 
         adapter = SongAdapter(items) { playFrom(it) }
         findViewById<RecyclerView>(R.id.list).apply {
@@ -117,6 +122,20 @@ class MainActivity : AppCompatActivity() {
         renderSection()
     }
 
+    private fun setupFuturisticShell() {
+        val labels = listOf("Home", "Audio", "Vedio", "Mine")
+        listOf(R.id.homeNav, R.id.musicNav, R.id.videoNav, R.id.mineNav).forEachIndexed { index, id ->
+            val box = findViewById<ViewGroup>(id)
+            if (box.childCount > 1) (box.getChildAt(1) as? TextView)?.text = labels[index]
+            box.setPadding(dp(3), dp(3), dp(3), dp(3))
+        }
+        findViewById<View>(R.id.bottomNav).setPadding(dp(10), dp(4), dp(10), dp(5))
+        findViewById<View>(R.id.miniPlayer).background = roundedGradient(
+            intArrayOf(Color.rgb(13, 17, 36), Color.rgb(20, 12, 42)),
+            Color.rgb(91, 52, 190), dp(1), dp(18)
+        )
+    }
+
     private fun selectSection(section: Section) {
         currentSection = section
         if (section == Section.MUSIC) currentTab = Tab.SONGS
@@ -150,20 +169,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderHome() {
+        val container = findViewById<LinearLayout>(R.id.simpleContainer)
+        findViewById<TextView>(R.id.simpleIcon).visibility = View.GONE
+        findViewById<TextView>(R.id.simpleTitle).visibility = View.GONE
+        findViewById<TextView>(R.id.simpleBody).visibility = View.GONE
+        findViewById<TextView>(R.id.simpleAction).visibility = View.GONE
         findViewById<View>(R.id.mineProfile).visibility = View.GONE
         findViewById<View>(R.id.weeklyReport).visibility = View.GONE
-        findViewById<TextView>(R.id.simpleIcon).visibility = View.VISIBLE
-        findViewById<TextView>(R.id.simpleTitle).visibility = View.VISIBLE
-        findViewById<TextView>(R.id.simpleBody).visibility = View.VISIBLE
-        findViewById<TextView>(R.id.simpleAction).visibility = View.VISIBLE
-        findViewById<TextView>(R.id.simpleIcon).text = "⌂"
-        findViewById<TextView>(R.id.simpleTitle).text = "Welcome to Audio"
-        findViewById<TextView>(R.id.simpleBody).text = "${allSongs.size} songs in your library\nYour private music, beautifully organized."
-        findViewById<TextView>(R.id.simpleAction).text = "OPEN MUSIC"
+
+        if (homeView == null) homeView = buildHomeView()
+        val view = homeView ?: return
+        if (view.parent == null) container.addView(view, 0)
+        view.visibility = View.VISIBLE
     }
 
     private fun renderMine() {
         ensureWeeklyWindow()
+        homeView?.let { view ->
+            (view.parent as? ViewGroup)?.removeView(view)
+        }
         findViewById<TextView>(R.id.simpleIcon).visibility = View.GONE
         findViewById<TextView>(R.id.simpleTitle).visibility = View.GONE
         findViewById<TextView>(R.id.simpleBody).visibility = View.GONE
@@ -183,13 +207,163 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.weeklyReportDot).visibility = View.GONE
     }
 
+    private fun buildHomeView(): View {
+        val scroll = android.widget.ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(-1, -2)
+            isFillViewport = true
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(2), dp(2), dp(2), dp(24))
+        }
+        scroll.addView(root)
+
+        val greeting = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(2), dp(2), dp(2), dp(8))
+        }
+        greeting.addView(label("GOOD EVENING  •  AUDIO CORE", 11, Color.rgb(170, 106, 255), Typeface.BOLD))
+        greeting.addView(label("Welcome Back", 29, Color.WHITE, Typeface.BOLD).apply { setPadding(0, dp(3), 0, 0) })
+        greeting.addView(label("Your sound universe is ready.", 13, Color.rgb(132, 145, 177), Typeface.NORMAL).apply { setPadding(0, dp(3), 0, 0) })
+        root.addView(greeting)
+
+        val search = card(intArrayOf(Color.rgb(15, 20, 43), Color.rgb(11, 15, 31)), Color.rgb(51, 113, 255), dp(1), dp(16)).apply {
+            isClickable = true
+            isFocusable = true
+            setPadding(dp(14), dp(11), dp(14), dp(11))
+            setOnClickListener { showSearch() }
+        }
+        val searchRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        searchRow.addView(label("⌕", 27, Color.rgb(122, 179, 255), Typeface.NORMAL))
+        searchRow.addView(label("Search songs, artists, albums…", 14, Color.rgb(136, 149, 180), Typeface.NORMAL).apply { setPadding(dp(12), 0, 0, 0) }, LinearLayout.LayoutParams(0, -2, 1f))
+        searchRow.addView(label("◈", 19, Color.rgb(188, 117, 255), Typeface.NORMAL))
+        search.addView(searchRow)
+        root.addView(search, LinearLayout.LayoutParams(-1, dp(56)).apply { setMargins(0, 0, 0, dp(14)) })
+
+        val hero = card(intArrayOf(Color.rgb(20, 9, 50), Color.rgb(7, 25, 58)), Color.rgb(151, 66, 255), dp(1), dp(22)).apply { setPadding(dp(18), dp(17), dp(14), dp(17)) }
+        val heroRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val heroCopy = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        heroCopy.addView(label("✦  FEATURED SIGNAL", 10, Color.rgb(190, 126, 255), Typeface.BOLD))
+        heroCopy.addView(label("Feel The\nFuture of Sound", 25, Color.WHITE, Typeface.BOLD).apply { setPadding(0, dp(7), 0, dp(7)) })
+        heroCopy.addView(label("Explore a new way to listen\nand experience your library.", 12, Color.rgb(178, 190, 218), Typeface.NORMAL))
+        val listen = label("  ▶  LISTEN NOW  ", 12, Color.WHITE, Typeface.BOLD).apply {
+            gravity = Gravity.CENTER
+            background = roundedGradient(intArrayOf(Color.rgb(137, 63, 255), Color.rgb(42, 154, 255)), Color.rgb(204, 136, 255), dp(1), dp(16))
+            setPadding(dp(4), dp(10), dp(4), dp(10))
+            isClickable = true
+            setOnClickListener { if (allSongs.isNotEmpty()) playFrom(0) else selectSection(Section.MUSIC) }
+        }
+        heroCopy.addView(listen, LinearLayout.LayoutParams(dp(128), dp(42)).apply { topMargin = dp(13) })
+        heroRow.addView(heroCopy, LinearLayout.LayoutParams(0, -2, 1f))
+        val orb = label("◉\n∿∿∿", 25, Color.rgb(120, 204, 255), Typeface.BOLD).apply {
+            gravity = Gravity.CENTER
+            background = roundedGradient(intArrayOf(Color.rgb(40, 21, 94), Color.rgb(7, 54, 94)), Color.rgb(83, 185, 255), dp(1), dp(48))
+            setShadowLayer(dp(14).toFloat(), 0f, 0f, Color.rgb(139, 67, 255))
+        }
+        heroRow.addView(orb, LinearLayout.LayoutParams(dp(96), dp(96)).apply { leftMargin = dp(8) })
+        hero.addView(heroRow)
+        root.addView(hero, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(14) })
+
+        root.addView(label("QUICK ACCESS", 12, Color.rgb(139, 151, 184), Typeface.BOLD).apply { setPadding(dp(2), dp(2), 0, dp(8) ) })
+        val quickRow = LinearLayout(this).apply { gravity = Gravity.CENTER }
+        val quickItems = listOf(
+            Triple("♬", "Trending", Section.MUSIC),
+            Triple("♡", "Favorites", Section.MINE),
+            Triple("⇩", "Downloads", Section.MUSIC),
+            Triple("◷", "History", Section.MINE)
+        )
+        quickItems.forEachIndexed { index, item ->
+            val q = card(intArrayOf(Color.rgb(13, 19, 39), Color.rgb(18, 13, 42)), if (index % 2 == 0) Color.rgb(92, 99, 255) else Color.rgb(207, 67, 201), dp(1), dp(16)).apply {
+                isClickable = true
+                isFocusable = true
+                setPadding(dp(5), dp(8), dp(5), dp(7))
+                setOnClickListener { selectSection(item.third) }
+            }
+            val qbox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
+            qbox.addView(label(item.first, 23, if (index % 2 == 0) Color.rgb(101, 193, 255) else Color.rgb(242, 116, 232), Typeface.NORMAL))
+            qbox.addView(label(item.second, 10, Color.rgb(206, 214, 233), Typeface.BOLD).apply { setPadding(0, dp(5), 0, 0) })
+            q.addView(qbox)
+            quickRow.addView(q, LinearLayout.LayoutParams(0, dp(76), 1f).apply { leftMargin = if (index == 0) 0 else dp(6) })
+        }
+        root.addView(quickRow, LinearLayout.LayoutParams(-1, dp(76)).apply { bottomMargin = dp(17) })
+
+        val songsTitle = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        songsTitle.addView(label("Your Soundstream", 20, Color.WHITE, Typeface.BOLD), LinearLayout.LayoutParams(0, -2, 1f))
+        songsTitle.addView(label("${allSongs.size} TRACKS  ›", 10, Color.rgb(166, 104, 255), Typeface.BOLD).apply { isClickable = true; setOnClickListener { selectSection(Section.MUSIC) } })
+        root.addView(songsTitle, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+
+        if (allSongs.isEmpty()) {
+            val empty = card(intArrayOf(Color.rgb(12, 18, 36), Color.rgb(17, 12, 35)), Color.rgb(54, 68, 112), dp(1), dp(18)).apply { setPadding(dp(16), dp(15), dp(16), dp(15)) }
+            empty.addView(label("No local tracks detected yet.", 15, Color.WHITE, Typeface.BOLD))
+            empty.addView(label("Grant audio access, then your library will appear here.", 12, Color.rgb(132, 146, 177), Typeface.NORMAL).apply { setPadding(0, dp(6), 0, 0) })
+            root.addView(empty)
+        } else {
+            allSongs.take(4).forEachIndexed { index, song ->
+                val track = card(intArrayOf(Color.rgb(10, 15, 31), Color.rgb(17, 13, 35)), Color.rgb(39, 55, 92), dp(1), dp(15)).apply {
+                    isClickable = true
+                    setPadding(dp(11), dp(9), dp(10), dp(9))
+                    setOnClickListener { playFrom(index) }
+                }
+                val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+                val art = label("${index + 1}", 15, Color.WHITE, Typeface.BOLD).apply {
+                    gravity = Gravity.CENTER
+                    background = roundedGradient(intArrayOf(Color.rgb(46, 22, 82), Color.rgb(11, 51, 75)), Color.rgb(107, 80, 220), dp(1), dp(12))
+                }
+                row.addView(art, LinearLayout.LayoutParams(dp(48), dp(48)))
+                val meta = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(11), 0, 0, 0) }
+                meta.addView(label(song.mediaMetadata.title?.toString() ?: "Unknown track", 14, Color.WHITE, Typeface.BOLD).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
+                meta.addView(label(song.mediaMetadata.artist?.toString() ?: "Unknown artist", 11, Color.rgb(129, 143, 174), Typeface.NORMAL).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; setPadding(0, dp(4), 0, 0) })
+                row.addView(meta, LinearLayout.LayoutParams(0, -2, 1f))
+                row.addView(label("▶", 17, Color.rgb(141, 91, 255), Typeface.BOLD))
+                track.addView(row)
+                root.addView(track, LinearLayout.LayoutParams(-1, dp(68)).apply { bottomMargin = dp(7) })
+            }
+        }
+        return scroll
+    }
+
+    private fun label(text: String, sizeSp: Int, color: Int, style: Int): TextView = TextView(this).apply {
+        this.text = text
+        textSize = sizeSp.toFloat()
+        setTextColor(color)
+        typeface = Typeface.create(Typeface.DEFAULT, style)
+        includeFontPadding = false
+    }
+
+    private fun card(colors: IntArray, strokeColor: Int, strokeWidth: Int, radius: Int): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        background = roundedGradient(colors, strokeColor, strokeWidth, radius)
+        elevation = dp(2).toFloat()
+    }
+
+    private fun roundedGradient(colors: IntArray, strokeColor: Int, strokeWidth: Int, radius: Int): GradientDrawable = GradientDrawable(
+        GradientDrawable.Orientation.TL_BR,
+        colors
+    ).apply {
+        cornerRadius = radius.toFloat()
+        setStroke(strokeWidth, strokeColor)
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToInt()
+
     private fun updateBottomNav() {
         val ids = listOf(R.id.homeNav, R.id.musicNav, R.id.videoNav, R.id.mineNav)
         val selected = when (currentSection) { Section.HOME -> 0; Section.MUSIC -> 1; Section.VIDEO -> 2; Section.MINE -> 3 }
         ids.forEachIndexed { index, id ->
             val box = findViewById<ViewGroup>(id)
-            val color = if (index == selected) Color.WHITE else Color.rgb(110, 120, 144)
-            for (i in 0 until box.childCount) (box.getChildAt(i) as? TextView)?.setTextColor(color)
+            val selectedNow = index == selected
+            val color = if (selectedNow) Color.WHITE else Color.rgb(110, 120, 144)
+            box.background = roundedGradient(
+                if (selectedNow) intArrayOf(Color.rgb(51, 19, 91), Color.rgb(18, 33, 70)) else intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT),
+                if (selectedNow) Color.rgb(139, 75, 255) else Color.rgb(31, 42, 67),
+                if (selectedNow) dp(1) else 0,
+                dp(17)
+            )
+            for (i in 0 until box.childCount) (box.getChildAt(i) as? TextView)?.apply {
+                setTextColor(color)
+                if (i == 0) setTypeface(typeface, if (selectedNow) Typeface.BOLD else Typeface.NORMAL)
+            }
         }
     }
 
