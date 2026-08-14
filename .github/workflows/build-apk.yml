@@ -45,17 +45,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/fix_side_drawer.py
-          grep -q 'import android.app.Dialog' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'import androidx.core.view.WindowCompat' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'lateinit var dialog: Dialog' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'dialog = Dialog(this, R.style.Theme_Audio_SideDrawer).apply { setContentView(panel) }' app/src/main/java/com/surafel/audio/MainActivity.kt
-          if grep -q 'AlertDialog.Builder(this, R.style.Theme_Audio_SideDrawer)' app/src/main/java/com/surafel/audio/MainActivity.kt; then
-            echo 'Legacy floating AlertDialog side drawer construction remains.'
-            exit 1
-          fi
-          grep -q 'WindowCompat.setDecorFitsSystemWindows(window, false)' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'window.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'window.setGravity(Gravity.START or Gravity.TOP)' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'import android.widget.FrameLayout' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'tag = "audio_side_drawer"' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'content.findViewWithTag<View>("audio_side_drawer")' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'FrameLayout.LayoutParams(dp(326),' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'ViewGroup.LayoutParams.MATCH_PARENT' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'content.addView(overlay, ViewGroup.LayoutParams(' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("☷", "Themes")' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("▦", "Widgets")' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("≋", "Equalizer")' app/src/main/java/com/surafel/audio/MainActivity.kt
@@ -63,14 +58,15 @@ jobs:
           grep -q 'addMenuItem("🚗", "Drive Mode")' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("⚙", "Settings")' app/src/main/java/com/surafel/audio/MainActivity.kt
           MENU="$(sed -n '/private fun showMenu()/,/private fun showEqualizer()/p' app/src/main/java/com/surafel/audio/MainActivity.kt)"
-          if printf '%s\n' "$MENU" | grep -q '"Refresh Library"'; then exit 1; fi
-          if printf '%s\n' "$MENU" | grep -q '"Play Queue"'; then exit 1; fi
-          if printf '%s\n' "$MENU" | grep -q '"Search"'; then exit 1; fi
+          if printf '%s\n' "$MENU" | grep -q '"Refresh Library"'; then echo 'Refresh Library must not be in side drawer'; exit 1; fi
+          if printf '%s\n' "$MENU" | grep -q '"Play Queue"'; then echo 'Play Queue must not be in side drawer'; exit 1; fi
+          if printf '%s\n' "$MENU" | grep -q '"Search"'; then echo 'Search must not be in side drawer'; exit 1; fi
+          if printf '%s\n' "$MENU" | grep -q 'Dialog(this, R.style.Theme_Audio_SideDrawer)'; then echo 'Legacy Dialog side drawer remains'; exit 1; fi
           if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add app/src/main/java/com/surafel/audio/MainActivity.kt
-            git commit -m "fix: use true full-height side drawer dialog [skip ci]"
+            git commit -m "fix: use full-height in-activity side drawer overlay [skip ci]"
             git push origin HEAD:main
           fi
 
@@ -82,8 +78,8 @@ jobs:
           test -f app/src/main/java/com/surafel/audio/FullscreenVideoActivity.kt
           test -f app/src/main/java/com/surafel/audio/PlaybackService.kt
           test -f app/src/main/java/com/surafel/audio/VaultActivity.kt
-          grep -q 'versionCode = 318' app/build.gradle.kts
-          grep -q 'versionName = "1.0.318"' app/build.gradle.kts
+          grep -q 'versionCode = 319' app/build.gradle.kts
+          grep -q 'versionName = "1.0.319"' app/build.gradle.kts
           grep -q 'Theme_Audio_SideDrawer' app/src/main/res/values/styles.xml
           if grep -RInE 'fullscreenVideo|exitFullscreenVideo|enterFullscreenVideo' app/src/main/java/com/surafel/audio; then
             echo 'Stale fullscreen implementation references found.'
@@ -119,20 +115,20 @@ jobs:
           set -euo pipefail
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "versionCode='318'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "versionName='1.0.318'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "versionCode='319'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "versionName='1.0.319'"
           ls -lh "$APK"
 
       - name: Copy APK with build identity
         shell: bash
         run: |
           set -euo pipefail
-          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v318.apk"
-          test -s "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v318.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v319.apk"
+          test -s "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v319.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Audio-debug-apk-${{ github.run_number }}-v318
-          path: app/build/outputs/apk/debug/Audio-debug-${{ github.run_number }}-v318.apk
+          name: Audio-debug-apk-${{ github.run_number }}-v319
+          path: app/build/outputs/apk/debug/Audio-debug-${{ github.run_number }}-v319.apk
           if-no-files-found: error
