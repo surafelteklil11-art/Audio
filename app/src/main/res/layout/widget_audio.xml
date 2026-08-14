@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widgetRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="10dp"
+    android:gravity="center_vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical">
+        <ImageView
+            android:id="@+id/widgetArtwork"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:src="@drawable/ic_audio"
+            android:scaleType="centerInside"
+            android:contentDescription="Artwork" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="9dp">
+            <TextView
+                android:id="@+id/widgetTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Music Player"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:maxLines="1" />
+            <TextView
+                android:id="@+id/widgetSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Enjoy Listening"
+                android:textColor="#D7DCEA"
+                android:textSize="10sp"
+                android:maxLines="1" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widgetProgress"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        android:layout_marginTop="7dp"
+        android:background="#E6E8F2"
+        android:text="" />
+
+    <TextView
+        android:id="@+id/widgetExtra"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:textColor="#FFFFFF"
+        android:textSize="9sp"
+        android:maxLines="2" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:layout_marginTop="4dp">
+        <TextView android:id="@+id/widgetShuffle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="↻" android:textColor="#FFFFFF" android:textSize="17sp" android:gravity="center" />
+        <TextView android:id="@+id/widgetPrev" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="◀" android:textColor="#FFFFFF" android:textSize="16sp" android:gravity="center" />
+        <TextView android:id="@+id/widgetPlay" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="❚❚" android:textColor="#FFFFFF" android:textSize="17sp" android:gravity="center" />
+        <TextView android:id="@+id/widgetNext" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="▶" android:textColor="#FFFFFF" android:textSize="16sp" android:gravity="center" />
+        <TextView android:id="@+id/widgetHeart" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="♡" android:textColor="#FFFFFF" android:textSize="18sp" android:gravity="center" />
+    </LinearLayout>
+</LinearLayout>
