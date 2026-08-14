@@ -31,6 +31,7 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -60,6 +61,7 @@ class MainActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("audio_profile", MODE_PRIVATE) }
     private val sleepTimerHandler = Handler(Looper.getMainLooper())
     private var sleepTimerRunnable: Runnable? = null
+    private var volumeBooster: android.media.audiofx.LoudnessEnhancer? = null
 
     private enum class Tab { SONGS, PLAYLISTS, FOLDERS, ARTISTS, ALBUMS }
     private enum class Section { HOME, MUSIC, VIDEO, MINE }
@@ -71,10 +73,11 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         setupFuturisticShell()
         applyDriveMode()
+        restoreVolumeBooster()
         adapter = SongAdapter(items) { playFrom(it) }
         findViewById<RecyclerView>(R.id.list).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = this@MainActivity.adapter }
         videoAdapter = VideoAdapter(videos) { playVideo(it) }
-        findViewById<RecyclerView>(R.id.videoList).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = videoAdapter }
+        findViewById<RecyclerView>(R.id.videoList).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = this@MainActivity.videoAdapter }
         findViewById<ImageButton>(R.id.play).setOnClickListener { if (!::player.isInitialized) return@setOnClickListener; if (player.isPlaying) player.pause() else if (player.mediaItemCount > 0) player.play(); updateNowPlaying() }
         findViewById<TextView>(R.id.playAll).setOnClickListener { if (items.isNotEmpty()) playFrom(0) }
         findViewById<TextView>(R.id.shuffleAll).setOnClickListener { shuffleAndPlay() }
@@ -354,9 +357,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSearch() {
-        val input = EditText(this).apply { hint = "Search songs, artists"; setSingleLine(true) }
-        AlertDialog.Builder(this).setTitle("Search").setView(input).setNegativeButton("Cancel", null).setPositiveButton("Search") { _, _ -> val q = input.text.toString().trim(); replaceItems(if (q.isEmpty()) allSongs else allSongs.filter { it.mediaMetadata.title?.toString()?.contains(q, true) == true || it.mediaMetadata.artist?.toString()?.contains(q, true) == true }) }.show()
-        input.requestFocus(); input.postDelayed({ (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input, InputMethodManager.SHOW_IMPLICIT) }, 150)
+        startActivity(Intent(this, SearchActivity::class.java))
     }
 
     private fun showMenu() {
@@ -468,6 +469,7 @@ class MainActivity : AppCompatActivity() {
         addMenuItem("▦", "Widgets") { closeDrawer(); showWidgets() }
         addSection("PLAYER")
         addMenuItem("≋", "Equalizer") { closeDrawer(); showEqualizer() }
+        addMenuItem("◉", "Volume Booster") { closeDrawer(); showVolumeBooster() }
         addMenuItem("◷", "Sleep Timer") { closeDrawer(); showSleepTimer() }
         addMenuItem("🚗", "Drive Mode") { toggleDriveMode() }
         addSection("APP")
@@ -504,16 +506,96 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showVolumeBooster() {
+        val levels = arrayOf("Off", "+25%", "+50%", "+75%", "+100%")
+        val gains = intArrayOf(0, 250, 500, 750, 1000)
+        val currentGain = prefs.getInt("volume_boost_gain", 0).coerceIn(0, 1000)
+        val currentIndex = gains.indices.minByOrNull { kotlin.math.abs(gains[it] - currentGain) } ?: 0
+        AlertDialog.Builder(this)
+            .setTitle("Volume Booster")
+            .setSingleChoiceItems(levels, currentIndex) { dialog, which ->
+                setVolumeBooster(gains[which])
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun setVolumeBooster(gainMb: Int) {
+        prefs.edit().putInt("volume_boost_gain", gainMb).apply()
+        try {
+            volumeBooster?.release()
+            volumeBooster = null
+            if (gainMb <= 0) return
+            volumeBooster = android.media.audiofx.LoudnessEnhancer(0).apply {
+                setTargetGain(gainMb)
+                enabled = true
+            }
+        } catch (_: Exception) {
+            volumeBooster?.release()
+            volumeBooster = null
+            Toast.makeText(this, "Volume Booster is not supported on this device.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun restoreVolumeBooster() {
+        val gain = prefs.getInt("volume_boost_gain", 0)
+        if (gain > 0) setVolumeBooster(gain)
+    }
+
     private fun showSleepTimer() {
-        val options = arrayOf("Off", "15 minutes", "30 minutes", "45 minutes", "60 minutes", "90 minutes", "120 minutes")
+        val options = arrayOf("Off", "15 minutes", "30 minutes", "45 minutes", "60 minutes", "90 minutes", "120 minutes", "Custom…")
         val values = intArrayOf(0, 15, 30, 45, 60, 90, 120)
         val currentEnd = prefs.getLong("sleep_timer_end", 0L)
         val currentRemaining = if (currentEnd > System.currentTimeMillis()) ((currentEnd - System.currentTimeMillis()) / 60000L).toInt() else 0
-        val current = if (currentRemaining > 0) values.indices.minByOrNull { kotlin.math.abs(values[it] - currentRemaining) } ?: 0 else 0
+        val currentPreset = values.indexOfFirst { it == currentRemaining }
+        val current = when {
+            currentRemaining <= 0 -> 0
+            currentPreset >= 0 -> currentPreset
+            else -> options.lastIndex
+        }
         AlertDialog.Builder(this).setTitle("Sleep Timer").setSingleChoiceItems(options, current) { dialog, which ->
-            if (which == 0) cancelSleepTimer() else scheduleSleepTimer(values[which].toLong())
-            dialog.dismiss()
+            if (which == 0) {
+                cancelSleepTimer()
+                dialog.dismiss()
+            } else if (which == options.lastIndex) {
+                dialog.dismiss()
+                showCustomSleepTimer(currentRemaining)
+            } else {
+                scheduleSleepTimer(values[which].toLong())
+                dialog.dismiss()
+            }
         }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun showCustomSleepTimer(currentMinutes: Int) {
+        val input = EditText(this).apply {
+            hint = "Minutes (1–1440)"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setSingleLine(true)
+            if (currentMinutes > 0) setText(currentMinutes.toString())
+            selectAll()
+        }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(4), dp(24), 0)
+            addView(input, LinearLayout.LayoutParams(-1, dp(52)))
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Custom Sleep Timer")
+            .setView(box)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("START") { _, _ ->
+                val minutes = input.text.toString().trim().toLongOrNull()
+                if (minutes == null || minutes !in 1L..1440L) {
+                    Toast.makeText(this, "Enter a time from 1 to 1440 minutes.", Toast.LENGTH_SHORT).show()
+                } else {
+                    scheduleSleepTimer(minutes)
+                }
+            }
+            .show()
+        input.requestFocus()
+        input.postDelayed({ (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input, InputMethodManager.SHOW_IMPLICIT) }, 180)
     }
 
     private fun scheduleSleepTimer(minutes: Long) {
@@ -580,7 +662,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showPremiumInfo() { AlertDialog.Builder(this).setTitle("Audio Player").setMessage("Luxury local music and video experience.\nBackground audio playback enabled.\nYour library stays on your device.").setPositiveButton("OK", null).show() }
     override fun onResume() { super.onResume(); applyDriveMode(); restoreSleepTimer(); if (::player.isInitialized) renderSection() }
-    override fun onDestroy() { sleepTimerRunnable?.let(sleepTimerHandler::removeCallbacks); if (::controllerFuture.isInitialized) MediaController.releaseFuture(controllerFuture); super.onDestroy() }
+    override fun onDestroy() { sleepTimerRunnable?.let(sleepTimerHandler::removeCallbacks); volumeBooster?.release(); volumeBooster = null; if (::controllerFuture.isInitialized) MediaController.releaseFuture(controllerFuture); super.onDestroy() }
 }
 
 data class VideoEntry(val uri: Uri, val title: String, val size: Long, val duration: Long)
