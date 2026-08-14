@@ -4,17 +4,15 @@ import android.app.Activity
 import android.app.Application
 import android.content.Context
 import android.graphics.BitmapFactory
-import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.LayerDrawable
 import android.view.Gravity
-import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import java.io.File
 
-/** Keeps application-level background and media-menu wiring without overriding MainActivity's futuristic navigation menu. */
+/** Application-level background and media-menu wiring. MainActivity owns its own UI controls. */
 class AudioApplication : Application() {
     override fun onCreate() {
         super.onCreate()
@@ -22,14 +20,8 @@ class AudioApplication : Application() {
             override fun onActivityResumed(activity: Activity) {
                 BackgroundManager.apply(activity)
                 MediaItemMenuInstaller.install(activity)
-                if (activity is MainActivity) {
-                    activity.findViewById<View>(R.id.searchButton)?.setOnClickListener {
-                        activity.showSearchFromAppMenu()
-                    }
-                    activity.findViewById<View>(R.id.premiumButton)?.visibility = View.GONE
-                    // IMPORTANT: do not replace MainActivity's menuButton listener here.
-                    // MainActivity owns the futuristic sidebar with Themes + Widgets.
-                }
+                // Do not override MainActivity's search/menu listeners here.
+                // MainActivity owns the futuristic Themes + Widgets menu and its search action.
             }
             override fun onActivityCreated(activity: Activity, savedInstanceState: android.os.Bundle?) = Unit
             override fun onActivityStarted(activity: Activity) = Unit
