@@ -3,30 +3,90 @@ package com.surafel.audio
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
+import android.view.View
 import android.widget.RemoteViews
 
 open class AudioWidgetProvider(private val style: Int) : AppWidgetProvider() {
-    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) { ids.forEach { update(context, manager, it) } }
-    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, appWidgetId: Int, newOptions: android.os.Bundle) { update(context, manager, appWidgetId) }
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        ids.forEach { update(context, manager, it) }
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        manager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: android.os.Bundle
+    ) {
+        update(context, manager, appWidgetId)
+    }
 
     private fun update(context: Context, manager: AppWidgetManager, id: Int) {
         val views = RemoteViews(context.packageName, R.layout.widget_audio)
-        val colors = intArrayOf(Color.rgb(31,18,60), Color.rgb(10,104,128), Color.rgb(32,35,86), Color.rgb(60,28,74), Color.rgb(93,40,82), Color.rgb(38,22,92), Color.rgb(31,64,155), Color.rgb(101,39,104))
-        views.setInt(R.id.widgetRoot, "setBackgroundColor", colors[style.coerceIn(0, colors.lastIndex)])
-        views.setTextViewText(R.id.widgetTitle, "Music Player")
-        views.setTextViewText(R.id.widgetSubtitle, if (style >= 4) "Enjoy Listening" else "")
-        views.setViewVisibility(R.id.widgetSubtitle, if (style >= 4) android.view.View.VISIBLE else android.view.View.GONE)
-        views.setViewVisibility(R.id.widgetProgress, if (style == 2 || style >= 4) android.view.View.VISIBLE else android.view.View.GONE)
-        views.setViewVisibility(R.id.widgetExtra, if (style == 5) android.view.View.VISIBLE else android.view.View.GONE)
-        views.setViewVisibility(R.id.widgetShuffle, if (style >= 4) android.view.View.VISIBLE else android.view.View.GONE)
-        views.setViewVisibility(R.id.widgetHeart, if (style >= 1) android.view.View.VISIBLE else android.view.View.GONE)
-        views.setViewVisibility(R.id.widgetArtwork, if (style >= 2) android.view.View.VISIBLE else android.view.View.GONE)
-        views.setTextViewText(R.id.widgetExtra, "1. Love song\n2. Dancing with your ghost")
-        val open = PendingIntent.getActivity(context, id, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        listOf(R.id.widgetRoot, R.id.widgetPlay, R.id.widgetNext, R.id.widgetPrev, R.id.widgetShuffle, R.id.widgetHeart).forEach { views.setOnClickPendingIntent(it, open) }
+
+        val groups = intArrayOf(
+            R.id.widgetClassic,
+            R.id.widgetLite,
+            R.id.widgetSimple,
+            R.id.widgetMini,
+            R.id.widgetPractical,
+            R.id.widgetFeatureRich,
+            R.id.widgetStandard,
+            R.id.widgetStylish
+        )
+        groups.forEach { views.setViewVisibility(it, View.GONE) }
+
+        val backgrounds = intArrayOf(
+            R.drawable.widget_bg_classic,
+            R.drawable.widget_bg_lite,
+            R.drawable.widget_bg_simple,
+            R.drawable.widget_bg_mini,
+            R.drawable.widget_bg_practical,
+            R.drawable.widget_bg_feature_rich,
+            R.drawable.widget_bg_standard,
+            R.drawable.widget_bg_stylish
+        )
+        val safeStyle = style.coerceIn(0, backgrounds.lastIndex)
+        views.setInt(R.id.widgetRoot, "setBackgroundResource", backgrounds[safeStyle])
+        views.setViewVisibility(groups[safeStyle], View.VISIBLE)
+
+        // Match the artwork language of the supplied references instead of using one generic card.
+        when (safeStyle) {
+            0 -> views.setImageViewResource(R.id.classicArtwork, R.drawable.widget_art_sunset)
+            4 -> views.setImageViewResource(R.id.practicalArtwork, R.drawable.widget_art_sunset)
+            5 -> views.setImageViewResource(R.id.featureArtwork, R.drawable.widget_art_neon)
+            6 -> views.setImageViewResource(R.id.standardArtwork, R.drawable.ic_audio)
+            7 -> views.setImageViewResource(R.id.stylishArtwork, R.drawable.widget_art_ocean)
+        }
+
+        val open = PendingIntent.getActivity(
+            context,
+            id,
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val clickTargets = intArrayOf(
+            R.id.widgetRoot,
+            R.id.widgetPrev, R.id.widgetPlay, R.id.widgetNext,
+            R.id.liteShuffle, R.id.litePrev, R.id.litePlay, R.id.liteNext, R.id.liteHeart,
+            R.id.simpleShuffle, R.id.simplePrev, R.id.simplePlay, R.id.simpleNext, R.id.simpleHeart,
+            R.id.miniPrev, R.id.miniPlay, R.id.miniNext,
+            R.id.practicalShuffle, R.id.practicalPrev, R.id.practicalPlay, R.id.practicalNext, R.id.practicalHeart,
+            R.id.featureShuffle, R.id.featurePrev, R.id.featurePlay, R.id.featureNext, R.id.featureHeart,
+            R.id.standardPrev, R.id.standardPlay, R.id.standardNext,
+            R.id.stylishPrev, R.id.stylishPlay, R.id.stylishNext
+        )
+        clickTargets.forEach { views.setOnClickPendingIntent(it, open) }
+
+        // Keep progress bars visually consistent with the reference widgets.
+        views.setProgressBar(R.id.simpleProgress, 100, 48, false)
+        views.setProgressBar(R.id.practicalProgress, 100, 52, false)
+        views.setProgressBar(R.id.featureProgress, 100, 46, false)
+        views.setProgressBar(R.id.standardProgress, 100, 50, false)
+
         manager.updateAppWidget(id, views)
     }
 }
