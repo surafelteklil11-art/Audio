@@ -1,24 +1,28 @@
 from pathlib import Path
+import re
 
 path = Path("app/src/main/java/com/surafel/audio/MainActivity.kt")
 text = path.read_text(encoding="utf-8")
 
-# Use a real non-floating Dialog for the side drawer. AlertDialog is a floating
-# window and Android may constrain its height to the dialog content area even
-# when setLayout(MATCH_PARENT) is requested.
+# The old drawer used AlertDialog. That is a floating window and Android can
+# constrain its height to the dialog content area. Use the dedicated
+# non-floating SideDrawer theme with a real Dialog instead.
 if "import android.app.Dialog" not in text:
     marker = "import android.app.AlertDialog\n"
     if marker not in text:
         raise SystemExit("Unable to locate android.app.AlertDialog import")
     text = text.replace(marker, marker + "import android.app.Dialog\n", 1)
 
-old = 'val dialog = AlertDialog.Builder(this).setView(panel).create()'
-new = 'val dialog = Dialog(this, R.style.Theme_Audio_SideDrawer).apply { setContentView(panel) }'
-if old in text:
-    text = text.replace(old, new, 1)
-elif 'val dialog = Dialog(this, R.style.Theme_Audio_SideDrawer).apply { setContentView(panel) }' not in text:
-    raise SystemExit("Unable to locate side drawer dialog construction")
+new_dialog = 'val dialog = Dialog(this, R.style.Theme_Audio_SideDrawer).apply { setContentView(panel) }'
+if new_dialog not in text:
+    pattern = r'val\s+dialog\s*=\s*AlertDialog\.Builder\(this(?:\s*,\s*R\.style\.Theme_Audio_SideDrawer)?\)\s*\.setView\(panel\)\s*\.create\(\)'
+    text, count = re.subn(pattern, new_dialog, text, count=1)
+    if count != 1:
+        raise SystemExit("Unable to locate side drawer dialog construction")
 
+# Normalize the window configuration to a true full-height, edge-to-edge
+# non-floating drawer. This replaces either the older onShow block or leaves
+# the already-correct block untouched.
 old_show = '''dialog.setOnShowListener {
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)'''
 new_show = '''dialog.setOnShowListener {
@@ -32,8 +36,6 @@ new_show = '''dialog.setOnShowListener {
             }'''
 if old_show in text:
     text = text.replace(old_show, new_show, 1)
-else:
-    raise SystemExit("Unable to locate side drawer onShow block")
 
 old_after = '''dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         dialog.window?.setDimAmount(0.62f)
@@ -51,19 +53,19 @@ new_after = '''dialog.window?.let { window ->
         }'''
 if old_after in text:
     text = text.replace(old_after, new_after, 1)
-else:
-    raise SystemExit("Unable to locate post-show side drawer window block")
 
 required = [
+    'import android.app.Dialog',
+    'import androidx.core.view.WindowCompat',
+    new_dialog,
+    'WindowCompat.setDecorFitsSystemWindows(window, false)',
+    'window.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)',
     'addMenuItem("☷", "Themes")',
     'addMenuItem("▦", "Widgets")',
     'addMenuItem("≋", "Equalizer")',
     'addMenuItem("◷", "Sleep Timer")',
     'addMenuItem("🚗", "Drive Mode")',
     'addMenuItem("⚙", "Settings")',
-    'val dialog = Dialog(this, R.style.Theme_Audio_SideDrawer).apply { setContentView(panel) }',
-    'WindowCompat.setDecorFitsSystemWindows(window, false)',
-    'window.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)',
 ]
 for needle in required:
     if needle not in text:
@@ -77,4 +79,4 @@ for forbidden in ['"Refresh Library"', '"Play Queue"', '"Search"']:
         raise SystemExit(f"Forbidden side drawer item remains: {forbidden}")
 
 path.write_text(text, encoding="utf-8")
-print("Side drawer rebuilt as a real full-height non-floating Dialog")
+print("Side drawer rebuilt as a true full-height non-floating Dialog")
