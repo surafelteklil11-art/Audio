@@ -40,27 +40,48 @@ jobs:
             git push origin HEAD:main
           fi
 
-      - name: Repair and validate side drawer edge-to-edge
+      - name: Repair and validate side drawer
         shell: bash
         run: |
           set -euo pipefail
           python3 tools/fix_side_drawer.py
+          grep -q 'import android.app.Dialog' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'import androidx.core.view.WindowCompat' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'WindowCompat.setDecorFitsSystemWindows(it, false)' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'dialog = AlertDialog.Builder(this, R.style.Theme_Audio_SideDrawer).setView(panel).create()' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'window?.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'val dialog = Dialog(this, R.style.Theme_Audio_SideDrawer).apply { setContentView(panel) }' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'WindowCompat.setDecorFitsSystemWindows(window, false)' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'window.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'addMenuItem("☷", "Themes")' app/src/main/java/com/surafel/audio/MainActivity.kt
+          grep -q 'addMenuItem("▦", "Widgets")' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("≋", "Equalizer")' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("◷", "Sleep Timer")' app/src/main/java/com/surafel/audio/MainActivity.kt
           grep -q 'addMenuItem("🚗", "Drive Mode")' app/src/main/java/com/surafel/audio/MainActivity.kt
-          if grep -q 'addMenuItem(".*", "Refresh Library")' app/src/main/java/com/surafel/audio/MainActivity.kt; then exit 1; fi
-          if grep -q 'addMenuItem(".*", "Play Queue")' app/src/main/java/com/surafel/audio/MainActivity.kt; then exit 1; fi
-          if grep -q 'addMenuItem(".*", "Search")' app/src/main/java/com/surafel/audio/MainActivity.kt; then exit 1; fi
+          grep -q 'addMenuItem("⚙", "Settings")' app/src/main/java/com/surafel/audio/MainActivity.kt
+          MENU="$(sed -n '/private fun showMenu()/,/private fun showEqualizer()/p' app/src/main/java/com/surafel/audio/MainActivity.kt)"
+          if printf '%s\n' "$MENU" | grep -q '"Refresh Library"'; then exit 1; fi
+          if printf '%s\n' "$MENU" | grep -q '"Play Queue"'; then exit 1; fi
+          if printf '%s\n' "$MENU" | grep -q '"Search"'; then exit 1; fi
           if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add app/src/main/java/com/surafel/audio/MainActivity.kt
-            git commit -m "fix: make side drawer edge-to-edge [skip ci]"
+            git commit -m "fix: use true full-height side drawer dialog [skip ci]"
             git push origin HEAD:main
+          fi
+
+      - name: Validate project source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f app/src/main/java/com/surafel/audio/MainActivity.kt
+          test -f app/src/main/java/com/surafel/audio/FullscreenVideoActivity.kt
+          test -f app/src/main/java/com/surafel/audio/PlaybackService.kt
+          test -f app/src/main/java/com/surafel/audio/VaultActivity.kt
+          grep -q 'versionCode = 318' app/build.gradle.kts
+          grep -q 'versionName = "1.0.318"' app/build.gradle.kts
+          grep -q 'Theme_Audio_SideDrawer' app/src/main/res/values/styles.xml
+          if grep -RInE 'fullscreenVideo|exitFullscreenVideo|enterFullscreenVideo' app/src/main/java/com/surafel/audio; then
+            echo 'Stale fullscreen implementation references found.'
+            exit 1
           fi
 
       - name: Set up JDK 17
@@ -80,40 +101,13 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Validate Kotlin source structure
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f app/src/main/java/com/surafel/audio/MainActivity.kt
-          test -f app/src/main/java/com/surafel/audio/FullscreenVideoActivity.kt
-          test -f app/src/main/java/com/surafel/audio/PlaybackService.kt
-          test -f app/src/main/java/com/surafel/audio/VaultActivity.kt
-          if grep -RInE 'fullscreenVideo|exitFullscreenVideo|enterFullscreenVideo' app/src/main/java/com/surafel/audio; then
-            echo 'Stale fullscreen implementation references found.'
-            exit 1
-          fi
-          grep -q 'versionCode = 318' app/build.gradle.kts
-          grep -q 'versionName = "1.0.318"' app/build.gradle.kts
-          grep -q 'addMenuItem("☷", "Themes")' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'addMenuItem("▦", "Widgets")' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'addMenuItem("≋", "Equalizer")' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'addMenuItem("◷", "Sleep Timer")' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'addMenuItem("🚗", "Drive Mode")' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'addMenuItem("⚙", "Settings")' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'Theme_Audio_SideDrawer' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'WindowCompat.setDecorFitsSystemWindows(it, false)' app/src/main/java/com/surafel/audio/MainActivity.kt
-          grep -q 'windowIsFloating">false' app/src/main/res/values/styles.xml
-          if grep -q 'addMenuItem(".*", "Refresh Library")' app/src/main/java/com/surafel/audio/MainActivity.kt; then exit 1; fi
-          if grep -q 'addMenuItem(".*", "Play Queue")' app/src/main/java/com/surafel/audio/MainActivity.kt; then exit 1; fi
-          if grep -q 'addMenuItem(".*", "Search")' app/src/main/java/com/surafel/audio/MainActivity.kt; then exit 1; fi
-
-      - name: Clean previous build outputs
+      - name: Clean build outputs
         run: gradle clean --no-daemon
 
-      - name: Compile and build debug APK
+      - name: Build debug APK
         run: gradle assembleDebug --no-daemon --rerun-tasks --stacktrace
 
-      - name: Verify APK exists and identity
+      - name: Verify APK identity
         shell: bash
         run: |
           set -euo pipefail
@@ -129,7 +123,6 @@ jobs:
           set -euo pipefail
           cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v318.apk"
           test -s "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v318.apk"
-          ls -lh "app/build/outputs/apk/debug/Audio-debug-${GITHUB_RUN_NUMBER}-v318.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
