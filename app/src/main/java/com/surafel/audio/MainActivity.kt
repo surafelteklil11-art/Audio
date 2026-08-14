@@ -11,18 +11,23 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.media.audiofx.AudioEffect
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -50,6 +55,8 @@ class MainActivity : AppCompatActivity() {
     private var videoSortMode = 0
     private var homeView: View? = null
     private val prefs by lazy { getSharedPreferences("audio_profile", MODE_PRIVATE) }
+    private val sleepTimerHandler = Handler(Looper.getMainLooper())
+    private var sleepTimerRunnable: Runnable? = null
 
     private enum class Tab { SONGS, PLAYLISTS, FOLDERS, ARTISTS, ALBUMS }
     private enum class Section { HOME, MUSIC, VIDEO, MINE }
@@ -60,6 +67,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         setupFuturisticShell()
+        applyDriveMode()
         adapter = SongAdapter(items) { playFrom(it) }
         findViewById<RecyclerView>(R.id.list).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = this@MainActivity.adapter }
         videoAdapter = VideoAdapter(videos) { playVideo(it) }
@@ -169,7 +177,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun buildHomeView(): View {
-        val scroll = android.widget.ScrollView(this).apply { layoutParams = LinearLayout.LayoutParams(-1, -2); isFillViewport = true; overScrollMode = View.OVER_SCROLL_NEVER }
+        val scroll = ScrollView(this).apply { layoutParams = LinearLayout.LayoutParams(-1, -2); isFillViewport = true; overScrollMode = View.OVER_SCROLL_NEVER }
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(2), dp(2), dp(2), dp(24)) }
         scroll.addView(root)
         val greeting = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(2), dp(2), dp(2), dp(8)) }
@@ -188,7 +196,7 @@ class MainActivity : AppCompatActivity() {
         val heroRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val heroCopy = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         heroCopy.addView(label("✦  FEATURED SIGNAL", 10, Color.rgb(190, 126, 255), Typeface.BOLD))
-        heroCopy.addView(label("Feel The\nFuture of Sound", 25, Color.WHITE, Typeface.BOLD).apply { setPadding(0, dp(7), 0, dp(7)) })
+        heroCopy.addView(label("Feel The\nFuture of Sound", 25, Color.WHITE, Typeface.BOLD).apply { setPadding(0, dp(7), 0, dp(7) ) })
         heroCopy.addView(label("Explore a new way to listen\nand experience your library.", 12, Color.rgb(178, 190, 218), Typeface.NORMAL))
         val listen = label("  ▶  LISTEN NOW  ", 12, Color.WHITE, Typeface.BOLD).apply { gravity = Gravity.CENTER; background = roundedGradient(intArrayOf(Color.rgb(137, 63, 255), Color.rgb(42, 154, 255)), Color.rgb(204, 136, 255), dp(1), dp(16)); setPadding(dp(4), dp(10), dp(4), dp(10)); isClickable = true; setOnClickListener { if (allSongs.isNotEmpty()) playFrom(0) else selectSection(Section.MUSIC) } }
         heroCopy.addView(listen, LinearLayout.LayoutParams(dp(128), dp(42)).apply { topMargin = dp(13) })
@@ -351,19 +359,184 @@ class MainActivity : AppCompatActivity() {
     private fun showMenu() {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(8), dp(20), dp(16))
-            background = roundedGradient(intArrayOf(Color.rgb(10, 15, 34), Color.rgb(25, 12, 48)), Color.rgb(126, 67, 255), dp(1), dp(22))
+            setPadding(dp(20), dp(8), dp(20), dp(14))
+            background = roundedGradient(intArrayOf(Color.rgb(9, 14, 33), Color.rgb(25, 10, 49)), Color.rgb(126, 67, 255), dp(1), dp(22))
         }
-        panel.addView(TextView(this).apply { text = "AUDIO MENU"; textSize = 12f; setTextColor(Color.rgb(177, 115, 255)); setTypeface(typeface, Typeface.BOLD); setPadding(0, dp(6), 0, dp(10)) })
-        panel.addView(TextView(this).apply { text = "Themes"; textSize = 18f; setTextColor(Color.WHITE); gravity = Gravity.CENTER_VERTICAL; setPadding(dp(12), 0, dp(12), 0); background = roundedGradient(intArrayOf(Color.rgb(21, 27, 53), Color.rgb(30, 16, 56)), Color.rgb(70, 91, 160), dp(1), dp(16)); setOnClickListener { showThemes() } }, LinearLayout.LayoutParams(-1, dp(58)).apply { bottomMargin = dp(9) })
-        panel.addView(TextView(this).apply { text = "Widgets"; textSize = 18f; setTextColor(Color.WHITE); gravity = Gravity.CENTER_VERTICAL; setPadding(dp(12), 0, dp(12), 0); background = roundedGradient(intArrayOf(Color.rgb(21, 27, 53), Color.rgb(30, 16, 56)), Color.rgb(70, 91, 160), dp(1), dp(16)); setOnClickListener { showWidgets() } }, LinearLayout.LayoutParams(-1, dp(58)))
+
+        val header = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4), dp(8), 0, dp(8))
+        }
+        val icon = TextView(this).apply {
+            text = "♫"
+            textSize = 28f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = roundedGradient(intArrayOf(Color.rgb(55, 22, 104), Color.rgb(31, 20, 72)), Color.rgb(137, 66, 255), dp(1), dp(18))
+        }
+        header.addView(icon, LinearLayout.LayoutParams(dp(58), dp(58)))
+        val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }
+        titleBox.addView(label("Audio", 22, Color.WHITE, Typeface.BOLD))
+        titleBox.addView(label("Music & video", 13, Color.rgb(184, 190, 217), Typeface.BOLD).apply { setPadding(0, dp(3), 0, 0) })
+        header.addView(titleBox, LinearLayout.LayoutParams(0, -2, 1f))
+        val close = TextView(this).apply {
+            text = "×"
+            textSize = 31f
+            gravity = Gravity.CENTER
+            setTextColor(Color.rgb(218, 221, 235))
+            isClickable = true
+        }
+        header.addView(close, LinearLayout.LayoutParams(dp(44), dp(58)))
+        panel.addView(header)
+
+        panel.addView(View(this).apply { setBackgroundColor(Color.rgb(48, 56, 84)) }, LinearLayout.LayoutParams(-1, dp(1)).apply { bottomMargin = dp(8) })
+
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            overScrollMode = View.OVER_SCROLL_NEVER
+            clipToPadding = false
+            setPadding(0, dp(2), 0, dp(10))
+        }
+        val menu = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        scroll.addView(menu, ViewGroup.LayoutParams(-1, -1))
+
+        fun addMenuItem(iconText: String, title: String, onClick: () -> Unit) {
+            val row = LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                isClickable = true
+                isFocusable = true
+                setPadding(dp(6), 0, dp(6), 0)
+                setOnClickListener(onClick)
+                background = roundedGradient(intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT), Color.TRANSPARENT, 0, dp(14))
+            }
+            row.addView(label(iconText, 22, Color.rgb(211, 205, 244), Typeface.NORMAL).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(54), dp(58)))
+            row.addView(label(title, 17, Color.rgb(228, 230, 243), Typeface.NORMAL).apply { gravity = Gravity.CENTER_VERTICAL }, LinearLayout.LayoutParams(0, dp(58), 1f))
+            menu.addView(row, LinearLayout.LayoutParams(-1, dp(58)).apply { bottomMargin = dp(3) })
+        }
+
+        fun addSection(title: String) {
+            menu.addView(label(title, 11, Color.rgb(117, 134, 170), Typeface.BOLD).apply { setPadding(dp(6), dp(17), 0, dp(7)) }, LinearLayout.LayoutParams(-1, dp(38)))
+        }
+
+        addMenuItem("☷", "Themes") { dialog.dismiss(); showThemes() }
+        addMenuItem("▦", "Widgets") { dialog.dismiss(); showWidgets() }
+
+        addSection("PLAYER")
+        addMenuItem("≋", "Equalizer") { dialog.dismiss(); showEqualizer() }
+        addMenuItem("◷", "Sleep Timer") { dialog.dismiss(); showSleepTimer() }
+        addMenuItem("🚗", "Drive Mode") { toggleDriveMode() }
+
+        addSection("APP")
+        addMenuItem("⚙", "Settings") { dialog.dismiss(); startActivity(Intent(this, SettingsActivity::class.java)) }
+
+        panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+
         val dialog = AlertDialog.Builder(this).setView(panel).create()
-        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-        dialog.setOnShowListener { dialog.window?.setLayout(dp(310), -2); dialog.window?.setGravity(Gravity.START or Gravity.TOP); dialog.window?.attributes?.y = dp(58) }
+        close.setOnClickListener { dialog.dismiss() }
+        dialog.setCanceledOnTouchOutside(true)
+        dialog.setOnShowListener {
+            dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+            dialog.window?.setDimAmount(0.62f)
+            dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            dialog.window?.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)
+            dialog.window?.setGravity(Gravity.START or Gravity.TOP)
+            dialog.window?.attributes?.y = 0
+        }
         dialog.show()
-        dialog.window?.setLayout(dp(310), -2)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.window?.setDimAmount(0.62f)
+        dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        dialog.window?.setLayout(dp(326), WindowManager.LayoutParams.MATCH_PARENT)
         dialog.window?.setGravity(Gravity.START or Gravity.TOP)
-        dialog.window?.attributes?.y = dp(58)
+        dialog.window?.attributes?.y = 0
+    }
+
+    private fun showEqualizer() {
+        val equalizerIntent = Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
+            putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
+            putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
+            putExtra(AudioEffect.EXTRA_AUDIO_SESSION, 0)
+        }
+        try {
+            startActivity(equalizerIntent)
+        } catch (_: Exception) {
+            AlertDialog.Builder(this)
+                .setTitle("Equalizer")
+                .setMessage("Your device does not provide a system equalizer panel for Audio.")
+                .setPositiveButton("OK", null)
+                .show()
+        }
+    }
+
+    private fun showSleepTimer() {
+        val options = arrayOf("Off", "15 minutes", "30 minutes", "45 minutes", "60 minutes", "90 minutes", "120 minutes")
+        val currentEnd = prefs.getLong("sleep_timer_end", 0L)
+        val current = if (currentEnd > System.currentTimeMillis()) {
+            val remaining = ((currentEnd - System.currentTimeMillis()) / 60000L).toInt()
+            options.indices.minByOrNull { index -> kotlin.math.abs((if (index == 0) 0 else index * 15) - remaining) } ?: 0
+        } else 0
+        AlertDialog.Builder(this)
+            .setTitle("Sleep Timer")
+            .setSingleChoiceItems(options, current) { dialog, which ->
+                if (which == 0) {
+                    cancelSleepTimer()
+                } else {
+                    scheduleSleepTimer(which * 15L)
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun scheduleSleepTimer(minutes: Long) {
+        sleepTimerRunnable?.let(sleepTimerHandler::removeCallbacks)
+        val endAt = System.currentTimeMillis() + minutes * 60_000L
+        prefs.edit().putLong("sleep_timer_end", endAt).apply()
+        sleepTimerRunnable = Runnable {
+            if (::player.isInitialized) player.pause()
+            prefs.edit().remove("sleep_timer_end").apply()
+            sleepTimerRunnable = null
+        }
+        sleepTimerHandler.postDelayed(sleepTimerRunnable!!, minutes * 60_000L)
+    }
+
+    private fun cancelSleepTimer() {
+        sleepTimerRunnable?.let(sleepTimerHandler::removeCallbacks)
+        sleepTimerRunnable = null
+        prefs.edit().remove("sleep_timer_end").apply()
+    }
+
+    private fun restoreSleepTimer() {
+        val endAt = prefs.getLong("sleep_timer_end", 0L)
+        if (endAt <= 0L) return
+        val remaining = endAt - System.currentTimeMillis()
+        if (remaining <= 0L) {
+            if (::player.isInitialized) player.pause()
+            prefs.edit().remove("sleep_timer_end").apply()
+            return
+        }
+        sleepTimerRunnable?.let(sleepTimerHandler::removeCallbacks)
+        sleepTimerRunnable = Runnable {
+            if (::player.isInitialized) player.pause()
+            prefs.edit().remove("sleep_timer_end").apply()
+            sleepTimerRunnable = null
+        }
+        sleepTimerHandler.postDelayed(sleepTimerRunnable!!, remaining)
+    }
+
+    private fun toggleDriveMode() {
+        val enabled = !prefs.getBoolean("drive_mode", false)
+        prefs.edit().putBoolean("drive_mode", enabled).apply()
+        applyDriveMode()
+    }
+
+    private fun applyDriveMode() {
+        if (prefs.getBoolean("drive_mode", false)) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
     }
 
     private fun showThemes() {
@@ -384,8 +557,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showPremiumInfo() { AlertDialog.Builder(this).setTitle("Audio Player").setMessage("Luxury local music and video experience.\nBackground audio playback enabled.\nYour library stays on your device.").setPositiveButton("OK", null).show() }
-    override fun onResume() { super.onResume(); if (::player.isInitialized) renderSection() }
-    override fun onDestroy() { if (::controllerFuture.isInitialized) MediaController.releaseFuture(controllerFuture); super.onDestroy() }
+    override fun onResume() { super.onResume(); applyDriveMode(); restoreSleepTimer(); if (::player.isInitialized) renderSection() }
+    override fun onDestroy() { sleepTimerRunnable?.let(sleepTimerHandler::removeCallbacks); if (::controllerFuture.isInitialized) MediaController.releaseFuture(controllerFuture); super.onDestroy() }
 }
 
 data class VideoEntry(val uri: Uri, val title: String, val size: Long, val duration: Long)
