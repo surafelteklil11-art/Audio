@@ -32,7 +32,5 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowMinHeightMajor">100%</item>
-        <item name="android:windowMinHeightMinor">100%</item>
     </style>
 </resources>
