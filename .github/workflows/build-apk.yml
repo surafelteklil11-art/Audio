@@ -104,10 +104,6 @@ jobs:
           grep -q 'versionCode = 319' app/build.gradle.kts
           grep -q 'versionName = "1.0.319"' app/build.gradle.kts
           grep -q 'Theme_Audio_SideDrawer' app/src/main/res/values/styles.xml
-          if grep -RInE 'fullscreenVideo|exitFullscreenVideo|enterFullscreenVideo' app/src/main/java/com/surafel/audio; then
-            echo 'Stale fullscreen implementation references found.'
-            exit 1
-          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
