@@ -24,7 +24,8 @@ abstract class AudioToolPageActivity : AppCompatActivity() {
             setBackgroundColor(Color.rgb(3, 8, 23))
         }
         setContentView(pageRoot)
-        pageRoot.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(82)))
+        val isThemesPage = pageTitle() == "Themes"
+        pageRoot.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(if (isThemesPage) 58 else 82)))
         val scroll = ScrollView(this).apply { overScrollMode = View.OVER_SCROLL_NEVER }
         scroll.addView(buildContent(), ViewGroup.LayoutParams(-1, -2))
         pageRoot.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -34,32 +35,38 @@ abstract class AudioToolPageActivity : AppCompatActivity() {
     protected abstract fun pageTitle(): String
 
     private fun buildHeader(): View = LinearLayout(this).apply {
+        val compactThemesHeader = pageTitle() == "Themes"
+        orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(10), dp(8), dp(12), dp(8))
-        background = gradient(intArrayOf(Color.rgb(2, 9, 28), Color.rgb(7, 25, 55)), Color.rgb(34, 117, 236), 1, 0f)
+        setPadding(dp(if (compactThemesHeader) 6 else 10), dp(if (compactThemesHeader) 2 else 8), dp(if (compactThemesHeader) 8 else 12), dp(if (compactThemesHeader) 2 else 8))
+        if (compactThemesHeader) {
+            setBackgroundColor(Color.TRANSPARENT)
+        } else {
+            background = gradient(intArrayOf(Color.rgb(2, 9, 28), Color.rgb(7, 25, 55)), Color.rgb(34, 117, 236), 1, 0f)
+        }
         addView(TextView(this@AudioToolPageActivity).apply {
             text = "‹"
-            textSize = 42f
+            textSize = if (compactThemesHeader) 34f else 42f
             includeFontPadding = false
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             setOnClickListener { finish() }
-        }, LinearLayout.LayoutParams(dp(58), dp(60)))
+        }, LinearLayout.LayoutParams(dp(if (compactThemesHeader) 48 else 58), dp(if (compactThemesHeader) 54 else 60)))
         addView(TextView(this@AudioToolPageActivity).apply {
             text = pageTitle()
-            textSize = 22f
+            textSize = if (compactThemesHeader) 18f else 22f
             typeface = Typeface.create("sans-serif", Typeface.BOLD)
-            letterSpacing = .08f
+            letterSpacing = if (compactThemesHeader) .04f else .08f
             gravity = Gravity.CENTER_VERTICAL
             setTextColor(Color.WHITE)
-        }, LinearLayout.LayoutParams(0, dp(60), 1f))
+        }, LinearLayout.LayoutParams(0, dp(if (compactThemesHeader) 54 else 60), 1f))
         addView(TextView(this@AudioToolPageActivity).apply {
             text = "◈"
-            textSize = 22f
+            textSize = if (compactThemesHeader) 18f else 22f
             gravity = Gravity.CENTER
             setTextColor(Color.rgb(96, 210, 255))
             setShadowLayer(dp(8).toFloat(), 0f, 0f, Color.rgb(34, 125, 255))
-        }, LinearLayout.LayoutParams(dp(44), dp(60)))
+        }, LinearLayout.LayoutParams(dp(if (compactThemesHeader) 38 else 44), dp(if (compactThemesHeader) 54 else 60)))
     }
 
     protected fun contentColumn(): LinearLayout = LinearLayout(this).apply {
