@@ -142,7 +142,7 @@ new_show_menu = '''    private fun showMenu() {
             startActivity(Intent(this, VolumeBoosterActivity::class.java))
         }, selected = true)
         addMenuItem("◷", "Sleep Timer") { closeDrawer(); showSleepTimer() }
-        addMenuItem("▣", "Drive Mode") { toggleDriveMode(); closeDrawer() }
+        addMenuItem("🚗", "Drive Mode") { toggleDriveMode(); closeDrawer() }
         addSection("APP")
         addMenuItem("⚙", "Settings") {
             closeDrawer()
@@ -164,7 +164,7 @@ text = text[:start] + new_show_menu + text[end:]
 
 widgets_start = text.find("    private fun showWidgets() {")
 widgets_end = text.find("    private fun showPremiumInfo() {")
-if widgets_start < 0 or widgets_end <= widgets_start:
+if widgets_start < 0 or widgets_end <= start:
     raise SystemExit("Unable to locate showWidgets boundaries")
 text = text[:widgets_start] + '''    private fun showWidgets() {
         startActivity(Intent(this, WidgetCatalogActivity::class.java))
@@ -182,7 +182,7 @@ for needle in (
     'addMenuItem("≋", "Equalizer")',
     'addMenuItem("◉", "Volume Booster"',
     'addMenuItem("◷", "Sleep Timer")',
-    'addMenuItem("▣", "Drive Mode")',
+    'addMenuItem("🚗", "Drive Mode")',
     'addMenuItem("⚙", "Settings")',
 ):
     if needle not in menu:
