@@ -60,6 +60,8 @@ class PlaybackService : MediaSessionService() {
                 playWhenReady = false
             }
 
+        VolumeBoosterController.setAudioSessionId(player.audioSessionId)
+
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) = refreshWidgets()
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = refreshWidgets()
@@ -164,6 +166,7 @@ class PlaybackService : MediaSessionService() {
     override fun onDestroy() {
         handler.removeCallbacks(libraryLoader)
         artworkExecutor.shutdownNow()
+        VolumeBoosterController.release()
         mediaSession?.player?.release()
         mediaSession?.release()
         mediaSession = null
