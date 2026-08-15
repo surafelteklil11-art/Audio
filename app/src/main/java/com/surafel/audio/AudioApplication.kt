@@ -10,7 +10,6 @@ import android.graphics.drawable.LayerDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
 import java.io.File
 
 /** Application-level background and media-menu wiring. MainActivity owns the side drawer UI. */
@@ -54,7 +53,7 @@ object BackgroundManager {
         if (bitmap != null) {
             root.background = LayerDrawable(arrayOf(BitmapDrawable(activity.resources, bitmap).apply { gravity = Gravity.FILL }, ColorDrawable(0x52000000)))
         } else {
-            root.background = ContextCompat.getDrawable(activity, R.drawable.bg_art)
+            ThemeCatalog.apply(activity, root, prefs.getInt("theme", 0))
         }
     }
 }
