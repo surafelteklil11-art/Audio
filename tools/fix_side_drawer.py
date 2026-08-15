@@ -99,7 +99,7 @@ new_show_menu = '''    private fun showMenu() {
 
         fun closeDrawer() = content.removeView(overlay)
 
-        fun addMenuItem(iconText: String, title: String, onClick: () -> Unit, selected: Boolean = false) {
+        fun addMenuItem(iconText: String, title: String, selected: Boolean = false, onClick: () -> Unit) {
             val row = LinearLayout(this).apply {
                 gravity = Gravity.CENTER_VERTICAL
                 isClickable = true
@@ -137,10 +137,10 @@ new_show_menu = '''    private fun showMenu() {
         addMenuItem("▦", "Widgets") { closeDrawer(); showWidgets() }
         addSection("AUDIO TOOLS")
         addMenuItem("≋", "Equalizer") { closeDrawer(); showEqualizer() }
-        addMenuItem("◉", "Volume Booster", {
+        addMenuItem("◉", "Volume Booster", selected = true) {
             closeDrawer()
             startActivity(Intent(this, VolumeBoosterActivity::class.java))
-        }, selected = true)
+        }
         addMenuItem("◷", "Sleep Timer") { closeDrawer(); showSleepTimer() }
         addMenuItem("🚗", "Drive Mode") { toggleDriveMode(); closeDrawer() }
         addSection("APP")
