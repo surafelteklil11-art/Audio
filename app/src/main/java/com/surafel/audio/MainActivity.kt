@@ -371,7 +371,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val dim = View(this).apply {
-            setBackgroundColor(Color.argb(158, 0, 0, 0))
+            setBackgroundColor(Color.argb(178, 0, 4, 16))
             isClickable = true
         }
         overlay.addView(dim, FrameLayout.LayoutParams(
@@ -381,10 +381,10 @@ class MainActivity : AppCompatActivity() {
 
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(8), dp(20), dp(14))
+            setPadding(dp(12), dp(10), dp(12), dp(10))
             background = roundedGradient(
-                intArrayOf(Color.rgb(9, 14, 33), Color.rgb(25, 10, 49)),
-                Color.rgb(126, 67, 255), dp(1), dp(22)
+                intArrayOf(Color.rgb(3, 9, 24), Color.rgb(7, 15, 38), Color.rgb(10, 5, 29)),
+                Color.rgb(53, 125, 255), dp(1), dp(18)
             )
             isClickable = true
             isFocusable = true
@@ -392,7 +392,7 @@ class MainActivity : AppCompatActivity() {
 
         val header = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(4), dp(8), 0, dp(8))
+            setPadding(dp(4), dp(5), dp(2), dp(8))
         }
         val icon = TextView(this).apply {
             text = "♫"
@@ -400,17 +400,19 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             background = roundedGradient(
-                intArrayOf(Color.rgb(55, 22, 104), Color.rgb(31, 20, 72)),
-                Color.rgb(137, 66, 255), dp(1), dp(18)
+                intArrayOf(Color.rgb(19, 31, 83), Color.rgb(45, 11, 91)),
+                Color.rgb(61, 152, 255), dp(1), dp(17)
             )
+            setShadowLayer(dp(10).toFloat(), 0f, 0f, Color.rgb(55, 123, 255))
         }
         header.addView(icon, LinearLayout.LayoutParams(dp(58), dp(58)))
+
         val titleBox = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), 0, 0, 0)
+            setPadding(dp(11), 0, 0, 0)
         }
-        titleBox.addView(label("Audio", 22, Color.WHITE, Typeface.BOLD))
-        titleBox.addView(label("Music & video", 13, Color.rgb(184, 190, 217), Typeface.BOLD).apply {
+        titleBox.addView(label("Audio", 23, Color.WHITE, Typeface.BOLD))
+        titleBox.addView(label("Music & video", 13, Color.rgb(151, 176, 220), Typeface.BOLD).apply {
             setPadding(0, dp(3), 0, 0)
         })
         header.addView(titleBox, LinearLayout.LayoutParams(0, -2, 1f))
@@ -419,58 +421,74 @@ class MainActivity : AppCompatActivity() {
             text = "×"
             textSize = 31f
             gravity = Gravity.CENTER
-            setTextColor(Color.rgb(218, 221, 235))
+            setTextColor(Color.WHITE)
             isClickable = true
             isFocusable = true
         }
-        header.addView(close, LinearLayout.LayoutParams(dp(44), dp(58)))
+        header.addView(close, LinearLayout.LayoutParams(dp(42), dp(58)))
         panel.addView(header)
-        panel.addView(View(this).apply {
-            setBackgroundColor(Color.rgb(48, 56, 84))
-        }, LinearLayout.LayoutParams(-1, dp(1)).apply { bottomMargin = dp(8) })
+
+        val line = View(this).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(Color.TRANSPARENT, Color.rgb(45, 123, 255), Color.rgb(169, 58, 255), Color.TRANSPARENT))
+        }
+        panel.addView(line, LinearLayout.LayoutParams(-1, dp(1)).apply { bottomMargin = dp(3) })
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
             overScrollMode = View.OVER_SCROLL_NEVER
             clipToPadding = false
-            setPadding(0, dp(2), 0, dp(10))
+            setPadding(0, dp(2), 0, dp(8))
         }
         val menu = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroll.addView(menu, ViewGroup.LayoutParams(-1, -1))
 
-        fun closeDrawer() {
-            content.removeView(overlay)
-        }
+        fun closeDrawer() = content.removeView(overlay)
 
-        fun addMenuItem(iconText: String, title: String, onClick: () -> Unit) {
+        fun addMenuItem(iconText: String, title: String, onClick: () -> Unit, selected: Boolean = false) {
             val row = LinearLayout(this).apply {
                 gravity = Gravity.CENTER_VERTICAL
                 isClickable = true
                 isFocusable = true
-                setPadding(dp(6), 0, dp(6), 0)
+                setPadding(dp(5), 0, dp(5), 0)
+                background = if (selected) roundedGradient(
+                    intArrayOf(Color.rgb(8, 25, 66), Color.rgb(23, 8, 54)),
+                    Color.rgb(90, 105, 255), dp(1), dp(13)
+                ) else null
                 setOnClickListener { onClick() }
             }
-            row.addView(label(iconText, 22, Color.rgb(211, 205, 244), Typeface.NORMAL).apply {
+            row.addView(label(iconText, 22, if (selected) Color.rgb(107, 221, 255) else Color.rgb(196, 205, 235), Typeface.NORMAL).apply {
                 gravity = Gravity.CENTER
-            }, LinearLayout.LayoutParams(dp(54), dp(58)))
-            row.addView(label(title, 17, Color.rgb(228, 230, 243), Typeface.NORMAL).apply {
+            }, LinearLayout.LayoutParams(dp(54), dp(56)))
+            row.addView(label(title, 16, if (selected) Color.WHITE else Color.rgb(224, 231, 246), Typeface.NORMAL).apply {
                 gravity = Gravity.CENTER_VERTICAL
-            }, LinearLayout.LayoutParams(0, dp(58), 1f))
-            menu.addView(row, LinearLayout.LayoutParams(-1, dp(58)).apply { bottomMargin = dp(3) })
+            }, LinearLayout.LayoutParams(0, dp(56), 1f))
+            menu.addView(row, LinearLayout.LayoutParams(-1, dp(59)).apply { bottomMargin = dp(3) })
         }
 
         fun addSection(title: String) {
-            menu.addView(label(title, 11, Color.rgb(117, 134, 170), Typeface.BOLD).apply {
-                setPadding(dp(6), dp(17), 0, dp(7))
-            }, LinearLayout.LayoutParams(-1, dp(38)))
+            val section = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            section.addView(label(title, 10, Color.rgb(70, 163, 255), Typeface.BOLD).apply {
+                letterSpacing = .10f
+                setPadding(dp(5), 0, dp(8), 0)
+            }, LinearLayout.LayoutParams(0, dp(31), 0f))
+            section.addView(View(this).apply {
+                background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                    intArrayOf(Color.rgb(38, 89, 160), Color.TRANSPARENT))
+            }, LinearLayout.LayoutParams(0, dp(1), 1f))
+            menu.addView(section, LinearLayout.LayoutParams(-1, dp(38)))
         }
 
         addMenuItem("☷", "Themes") { closeDrawer(); showThemes() }
         addMenuItem("▦", "Widgets") { closeDrawer(); showWidgets() }
-        addSection("PLAYER")
+        addSection("AUDIO TOOLS")
         addMenuItem("≋", "Equalizer") { closeDrawer(); showEqualizer() }
+        addMenuItem("◉", "Volume Booster", {
+            closeDrawer()
+            startActivity(Intent(this, VolumeBoosterActivity::class.java))
+        }, selected = true)
         addMenuItem("◷", "Sleep Timer") { closeDrawer(); showSleepTimer() }
-        addMenuItem("🚗", "Drive Mode") { toggleDriveMode() }
+        addMenuItem("🚗", "Drive Mode") { toggleDriveMode(); closeDrawer() }
         addSection("APP")
         addMenuItem("⚙", "Settings") {
             closeDrawer()
@@ -478,12 +496,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        overlay.addView(panel, FrameLayout.LayoutParams(
-            dp(326),
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            Gravity.START
-        ))
-
+        overlay.addView(panel, FrameLayout.LayoutParams(dp(326), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.START))
         dim.setOnClickListener { closeDrawer() }
         close.setOnClickListener { closeDrawer() }
         content.addView(overlay, ViewGroup.LayoutParams(
