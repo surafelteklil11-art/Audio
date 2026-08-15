@@ -2,6 +2,7 @@ package com.surafel.audio
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
@@ -49,7 +50,31 @@ object ThemeCatalog {
         ThemeOption(id, name, "Picture theme", intArrayOf(Color.rgb(5, 12, 28), Color.rgb(15, 25, 50)), index, setOf(pictureTags[index], "Others"))
     }
 
-    fun bitmap(context: Context, option: ThemeOption): Bitmap? = null
+    @Volatile
+    private var atlas: Bitmap? = null
+
+    private fun atlas(context: Context): Bitmap? {
+        atlas?.let { return it }
+        synchronized(this) {
+            atlas?.let { return it }
+            val decoded = BitmapFactory.decodeResource(context.resources, R.drawable.theme_atlas)
+            atlas = decoded
+            return decoded
+        }
+    }
+
+    fun bitmap(context: Context, option: ThemeOption): Bitmap? {
+        val index = option.pictureIndex ?: return null
+        val source = atlas(context) ?: return null
+        val columns = 3
+        val rows = 11
+        val cellWidth = source.width / columns
+        val cellHeight = source.height / rows
+        if (index !in 0 until (columns * rows)) return null
+        val x = (index % columns) * cellWidth
+        val y = (index / columns) * cellHeight
+        return Bitmap.createBitmap(source, x, y, cellWidth, cellHeight)
+    }
 
     fun apply(context: Context, root: View, id: Int) {
         val option = all.getOrNull(id) ?: gradients.first()
