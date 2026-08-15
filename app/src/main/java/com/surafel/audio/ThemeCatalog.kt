@@ -9,8 +9,12 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.view.Gravity
 import android.view.View
+import java.io.File
 
 object ThemeCatalog {
+    const val CUSTOM_ID = -1
+    private const val CUSTOM_FILE_NAME = "custom_theme.img"
+
     data class ThemeOption(
         val id: Int,
         val name: String,
@@ -53,6 +57,32 @@ object ThemeCatalog {
     @Volatile
     private var atlas: Bitmap? = null
     private val cleanedPictures = HashMap<Int, Bitmap>()
+
+    fun hasCustom(context: Context): Boolean = customFile(context).isFile && customFile(context).length() > 0L
+
+    fun customBitmap(context: Context): Bitmap? {
+        val file = customFile(context)
+        if (!file.isFile || file.length() <= 0L) return null
+        return decodeScaled(file)
+    }
+
+    fun customFile(context: Context): File = File(context.filesDir, CUSTOM_FILE_NAME)
+
+    private fun decodeScaled(file: File): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+        var sample = 1
+        val maxDimension = maxOf(bounds.outWidth, bounds.outHeight)
+        while (maxDimension / sample > 2048) sample *= 2
+
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = sample
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        return BitmapFactory.decodeFile(file.absolutePath, options)
+    }
 
     private fun atlas(context: Context): Bitmap? {
         atlas?.let { return it }
@@ -129,6 +159,22 @@ object ThemeCatalog {
     }
 
     fun apply(context: Context, root: View, id: Int) {
+        if (id == CUSTOM_ID) {
+            val custom = customBitmap(context)
+            if (custom != null) {
+                val image = BitmapDrawable(context.resources, custom).apply {
+                    gravity = Gravity.CENTER
+                    alpha = 88
+                }
+                val overlay = GradientDrawable(
+                    GradientDrawable.Orientation.TL_BR,
+                    intArrayOf(Color.argb(190, 2, 7, 22), Color.argb(165, 6, 12, 34), Color.argb(205, 11, 3, 30))
+                )
+                root.background = LayerDrawable(arrayOf(image, overlay))
+                return
+            }
+        }
+
         val option = all.getOrNull(id) ?: gradients.first()
         val picture = bitmap(context, option)
         if (picture == null) {
