@@ -6,6 +6,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -25,7 +26,7 @@ abstract class AudioToolPageActivity : AppCompatActivity() {
         setContentView(pageRoot)
         pageRoot.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(82)))
         val scroll = ScrollView(this).apply { overScrollMode = View.OVER_SCROLL_NEVER }
-        scroll.addView(buildContent(), ScrollView.LayoutParams(-1, -2))
+        scroll.addView(buildContent(), ViewGroup.LayoutParams(-1, -2))
         pageRoot.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
     }
 
