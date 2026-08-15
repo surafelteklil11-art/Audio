@@ -133,7 +133,7 @@ class VolumeBoosterActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(6), dp(10), dp(6))
             background = GradientDrawable(
-                GradientDrawable.Orientation.LR,
+                GradientDrawable.Orientation.LEFT_RIGHT,
                 intArrayOf(Color.rgb(65, 32, 139), Color.rgb(145, 39, 113))
             ).apply {
                 cornerRadius = dp(28).toFloat()
@@ -173,7 +173,7 @@ class VolumeBoosterActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        VolumeBoosterController.release()
+        // Keep the selected boost active while the user returns to the library.
         super.onDestroy()
     }
 
