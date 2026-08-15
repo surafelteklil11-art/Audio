@@ -23,10 +23,10 @@ class ThemesActivity : AudioToolPageActivity() {
     override fun buildContent(): View {
         val root = contentColumn()
         root.addView(spacer(dp(4)))
-        root.addView(pageSectionTitle("Gradient"), LinearLayout.LayoutParams(-1, dp(42)))
-        root.addView(buildGradientGrid(), LinearLayout.LayoutParams(-1, dp(272)).apply { bottomMargin = dp(18) })
-        root.addView(pageSectionTitle("Picture"), LinearLayout.LayoutParams(-1, dp(42)))
-        root.addView(buildFilters(), LinearLayout.LayoutParams(-1, dp(38)).apply { bottomMargin = dp(10) })
+        root.addView(pageSectionTitle("Gradient"), LinearLayout.LayoutParams(-1, dp(36)))
+        root.addView(buildGradientGrid(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+        root.addView(pageSectionTitle("Picture"), LinearLayout.LayoutParams(-1, dp(36)))
+        root.addView(buildFilters(), LinearLayout.LayoutParams(-1, dp(31)).apply { bottomMargin = dp(8) })
         pictureGrid = GridLayout(this).apply {
             columnCount = 3
             useDefaultMargins = false
