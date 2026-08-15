@@ -14,6 +14,8 @@ import java.io.File
 object ThemeCatalog {
     const val CUSTOM_ID = -1
     private const val CUSTOM_FILE_NAME = "custom_theme.img"
+    private const val ATLAS_COLUMNS = 3
+    private const val ATLAS_ROWS = 11
 
     data class ThemeOption(
         val id: Int,
@@ -56,7 +58,7 @@ object ThemeCatalog {
 
     @Volatile
     private var atlas: Bitmap? = null
-    private val cleanedPictures = HashMap<Int, Bitmap>()
+    private val pictureCache = HashMap<Int, Bitmap>()
 
     fun hasCustom(context: Context): Boolean = customFile(context).isFile && customFile(context).length() > 0L
 
@@ -89,6 +91,7 @@ object ThemeCatalog {
         synchronized(this) {
             atlas?.let { return it }
             val decoded = BitmapFactory.decodeResource(context.resources, R.drawable.theme_atlas)
+            if (decoded == null || decoded.width < ATLAS_COLUMNS || decoded.height < ATLAS_ROWS) return null
             atlas = decoded
             return decoded
         }
@@ -96,66 +99,28 @@ object ThemeCatalog {
 
     fun bitmap(context: Context, option: ThemeOption): Bitmap? {
         val index = option.pictureIndex ?: return null
-        synchronized(cleanedPictures) {
-            cleanedPictures[index]?.let { return it }
+        if (index !in 0 until pictureNames.size) return null
+
+        synchronized(pictureCache) {
+            pictureCache[index]?.let { return it }
         }
 
         val source = atlas(context) ?: return null
-        val columns = 3
-        val rows = 11
-        val cellWidth = source.width / columns
-        val cellHeight = source.height / rows
-        if (index !in 0 until (columns * rows)) return null
-        val x = (index % columns) * cellWidth
-        val y = (index / columns) * cellHeight
-        val raw = Bitmap.createBitmap(source, x, y, cellWidth, cellHeight)
-        val cleaned = if (index >= 14) removeBakedMarker(raw) else raw
+        val cellWidth = source.width / ATLAS_COLUMNS
+        val cellHeight = source.height / ATLAS_ROWS
+        if (cellWidth <= 0 || cellHeight <= 0) return null
 
-        synchronized(cleanedPictures) {
-            cleanedPictures[index] = cleaned
+        val x = (index % ATLAS_COLUMNS) * cellWidth
+        val y = (index / ATLAS_COLUMNS) * cellHeight
+        if (x + cellWidth > source.width || y + cellHeight > source.height) return null
+
+        // The supplied atlas is already the clean 33-image gallery. Keep every cell
+        // pixel-for-pixel instead of applying destructive marker-removal processing.
+        val picture = Bitmap.createBitmap(source, x, y, cellWidth, cellHeight)
+        synchronized(pictureCache) {
+            pictureCache[index] = picture
         }
-        return cleaned
-    }
-
-    /** The supplied atlas contains baked-in crown/premium circles on picture indexes 14..32. */
-    private fun removeBakedMarker(source: Bitmap): Bitmap {
-        val result = source.copy(Bitmap.Config.ARGB_8888, true)
-        val width = result.width
-        val height = result.height
-        val centerX = (width * 0.889f).toInt()
-        val centerY = (height * 0.085f).toInt()
-        val radius = (width * 0.116f).toInt().coerceAtLeast(16)
-        val radiusSquared = radius * radius
-
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                val dx = x - centerX
-                val dy = y - centerY
-                if (dx * dx + dy * dy > radiusSquared) continue
-
-                val sourceX = (x - radius * 2).coerceIn(0, width - 1)
-                var red = 0L
-                var green = 0L
-                var blue = 0L
-                var count = 0
-                for (sampleY in (y - 2).coerceAtLeast(0)..(y + 2).coerceAtMost(height - 1)) {
-                    for (offsetX in -2..2) {
-                        val sampleX = (sourceX + offsetX).coerceIn(0, width - 1)
-                        val color = source.getPixel(sampleX, sampleY)
-                        red += Color.red(color)
-                        green += Color.green(color)
-                        blue += Color.blue(color)
-                        count++
-                    }
-                }
-                result.setPixel(
-                    x,
-                    y,
-                    Color.rgb((red / count).toInt(), (green / count).toInt(), (blue / count).toInt())
-                )
-            }
-        }
-        return result
+        return picture
     }
 
     fun apply(context: Context, root: View, id: Int) {
@@ -163,7 +128,7 @@ object ThemeCatalog {
             val custom = customBitmap(context)
             if (custom != null) {
                 val image = BitmapDrawable(context.resources, custom).apply {
-                    gravity = Gravity.CENTER
+                    gravity = Gravity.FILL
                     alpha = 88
                 }
                 val overlay = GradientDrawable(
@@ -182,7 +147,7 @@ object ThemeCatalog {
             return
         }
         val image = BitmapDrawable(context.resources, picture).apply {
-            gravity = Gravity.CENTER
+            gravity = Gravity.FILL
             alpha = 72
         }
         val overlay = GradientDrawable(
