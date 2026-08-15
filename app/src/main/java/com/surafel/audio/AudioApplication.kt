@@ -21,7 +21,6 @@ class AudioApplication : Application() {
             override fun onActivityResumed(activity: Activity) {
                 BackgroundManager.apply(activity)
                 MediaItemMenuInstaller.install(activity)
-                VolumeBoosterMenuInjector.install(activity)
             }
             override fun onActivityCreated(activity: Activity, savedInstanceState: android.os.Bundle?) = Unit
             override fun onActivityStarted(activity: Activity) = Unit
