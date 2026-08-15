@@ -136,7 +136,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         addView(toggle, LinearLayout.LayoutParams(dp(92), dp(48)))
     }
 
-    private fun buildPresetPanel(): View = sciPanelContainer("PRESETS") {
+    private fun buildPresetPanel(): View = sciPanelContainer("PRESETS", "MORE ›") {
         val row = HorizontalScrollView(this@EqualizerActivity).apply { overScrollMode = View.OVER_SCROLL_NEVER }
         val inner = LinearLayout(this@EqualizerActivity).apply { orientation = LinearLayout.VERTICAL }
         val first = LinearLayout(this@EqualizerActivity).apply { orientation = LinearLayout.HORIZONTAL }
@@ -165,15 +165,6 @@ class EqualizerActivity : AudioToolPageActivity() {
         inner.addView(presetExtra)
         row.addView(inner, ViewGroup.LayoutParams(-2, -2))
         addView(row, LinearLayout.LayoutParams(-1, -2))
-        val more = SciText(this@EqualizerActivity, "MORE ›", 14f).apply {
-            gravity = android.view.Gravity.CENTER
-            setTextColor(Color.rgb(93, 219, 255))
-            setOnClickListener {
-                presetExtra.visibility = if (presetExtra.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-                text = if (presetExtra.visibility == View.VISIBLE) "LESS ‹" else "MORE ›"
-            }
-        }
-        addView(more, 0, LinearLayout.LayoutParams(-1, dp(32)))
     }
 
     private fun buildBandPanel(): View = sciPanelContainer("EQUALIZER BANDS") {
@@ -214,13 +205,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         addView(row, LinearLayout.LayoutParams(-1, dp(58)))
     }
 
-    private fun buildEnhancerPanel(): View = sciPanelContainer("ENHANCER") {
-        val reset = SciText(this@EqualizerActivity, "↻  RESET", 13f).apply {
-            gravity = android.view.Gravity.CENTER
-            setTextColor(Color.rgb(155, 226, 255))
-            setOnClickListener { resetEnhancers() }
-        }
-        addView(reset, 0, LinearLayout.LayoutParams(-1, dp(34)))
+    private fun buildEnhancerPanel(): View = sciPanelContainer("ENHANCER", "↻ RESET") {
         val row = LinearLayout(this@EqualizerActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER
@@ -239,14 +224,33 @@ class EqualizerActivity : AudioToolPageActivity() {
         addView(row, LinearLayout.LayoutParams(-1, dp(210)))
     }
 
-    private fun sciPanelContainer(title: String, body: LinearLayout.() -> Unit): LinearLayout = LinearLayout(this@EqualizerActivity).apply {
+    private fun sciPanelContainer(title: String, action: String? = null, body: LinearLayout.() -> Unit): LinearLayout = LinearLayout(this@EqualizerActivity).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(18), dp(12), dp(18), dp(14))
         background = sciPanel(14, Color.rgb(37, 91, 190))
-        addView(SciText(this@EqualizerActivity, title, 16f).apply {
-            setTextColor(Color.rgb(76, 225, 255))
-            letterSpacing = .05f
-        }, LinearLayout.LayoutParams(-1, dp(34)))
+        val header = LinearLayout(this@EqualizerActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            addView(SciText(this@EqualizerActivity, title, 16f).apply {
+                setTextColor(Color.rgb(76, 225, 255))
+                letterSpacing = .05f
+            }, LinearLayout.LayoutParams(0, dp(34), 1f))
+            if (action != null) addView(SciText(this@EqualizerActivity, action, 13f).apply {
+                gravity = android.view.Gravity.CENTER
+                setTextColor(Color.rgb(108, 211, 255))
+                isClickable = true
+                setOnClickListener {
+                    when (title) {
+                        "PRESETS" -> {
+                            presetExtra.visibility = if (presetExtra.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+                            text = if (presetExtra.visibility == View.VISIBLE) "LESS ‹" else "MORE ›"
+                        }
+                        "ENHANCER" -> resetEnhancers()
+                    }
+                }
+            }, LinearLayout.LayoutParams(dp(92), dp(34)))
+        }
+        addView(header)
         body()
     }
 
