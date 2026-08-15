@@ -72,6 +72,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         setupFuturisticShell()
+        applyTheme(prefs.getInt("theme", 0))
         applyDriveMode()
         restoreVolumeBooster()
         adapter = SongAdapter(items) { playFrom(it) }
