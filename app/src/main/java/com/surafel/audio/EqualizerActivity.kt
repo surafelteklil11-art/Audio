@@ -52,7 +52,7 @@ class EqualizerActivity : AudioToolPageActivity() {
     private val fiveFrequencies = intArrayOf(60, 230, 910, 3600, 14000)
     private val tenFrequencies = intArrayOf(31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
     private val reverbNames = arrayOf("NONE", "SMALL ROOM", "MEDIUM ROOM", "LARGE ROOM", "MEDIUM HALL", "LARGE HALL")
-    private val reverbPresets = intArrayOf(
+    private val reverbPresets = shortArrayOf(
         PresetReverb.PRESET_NONE,
         PresetReverb.PRESET_SMALLROOM,
         PresetReverb.PRESET_MEDIUMROOM,
@@ -71,7 +71,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         initializeEffects()
     }
 
-    override fun buildContent(): View = LinearLayout(this)
+    override fun buildContent(): View = LinearLayout(this@EqualizerActivity)
 
     override fun onDestroy() {
         equalizer?.release()
@@ -88,15 +88,15 @@ class EqualizerActivity : AudioToolPageActivity() {
     }
 
     private fun buildSciFiPage() {
-        root = LinearLayout(this).apply {
+        root = LinearLayout(this@EqualizerActivity).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(1, 5, 17))
         }
         setContentView(root)
 
         root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(82)))
-        val scroll = ScrollView(this).apply { overScrollMode = View.OVER_SCROLL_NEVER }
-        content = LinearLayout(this).apply {
+        val scroll = ScrollView(this@EqualizerActivity).apply { overScrollMode = View.OVER_SCROLL_NEVER }
+        content = LinearLayout(this@EqualizerActivity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(12), dp(18), dp(34))
         }
@@ -110,7 +110,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         content.addView(buildEnhancerPanel(), LinearLayout.LayoutParams(-1, dp(250)))
     }
 
-    private fun buildHeader(): View = LinearLayout(this).apply {
+    private fun buildHeader(): View = LinearLayout(this@EqualizerActivity).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = android.view.Gravity.CENTER_VERTICAL
         setPadding(dp(10), dp(8), dp(10), dp(8))
@@ -137,10 +137,10 @@ class EqualizerActivity : AudioToolPageActivity() {
     }
 
     private fun buildPresetPanel(): View = sciPanelContainer("PRESETS") {
-        val row = HorizontalScrollView(this).apply { overScrollMode = View.OVER_SCROLL_NEVER }
-        val inner = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val first = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val second = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val row = HorizontalScrollView(this@EqualizerActivity).apply { overScrollMode = View.OVER_SCROLL_NEVER }
+        val inner = LinearLayout(this@EqualizerActivity).apply { orientation = LinearLayout.VERTICAL }
+        val first = LinearLayout(this@EqualizerActivity).apply { orientation = LinearLayout.HORIZONTAL }
+        val second = LinearLayout(this@EqualizerActivity).apply { orientation = LinearLayout.HORIZONTAL }
         val names = listOf("CUSTOM", "NORMAL", "FLAT", "POP", "LIVE", "ROCK")
         names.forEachIndexed { index, name ->
             val target = if (index < 3) first else second
@@ -151,7 +151,7 @@ class EqualizerActivity : AudioToolPageActivity() {
                 bottomMargin = dp(10)
             })
         }
-        presetExtra = LinearLayout(this).apply {
+        presetExtra = LinearLayout(this@EqualizerActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             visibility = View.GONE
         }
@@ -182,7 +182,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             letterSpacing = .08f
         }
         addView(status, LinearLayout.LayoutParams(-1, dp(26)))
-        val bandRow = LinearLayout(this).apply {
+        val bandRow = LinearLayout(this@EqualizerActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER
         }
@@ -195,10 +195,10 @@ class EqualizerActivity : AudioToolPageActivity() {
         addView(bandRow, LinearLayout.LayoutParams(-1, dp(430)))
     }
 
-    private fun buildModePanel(): View = LinearLayout(this).apply {
+    private fun buildModePanel(): View = LinearLayout(this@EqualizerActivity).apply {
         orientation = LinearLayout.HORIZONTAL
         background = sciPanel(12, Color.rgb(38, 83, 150))
-        modeFive = SciButton(this@EqualizerActivity, "5-BAND").apply { selected = true }
+        modeFive = SciButton(this@EqualizerActivity, "5-BAND").apply { isSelected = true }
         modeTen = SciButton(this@EqualizerActivity, "10-BAND")
         modeFive.setOnClickListener { if (tenBand) { tenBand = false; rebuildBands(); updateModeButtons() } }
         modeTen.setOnClickListener { if (!tenBand) { tenBand = true; rebuildBands(); updateModeButtons() } }
@@ -221,7 +221,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             setOnClickListener { resetEnhancers() }
         }
         addView(reset, 0, LinearLayout.LayoutParams(-1, dp(34)))
-        val row = LinearLayout(this).apply {
+        val row = LinearLayout(this@EqualizerActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER
         }
@@ -239,7 +239,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         addView(row, LinearLayout.LayoutParams(-1, dp(210)))
     }
 
-    private fun sciPanelContainer(title: String, body: LinearLayout.() -> Unit): LinearLayout = LinearLayout(this).apply {
+    private fun sciPanelContainer(title: String, body: LinearLayout.() -> Unit): LinearLayout = LinearLayout(this@EqualizerActivity).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(18), dp(12), dp(18), dp(14))
         background = sciPanel(14, Color.rgb(37, 91, 190))
@@ -278,7 +278,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         bandViews.clear()
         val freqs = if (tenBand) tenFrequencies else fiveFrequencies
         freqs.forEachIndexed { index, freq ->
-            val view = BandSliderView(this, index, freq)
+            val view = BandSliderView(this@EqualizerActivity, index, freq)
             bandViews += view
             bandRow.addView(view, LinearLayout.LayoutParams(0, dp(430), 1f).apply { leftMargin = dp(3); rightMargin = dp(3) })
         }
@@ -287,8 +287,8 @@ class EqualizerActivity : AudioToolPageActivity() {
     private fun rebuildBands() = renderBands()
 
     private fun updateModeButtons() {
-        modeFive.selected = !tenBand
-        modeTen.selected = tenBand
+        modeFive.isSelected = !tenBand
+        modeTen.isSelected = tenBand
         modeFive.invalidate()
         modeTen.invalidate()
     }
@@ -304,12 +304,12 @@ class EqualizerActivity : AudioToolPageActivity() {
                 eq.setBandLevel(band, level)
             }
         } catch (_: Throwable) { }
-        prefs.edit().putFloat("eq_ui_$tenBand_$uiIndex", db).apply()
+        prefs.edit().putFloat("eq_ui_${tenBand}_$uiIndex", db).apply()
     }
 
     private fun applyPreset(name: String) {
         val values = when (name) {
-            "CUSTOM" -> FloatArray(if (tenBand) 10 else 5) { prefs.getFloat("eq_ui_$tenBand_$it", 0f) }
+            "CUSTOM" -> FloatArray(if (tenBand) 10 else 5) { prefs.getFloat("eq_ui_${tenBand}_$it", 0f) }
             "NORMAL", "FLAT" -> FloatArray(if (tenBand) 10 else 5) { 0f }
             "POP" -> floatArrayOf(2f, 1.5f, 0f, 1.5f, 2f).fitForMode()
             "LIVE" -> floatArrayOf(1.5f, 0.5f, 1f, 2f, 1.5f).fitForMode()
@@ -321,7 +321,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             else -> FloatArray(if (tenBand) 10 else 5)
         }
         values.forEachIndexed { index, value ->
-            prefs.edit().putFloat("eq_ui_$tenBand_$index", value.coerceIn(-15f, 15f)).apply()
+            prefs.edit().putFloat("eq_ui_${tenBand}_$index", value.coerceIn(-15f, 15f)).apply()
         }
         bandViews.forEachIndexed { index, view ->
             view.value = values.getOrElse(index) { 0f }
@@ -343,7 +343,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         reverbIndex = (reverbIndex + 1) % reverbNames.size
         reverbValue.text = "${reverbNames[reverbIndex]}   ›"
         try {
-            presetReverb?.preset = reverbPresets[reverbIndex].toShort()
+            presetReverb?.preset = reverbPresets[reverbIndex]
             presetReverb?.enabled = enabled && reverbIndex != 0
         } catch (_: Throwable) { }
         prefs.edit().putInt("eq_reverb", reverbIndex).apply()
@@ -387,7 +387,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             bassBoost?.setStrength((prefs.getFloat("eq_bass", .35f) * 1000).roundToInt().toShort())
             virtualizer?.setStrength((prefs.getFloat("eq_surround", 0f) * 1000).roundToInt().toShort())
             loudnessEnhancer?.setTargetGain((prefs.getFloat("eq_loudness", .25f) * 1200).roundToInt())
-            presetReverb?.preset = reverbPresets[reverbIndex].toShort()
+            presetReverb?.preset = reverbPresets[reverbIndex]
             presetReverb?.enabled = enabled && reverbIndex != 0
         } catch (_: Throwable) { }
         knobViews.forEachIndexed { index, knob ->
@@ -483,7 +483,7 @@ class EqualizerActivity : AudioToolPageActivity() {
     }
 
     private inner class BandSliderView(context: Context, val index: Int, val frequency: Int) : View(context) {
-        var value: Float = prefs.getFloat("eq_ui_$tenBand_$index", 0f).coerceIn(-15f, 15f)
+        var value: Float = prefs.getFloat("eq_ui_${tenBand}_$index", 0f).coerceIn(-15f, 15f)
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
         override fun onDraw(canvas: Canvas) {
