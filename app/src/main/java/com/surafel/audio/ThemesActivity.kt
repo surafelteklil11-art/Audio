@@ -3,6 +3,7 @@ package com.surafel.audio
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
@@ -12,11 +13,21 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Space
 import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import kotlin.math.roundToInt
 
 class ThemesActivity : AudioToolPageActivity() {
     private var selectedFilter = "All"
     private lateinit var pictureGrid: GridLayout
+
+    private val customImagePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri == null) return@registerForActivityResult
+        saveCustomTheme(uri)
+    }
 
     override fun pageTitle() = "Themes"
 
@@ -152,7 +163,7 @@ class ThemesActivity : AudioToolPageActivity() {
     private fun rebuildPictureGrid() {
         if (!::pictureGrid.isInitialized) return
         pictureGrid.removeAllViews()
-        pictureGrid.addView(customizeCard(), gridParams(0))
+        pictureGrid.addView(customThemeCard(), gridParams(0))
         val pictures = ThemeCatalog.all.filter { option ->
             option.pictureIndex != null && (selectedFilter == "All" || option.tags.contains(selectedFilter))
         }
@@ -176,26 +187,93 @@ class ThemesActivity : AudioToolPageActivity() {
         setMargins(dp(4), dp(4), dp(4), dp(4))
     }
 
-    private fun customizeCard(): View = FrameLayout(this).apply {
-        background = gradient(
-            intArrayOf(Color.rgb(74, 33, 88), Color.rgb(40, 20, 65)),
-            Color.rgb(76, 48, 105),
-            1,
-            dp(14).toFloat()
-        )
-        addView(TextView(this@ThemesActivity).apply {
-            text = "▧+"
-            textSize = 34f
-            gravity = Gravity.CENTER
-            setTextColor(Color.rgb(225, 218, 239))
-        }, FrameLayout.LayoutParams(-1, dp(120), Gravity.TOP))
-        addView(TextView(this@ThemesActivity).apply {
-            text = "Customize"
+    private fun customThemeCard(): View = FrameLayout(this).apply {
+        val hasCustom = ThemeCatalog.hasCustom(this@ThemesActivity)
+        val selected = prefs.getInt("theme", 0) == ThemeCatalog.CUSTOM_ID
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(14).toFloat()
+            setColor(Color.rgb(40, 20, 65))
+            setStroke(dp(if (selected) 2 else 1), if (selected) Color.rgb(55, 177, 255) else Color.rgb(76, 48, 105))
+        }
+        isClickable = true
+        isFocusable = true
+        setOnClickListener {
+            if (hasCustom) {
+                prefs.edit().putInt("theme", ThemeCatalog.CUSTOM_ID).apply()
+                recreate()
+            } else {
+                openCustomPicker()
+            }
+        }
+
+        if (hasCustom) {
+            addView(ImageView(this@ThemesActivity).apply {
+                setImageBitmap(ThemeCatalog.customBitmap(this@ThemesActivity))
+                scaleType = ImageView.ScaleType.CENTER_CROP
+            }, FrameLayout.LayoutParams(-1, -1).apply {
+                setMargins(dp(1), dp(1), dp(1), dp(1))
+            })
+            addView(TextView(this@ThemesActivity).apply {
+                text = "CUSTOM"
+                textSize = 10f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = dp(8).toFloat()
+                    setColor(Color.argb(190, 7, 17, 38))
+                }
+                setPadding(dp(8), 0, dp(8), 0)
+            }, FrameLayout.LayoutParams(dp(68), dp(28), Gravity.TOP or Gravity.START).apply {
+                topMargin = dp(8)
+                leftMargin = dp(8)
+            })
+            addView(TextView(this@ThemesActivity).apply {
+                text = "↻"
+                textSize = 18f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.argb(190, 20, 34, 65))
+                }
+                setOnClickListener { openCustomPicker() }
+            }, FrameLayout.LayoutParams(dp(34), dp(34), Gravity.TOP or Gravity.END).apply {
+                topMargin = dp(8)
+                rightMargin = dp(8)
+            })
+        } else {
+            addView(TextView(this@ThemesActivity).apply {
+                text = "▧+"
+                textSize = 34f
+                gravity = Gravity.CENTER
+                setTextColor(Color.rgb(225, 218, 239))
+            }, FrameLayout.LayoutParams(-1, dp(120), Gravity.TOP))
+            addView(TextView(this@ThemesActivity).apply {
+                text = "Customize"
+                textSize = 15f
+                gravity = Gravity.CENTER
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(Color.rgb(226, 221, 235))
+            }, FrameLayout.LayoutParams(-1, dp(52), Gravity.BOTTOM))
+        }
+
+        if (selected) addView(TextView(this@ThemesActivity).apply {
+            text = "✓"
             textSize = 15f
             gravity = Gravity.CENTER
             typeface = Typeface.DEFAULT_BOLD
-            setTextColor(Color.rgb(226, 221, 235))
-        }, FrameLayout.LayoutParams(-1, dp(52), Gravity.BOTTOM))
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.rgb(255, 0, 158))
+            }
+        }, FrameLayout.LayoutParams(dp(30), dp(30), Gravity.BOTTOM or Gravity.END).apply {
+            bottomMargin = dp(8)
+            rightMargin = dp(8)
+        })
     }
 
     private fun pictureCard(option: ThemeCatalog.ThemeOption): View {
@@ -233,6 +311,39 @@ class ThemesActivity : AudioToolPageActivity() {
                 topMargin = dp(8)
                 rightMargin = dp(8)
             })
+        }
+    }
+
+    private fun openCustomPicker() {
+        customImagePicker.launch(arrayOf("image/*"))
+    }
+
+    private fun saveCustomTheme(uri: Uri) {
+        val target = ThemeCatalog.customFile(this)
+        val temp = File(filesDir, "custom_theme.tmp")
+        try {
+            contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(temp).use { output ->
+                    input.copyTo(output, DEFAULT_BUFFER_SIZE)
+                    output.fd.sync()
+                }
+            } ?: throw IllegalStateException("Unable to open selected image")
+
+            if (!temp.isFile || temp.length() <= 0L) throw IllegalStateException("Selected image is empty")
+            if (target.exists() && !target.delete()) throw IllegalStateException("Unable to replace old custom theme")
+            if (!temp.renameTo(target)) {
+                FileInputStream(temp).use { input ->
+                    FileOutputStream(target).use { output -> input.copyTo(output, DEFAULT_BUFFER_SIZE) }
+                }
+                temp.delete()
+            }
+
+            prefs.edit().putInt("theme", ThemeCatalog.CUSTOM_ID).apply()
+            rebuildPictureGrid()
+            recreate()
+        } catch (_: Exception) {
+            temp.delete()
+            Toast.makeText(this, "Could not save the selected theme", Toast.LENGTH_SHORT).show()
         }
     }
 }
