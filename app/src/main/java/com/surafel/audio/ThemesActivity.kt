@@ -10,20 +10,23 @@ import android.widget.GridLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.Space
 import android.widget.TextView
+import kotlin.math.roundToInt
 
 class ThemesActivity : AudioToolPageActivity() {
     private var selectedFilter = "All"
     private lateinit var pictureGrid: GridLayout
 
-    override fun pageTitle() = "THEMES"
+    override fun pageTitle() = "Themes"
 
     override fun buildContent(): View {
         val root = contentColumn()
-        root.addView(sectionTitle("Gradient"))
-        root.addView(buildGradientGrid(), LinearLayout.LayoutParams(-1, dp(176)).apply { bottomMargin = dp(8) })
-        root.addView(sectionTitle("Picture"))
-        root.addView(buildFilters(), LinearLayout.LayoutParams(-1, dp(46)).apply { bottomMargin = dp(4) })
+        root.addView(spacer(dp(4)))
+        root.addView(pageSectionTitle("Gradient"), LinearLayout.LayoutParams(-1, dp(42)))
+        root.addView(buildGradientGrid(), LinearLayout.LayoutParams(-1, dp(272)).apply { bottomMargin = dp(18) })
+        root.addView(pageSectionTitle("Picture"), LinearLayout.LayoutParams(-1, dp(42)))
+        root.addView(buildFilters(), LinearLayout.LayoutParams(-1, dp(38)).apply { bottomMargin = dp(10) })
         pictureGrid = GridLayout(this).apply {
             columnCount = 3
             useDefaultMargins = false
@@ -34,42 +37,75 @@ class ThemesActivity : AudioToolPageActivity() {
         return root
     }
 
+    private fun pageSectionTitle(title: String): View = TextView(this).apply {
+        text = title
+        textSize = 20f
+        typeface = Typeface.DEFAULT_BOLD
+        gravity = Gravity.CENTER_VERTICAL
+        setTextColor(Color.rgb(242, 244, 255))
+        setPadding(dp(4), 0, dp(4), 0)
+    }
+
+    private fun spacer(height: Int): View = Space(this).apply {
+        minimumHeight = height
+    }
+
     private fun buildGradientGrid(): View {
-        val grid = GridLayout(this).apply {
-            columnCount = 4
-            rowCount = 2
-            useDefaultMargins = false
+        val wrapper = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(7), 0, dp(7), 0)
         }
-        ThemeCatalog.all.filter { it.pictureIndex == null }.forEachIndexed { index, option ->
-            val selected = prefs.getInt("theme", 0) == option.id
-            val swatch = TextView(this).apply {
-                gravity = Gravity.CENTER
-                text = if (selected) "✓" else ""
-                textSize = 25f
-                typeface = Typeface.DEFAULT_BOLD
-                setTextColor(Color.WHITE)
-                background = gradient(
-                    option.colors,
-                    if (selected) Color.rgb(255, 0, 158) else Color.rgb(38, 74, 122),
-                    if (selected) 2 else 1,
-                    dp(16).toFloat()
-                )
-                setOnClickListener {
-                    prefs.edit().putInt("theme", option.id).apply()
-                    recreate()
-                }
+        val size = gradientSwatchSizePx()
+        val options = ThemeCatalog.all.filter { it.pictureIndex == null }
+        repeat(2) { rowIndex ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
             }
-            val params = GridLayout.LayoutParams(
-                GridLayout.spec(index / 4, 1f),
-                GridLayout.spec(index % 4, 1f)
-            ).apply {
-                width = 0
-                height = dp(70)
-                setMargins(dp(4), dp(4), dp(4), dp(4))
+            repeat(4) { column ->
+                val option = options[rowIndex * 4 + column]
+                row.addView(gradientSwatch(option), LinearLayout.LayoutParams(size, size))
+                if (column < 3) row.addView(Space(this), LinearLayout.LayoutParams(dp(27), 1))
             }
-            grid.addView(swatch, params)
+            wrapper.addView(row, LinearLayout.LayoutParams(-1, size))
+            if (rowIndex == 0) wrapper.addView(Space(this), LinearLayout.LayoutParams(1, dp(20)))
         }
-        return grid
+        return wrapper
+    }
+
+    private fun gradientSwatch(option: ThemeCatalog.ThemeOption): View = FrameLayout(this).apply {
+        val selected = prefs.getInt("theme", 0) == option.id
+        background = gradient(
+            option.colors,
+            if (selected) Color.rgb(255, 0, 158) else Color.rgb(27, 52, 88),
+            if (selected) 2 else 1,
+            dp(13).toFloat()
+        )
+        isClickable = true
+        isFocusable = true
+        setOnClickListener {
+            prefs.edit().putInt("theme", option.id).apply()
+            recreate()
+        }
+        if (selected) addView(TextView(this@ThemesActivity).apply {
+            text = "✓"
+            textSize = 18f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.rgb(255, 0, 158))
+            }
+        }, FrameLayout.LayoutParams(dp(20), dp(20), Gravity.BOTTOM or Gravity.END).apply {
+            rightMargin = dp(-2)
+            bottomMargin = dp(-2)
+        })
+    }
+
+    private fun gradientSwatchSizePx(): Int {
+        val contentWidth = resources.displayMetrics.widthPixels - dp(36)
+        return ((contentWidth - dp(14) - dp(81)) / 4f).roundToInt().coerceAtLeast(dp(42))
     }
 
     private fun buildFilters(): View {
@@ -77,7 +113,10 @@ class ThemesActivity : AudioToolPageActivity() {
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
         }
-        val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val row = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(2), 0, 0, 0)
+        }
         buildFiltersInto(row)
         scroll.addView(row, LinearLayout.LayoutParams(-2, -1))
         return scroll
@@ -90,21 +129,21 @@ class ThemesActivity : AudioToolPageActivity() {
                 text = "# $filter"
                 textSize = 13f
                 gravity = Gravity.CENTER
-                setTextColor(if (selectedFilter == filter) Color.WHITE else Color.rgb(156, 172, 204))
+                setTextColor(Color.rgb(154, 169, 201))
                 background = gradient(
-                    if (selectedFilter == filter) intArrayOf(Color.rgb(31, 42, 78), Color.rgb(42, 20, 66)) else intArrayOf(Color.rgb(16, 25, 50), Color.rgb(16, 25, 50)),
-                    if (selectedFilter == filter) Color.rgb(76, 145, 255) else Color.TRANSPARENT,
-                    if (selectedFilter == filter) 1 else 0,
-                    dp(14).toFloat()
+                    intArrayOf(Color.rgb(16, 25, 50), Color.rgb(16, 25, 50)),
+                    Color.TRANSPARENT,
+                    0,
+                    dp(12).toFloat()
                 )
-                setPadding(dp(18), 0, dp(18), 0)
+                setPadding(dp(16), 0, dp(16), 0)
                 setOnClickListener {
                     selectedFilter = if (selectedFilter == filter) "All" else filter
                     buildFiltersInto(row)
                     rebuildPictureGrid()
                 }
             }
-            row.addView(chip, LinearLayout.LayoutParams(-2, dp(40)).apply { rightMargin = dp(8) })
+            row.addView(chip, LinearLayout.LayoutParams(-2, dp(31)).apply { rightMargin = dp(8) })
         }
     }
 
@@ -120,35 +159,41 @@ class ThemesActivity : AudioToolPageActivity() {
         }
     }
 
+    private fun pictureCardHeightPx(): Int {
+        val contentWidth = resources.displayMetrics.widthPixels - dp(36)
+        val cellWidth = (contentWidth - dp(24)) / 3f
+        return (cellWidth * 260f / 199f).roundToInt().coerceAtLeast(dp(150))
+    }
+
     private fun gridParams(index: Int): GridLayout.LayoutParams = GridLayout.LayoutParams(
         GridLayout.spec(index / 3, 1f),
         GridLayout.spec(index % 3, 1f)
     ).apply {
         width = 0
-        height = dp(176)
+        height = pictureCardHeightPx()
         setMargins(dp(4), dp(4), dp(4), dp(4))
     }
 
     private fun customizeCard(): View = FrameLayout(this).apply {
         background = gradient(
-            intArrayOf(Color.rgb(69, 31, 83), Color.rgb(42, 19, 67)),
-            Color.rgb(72, 43, 100),
+            intArrayOf(Color.rgb(74, 33, 88), Color.rgb(40, 20, 65)),
+            Color.rgb(76, 48, 105),
             1,
             dp(14).toFloat()
         )
         addView(TextView(this@ThemesActivity).apply {
             text = "▧+"
-            textSize = 36f
+            textSize = 34f
             gravity = Gravity.CENTER
-            setTextColor(Color.rgb(222, 214, 235))
-        }, FrameLayout.LayoutParams(-1, dp(110), Gravity.TOP))
+            setTextColor(Color.rgb(225, 218, 239))
+        }, FrameLayout.LayoutParams(-1, dp(120), Gravity.TOP))
         addView(TextView(this@ThemesActivity).apply {
             text = "Customize"
             textSize = 15f
             gravity = Gravity.CENTER
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.rgb(226, 221, 235))
-        }, FrameLayout.LayoutParams(-1, dp(48), Gravity.BOTTOM))
+        }, FrameLayout.LayoutParams(-1, dp(52), Gravity.BOTTOM))
     }
 
     private fun pictureCard(option: ThemeCatalog.ThemeOption): View {
@@ -169,14 +214,12 @@ class ThemesActivity : AudioToolPageActivity() {
             addView(ImageView(this@ThemesActivity).apply {
                 setImageBitmap(ThemeCatalog.bitmap(this@ThemesActivity, option))
                 scaleType = ImageView.ScaleType.CENTER_CROP
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.RECTANGLE
-                    cornerRadius = dp(12).toFloat()
-                }
-            }, FrameLayout.LayoutParams(-1, -1).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) })
+            }, FrameLayout.LayoutParams(-1, -1).apply {
+                setMargins(dp(1), dp(1), dp(1), dp(1))
+            })
             if (selected) addView(TextView(this@ThemesActivity).apply {
                 text = "✓"
-                textSize = 16f
+                textSize = 15f
                 gravity = Gravity.CENTER
                 typeface = Typeface.DEFAULT_BOLD
                 setTextColor(Color.WHITE)
@@ -184,7 +227,7 @@ class ThemesActivity : AudioToolPageActivity() {
                     shape = GradientDrawable.OVAL
                     setColor(Color.rgb(255, 0, 158))
                 }
-            }, FrameLayout.LayoutParams(dp(32), dp(32), Gravity.TOP or Gravity.END).apply {
+            }, FrameLayout.LayoutParams(dp(30), dp(30), Gravity.TOP or Gravity.END).apply {
                 topMargin = dp(8)
                 rightMargin = dp(8)
             })
