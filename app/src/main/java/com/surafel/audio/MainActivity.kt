@@ -501,16 +501,16 @@ class MainActivity : AppCompatActivity() {
             menu.addView(section, LinearLayout.LayoutParams(-1, dp(38)))
         }
 
-        addMenuItem("☷", "Themes") { closeDrawer(); showThemes() }
+        addMenuItem("☷", "Themes") { closeDrawer(); startActivity(Intent(this, ThemesActivity::class.java)) }
         addMenuItem("▦", "Widgets") { closeDrawer(); showWidgets() }
         addSection("AUDIO TOOLS")
-        addMenuItem("≋", "Equalizer") { closeDrawer(); showEqualizer() }
+        addMenuItem("≋", "Equalizer") { closeDrawer(); startActivity(Intent(this, EqualizerActivity::class.java)) }
         addMenuItem("◉", "Volume Booster") {
             closeDrawer()
             startActivity(Intent(this, VolumeBoosterActivity::class.java))
         }
         addMenuItem("◷", "Sleep Timer") { closeDrawer(); showSleepTimer() }
-        addMenuItem("🚗", "Drive Mode") { toggleDriveMode(); closeDrawer() }
+        addMenuItem("🚗", "Drive Mode") { closeDrawer(); startActivity(Intent(this, DriveModeActivity::class.java)) }
         addSection("APP")
         addMenuItem("⚙", "Settings") {
             closeDrawer()
@@ -528,16 +528,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showEqualizer() {
-        val equalizerIntent = Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
-            putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
-            putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
-            putExtra(AudioEffect.EXTRA_AUDIO_SESSION, 0)
-        }
-        try {
-            startActivity(equalizerIntent)
-        } catch (_: Exception) {
-            AlertDialog.Builder(this).setTitle("Equalizer").setMessage("Your device does not provide a system equalizer panel for Audio.").setPositiveButton("OK", null).show()
-        }
+        startActivity(Intent(this, EqualizerActivity::class.java))
     }
 
     private fun showVolumeBooster() {
@@ -669,9 +660,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toggleDriveMode() {
-        val enabled = !prefs.getBoolean("drive_mode", false)
-        prefs.edit().putBoolean("drive_mode", enabled).apply()
-        applyDriveMode()
+        startActivity(Intent(this, DriveModeActivity::class.java))
     }
 
     private fun applyDriveMode() {
@@ -679,9 +668,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showThemes() {
-        val themes = arrayOf("Nebula Violet", "Cyber Blue", "Midnight Space")
-        val current = prefs.getInt("theme", 0)
-        AlertDialog.Builder(this).setTitle("Themes").setSingleChoiceItems(themes, current) { dialog, which -> prefs.edit().putInt("theme", which).apply(); dialog.dismiss(); applyTheme(which) }.setNegativeButton("Close", null).show()
+        startActivity(Intent(this, ThemesActivity::class.java))
     }
 
     private fun applyTheme(theme: Int) {
@@ -695,7 +682,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showPremiumInfo() { AlertDialog.Builder(this).setTitle("Audio Player").setMessage("Luxury local music and video experience.\nBackground audio playback enabled.\nYour library stays on your device.").setPositiveButton("OK", null).show() }
-    override fun onResume() { super.onResume(); applyDriveMode(); restoreSleepTimer(); if (::player.isInitialized) renderSection() }
+    override fun onResume() { super.onResume(); applyDriveMode(); applyTheme(prefs.getInt("theme", 0)); restoreSleepTimer(); if (::player.isInitialized) renderSection() }
     override fun onDestroy() { sleepTimerRunnable?.let(sleepTimerHandler::removeCallbacks); volumeBooster?.release(); volumeBooster = null; if (::controllerFuture.isInitialized) MediaController.releaseFuture(controllerFuture); super.onDestroy() }
 }
 
