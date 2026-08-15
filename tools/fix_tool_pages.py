@@ -28,24 +28,38 @@ text = replace_method(
     text,
     "    private fun showEqualizer() {",
     "    private fun showVolumeBooster() {",
-    '''    private fun showEqualizer() {\n        startActivity(Intent(this, EqualizerActivity::class.java))\n    }\n\n'''
+    '''    private fun showEqualizer() {
+        startActivity(Intent(this, EqualizerActivity::class.java))
+    }
+
+'''
 )
 
 text = replace_method(
     text,
     "    private fun toggleDriveMode() {",
     "    private fun applyDriveMode() {",
-    '''    private fun toggleDriveMode() {\n        startActivity(Intent(this, DriveModeActivity::class.java))\n    }\n\n'''
+    '''    private fun toggleDriveMode() {
+        startActivity(Intent(this, DriveModeActivity::class.java))
+    }
+
+'''
 )
 
 text = replace_method(
     text,
     "    private fun showThemes() {",
     "    private fun applyTheme(theme: Int) {",
-    '''    private fun showThemes() {\n        startActivity(Intent(this, ThemesActivity::class.java))\n    }\n\n'''
+    '''    private fun showThemes() {
+        startActivity(Intent(this, ThemesActivity::class.java))
+    }
+
+'''
 )
 
-# Theme selection is persisted by the dedicated Themes page; re-apply it whenever\n# MainActivity returns so the choice is reflected without requiring a cold start.\non_resume = '    override fun onResume() { super.onResume(); applyDriveMode(); restoreSleepTimer(); if (::player.isInitialized) renderSection() }'
+# Theme selection is persisted by the dedicated Themes page; re-apply it whenever
+# MainActivity returns so the choice is reflected without requiring a cold start.
+on_resume = '    override fun onResume() { super.onResume(); applyDriveMode(); restoreSleepTimer(); if (::player.isInitialized) renderSection() }'
 new_on_resume = '    override fun onResume() { super.onResume(); applyDriveMode(); applyTheme(prefs.getInt("theme", 0)); restoreSleepTimer(); if (::player.isInitialized) renderSection() }'
 if on_resume not in text:
     raise SystemExit("Unable to locate MainActivity onResume")
