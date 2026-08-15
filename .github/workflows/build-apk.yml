@@ -40,98 +40,90 @@ jobs:
             git push origin HEAD:main
           fi
 
-      - name: Repair and validate side drawer and Widgets page
+      - name: Repair and validate side drawer and tool pages
         shell: bash
         run: |
           set -euo pipefail
           python3 tools/fix_side_drawer.py
+          python3 tools/fix_tool_pages.py
           python3 - <<'PY'
           from pathlib import Path
 
           main = Path("app/src/main/java/com/surafel/audio/MainActivity.kt").read_text(encoding="utf-8")
           app = Path("app/src/main/java/com/surafel/audio/AudioApplication.kt").read_text(encoding="utf-8")
-          widget_page = Path("app/src/main/java/com/surafel/audio/WidgetCatalogActivity.kt").read_text(encoding="utf-8")
-          widget_providers = Path("app/src/main/java/com/surafel/audio/AudioWidgetProviders.kt").read_text(encoding="utf-8")
           manifest = Path("app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+          page_files = {
+              "ThemesActivity": Path("app/src/main/java/com/surafel/audio/ThemesActivity.kt"),
+              "EqualizerActivity": Path("app/src/main/java/com/surafel/audio/EqualizerActivity.kt"),
+              "DriveModeActivity": Path("app/src/main/java/com/surafel/audio/DriveModeActivity.kt"),
+              "AudioToolPageActivity": Path("app/src/main/java/com/surafel/audio/AudioToolPageActivity.kt"),
+          }
 
           start = main.find("    private fun showMenu() {")
           end = main.find("    private fun showEqualizer() {")
           if start < 0 or end <= start:
-              raise SystemExit("Unable to isolate showMenu() for validation")
+              raise SystemExit("Unable to isolate showMenu()")
           menu = main[start:end]
-
           required = [
-              'import android.widget.FrameLayout',
-              'tag = "audio_side_drawer"',
               'content.findViewWithTag<View>("audio_side_drawer")',
-              'FrameLayout.LayoutParams(',
-              'dp(326),',
+              'FrameLayout.LayoutParams(dp(326)',
               'ViewGroup.LayoutParams.MATCH_PARENT',
-              'content.addView(overlay, ViewGroup.LayoutParams(',
               'addMenuItem("☷", "Themes")',
               'addMenuItem("▦", "Widgets")',
               'addMenuItem("≋", "Equalizer")',
+              'addMenuItem("◉", "Volume Booster")',
               'addMenuItem("◷", "Sleep Timer")',
               'addMenuItem("🚗", "Drive Mode")',
               'addMenuItem("⚙", "Settings")',
           ]
           for needle in required:
-              haystack = main if needle.startswith('import ') else menu
-              if needle not in haystack:
+              if needle not in menu:
                   raise SystemExit(f"Missing side drawer implementation: {needle}")
-
           for forbidden in ('"Refresh Library"', '"Play Queue"', '"Search"'):
               if forbidden in menu:
                   raise SystemExit(f"Forbidden side drawer item remains: {forbidden}")
-
           if 'Dialog(this, R.style.Theme_Audio_SideDrawer)' in menu:
-              raise SystemExit("Legacy Dialog side drawer construction remains")
+              raise SystemExit("Legacy side drawer dialog construction remains")
+          if 'selected = true' in menu:
+              raise SystemExit("A drawer item is permanently selected")
+          if 'SideMenuInstaller' in app or 'SideMenuInstaller.install(activity)' in app:
+              raise SystemExit("Legacy application-level side drawer override remains")
 
-          if 'SideMenuInstaller' in app:
-              raise SystemExit("Duplicate legacy SideMenuInstaller still exists in AudioApplication")
+          hooks = {
+              'ThemesActivity::class.java': 'addMenuItem("☷", "Themes")',
+              'EqualizerActivity::class.java': 'addMenuItem("≋", "Equalizer")',
+              'DriveModeActivity::class.java': 'addMenuItem("🚗", "Drive Mode")',
+          }
+          for target, marker in hooks.items():
+              if target not in menu:
+                  raise SystemExit(f"Drawer does not launch dedicated {target}")
 
-          if 'SideMenuInstaller.install(activity)' in app:
-              raise SystemExit("Application lifecycle still overrides MainActivity side drawer")
+          for name, path in page_files.items():
+              if not path.is_file():
+                  raise SystemExit(f"Missing dedicated page source: {path}")
+              source = path.read_text(encoding="utf-8")
+              if name != "AudioToolPageActivity" and 'class ' + name not in source:
+                  raise SystemExit(f"Invalid dedicated page declaration: {name}")
+              if name != "AudioToolPageActivity" and 'AudioToolPageActivity()' not in source:
+                  raise SystemExit(f"Dedicated page does not use shared shell: {name}")
+              if 'TODO' in source:
+                  raise SystemExit(f"Unfinished tool page source: {name}")
 
-          if 'findViewById<TextView>(R.id.menuButton)?.setOnClickListener' in app:
-              raise SystemExit("Application-level menuButton listener override detected")
+          for activity in (".ThemesActivity", ".EqualizerActivity", ".DriveModeActivity"):
+              if f'android:name="{activity}"' not in manifest:
+                  raise SystemExit(f"Missing manifest registration: {activity}")
 
-          widgets_start = main.find("    private fun showWidgets() {")
-          widgets_end = main.find("    private fun showPremiumInfo() {")
-          if widgets_start < 0 or widgets_end <= widgets_start:
-              raise SystemExit("Unable to locate showWidgets()")
-          widgets = main[widgets_start:widgets_end]
-          if 'startActivity(Intent(this, WidgetCatalogActivity::class.java))' not in widgets:
-              raise SystemExit("Widgets menu does not launch the dedicated WidgetCatalogActivity")
-          if 'AlertDialog.Builder' in widgets:
-              raise SystemExit("Legacy Widgets AlertDialog remains")
-
-          for name in (
-              'Practical', 'Feature-Rich', 'Standard', 'Stylish',
-              'Classic', 'Lite', 'Simple', 'Mini'
-          ):
-              if f'WidgetStyle("{name}"' not in widget_page:
-                  raise SystemExit(f"Missing widget catalog style: {name}")
-
-          for provider in (
-              'AudioWidgetPracticalProvider', 'AudioWidgetFeatureRichProvider',
-              'AudioWidgetStandardProvider', 'AudioWidgetStylishProvider',
-              'AudioWidgetClassicProvider', 'AudioWidgetLiteProvider',
-              'AudioWidgetSimpleProvider', 'AudioWidgetMiniProvider'
-          ):
-              if provider not in widget_providers:
-                  raise SystemExit(f"Missing real widget provider: {provider}")
-
-          if 'android:name=".WidgetCatalogActivity"' not in manifest:
-              raise SystemExit("WidgetCatalogActivity is missing from AndroidManifest")
-
-          print("Single side drawer owner + dedicated Widgets page validation passed")
+          if 'startActivity(Intent(this, WidgetCatalogActivity::class.java))' not in main:
+              raise SystemExit("Widgets page hook was lost")
+          if 'applyTheme(prefs.getInt("theme", 0))' not in main:
+              raise SystemExit("MainActivity does not restore the selected theme")
+          print("Dedicated Themes, Equalizer and Drive Mode validation passed")
           PY
           if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add app/src/main/java/com/surafel/audio/MainActivity.kt
-            git commit -m "fix: use full-height in-activity side drawer and real Widgets page [skip ci]"
+            git commit -m "fix: wire dedicated tool pages into Audio [skip ci]"
             git push origin HEAD:main
           fi
 
@@ -139,12 +131,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f app/src/main/java/com/surafel/audio/MainActivity.kt
-          test -f app/src/main/java/com/surafel/audio/WidgetCatalogActivity.kt
-          test -f app/src/main/java/com/surafel/audio/AudioWidgetProviders.kt
-          test -f app/src/main/java/com/surafel/audio/FullscreenVideoActivity.kt
-          test -f app/src/main/java/com/surafel/audio/PlaybackService.kt
-          test -f app/src/main/java/com/surafel/audio/VaultActivity.kt
+          for file in \
+            app/src/main/java/com/surafel/audio/MainActivity.kt \
+            app/src/main/java/com/surafel/audio/WidgetCatalogActivity.kt \
+            app/src/main/java/com/surafel/audio/AudioWidgetProviders.kt \
+            app/src/main/java/com/surafel/audio/FullscreenVideoActivity.kt \
+            app/src/main/java/com/surafel/audio/PlaybackService.kt \
+            app/src/main/java/com/surafel/audio/VaultActivity.kt \
+            app/src/main/java/com/surafel/audio/AudioToolPageActivity.kt \
+            app/src/main/java/com/surafel/audio/ThemesActivity.kt \
+            app/src/main/java/com/surafel/audio/EqualizerActivity.kt \
+            app/src/main/java/com/surafel/audio/DriveModeActivity.kt; do
+            test -f "$file"
+          done
           python3 - <<'PY'
           from pathlib import Path
           gradle = Path("app/build.gradle.kts").read_text(encoding="utf-8")

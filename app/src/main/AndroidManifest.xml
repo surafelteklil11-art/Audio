@@ -21,6 +21,9 @@
             </intent-filter>
         </activity>
         <activity android:name=".WidgetCatalogActivity" android:exported="false" />
+        <activity android:name=".ThemesActivity" android:exported="false" />
+        <activity android:name=".EqualizerActivity" android:exported="false" />
+        <activity android:name=".DriveModeActivity" android:exported="false" />
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".SearchActivity" android:exported="false" />
         <activity android:name=".VolumeBoosterActivity" android:exported="false" />
