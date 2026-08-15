@@ -28,7 +28,10 @@ new_show_menu = '''    private fun showMenu() {
             setBackgroundColor(Color.argb(178, 0, 4, 16))
             isClickable = true
         }
-        overlay.addView(dim, FrameLayout.LayoutParams(-1, -1))
+        overlay.addView(dim, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
 
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -147,10 +150,13 @@ new_show_menu = '''    private fun showMenu() {
         }
 
         panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        overlay.addView(panel, FrameLayout.LayoutParams(dp(330), -1, Gravity.START))
+        overlay.addView(panel, FrameLayout.LayoutParams(dp(326), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.START))
         dim.setOnClickListener { closeDrawer() }
         close.setOnClickListener { closeDrawer() }
-        content.addView(overlay, ViewGroup.LayoutParams(-1, -1))
+        content.addView(overlay, ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
     }
 
 '''
@@ -170,6 +176,7 @@ menu = text[text.index("    private fun showMenu()"):text.index("    private fun
 for needle in (
     'content.findViewWithTag<View>("audio_side_drawer")',
     'ViewGroup.LayoutParams.MATCH_PARENT',
+    'FrameLayout.LayoutParams(dp(326)',
     'addMenuItem("☷", "Themes")',
     'addMenuItem("▦", "Widgets")',
     'addMenuItem("≋", "Equalizer")',
