@@ -52,6 +52,7 @@ object ThemeCatalog {
 
     @Volatile
     private var atlas: Bitmap? = null
+    private val cleanedPictures = HashMap<Int, Bitmap>()
 
     private fun atlas(context: Context): Bitmap? {
         atlas?.let { return it }
@@ -65,6 +66,10 @@ object ThemeCatalog {
 
     fun bitmap(context: Context, option: ThemeOption): Bitmap? {
         val index = option.pictureIndex ?: return null
+        synchronized(cleanedPictures) {
+            cleanedPictures[index]?.let { return it }
+        }
+
         val source = atlas(context) ?: return null
         val columns = 3
         val rows = 11
@@ -73,7 +78,54 @@ object ThemeCatalog {
         if (index !in 0 until (columns * rows)) return null
         val x = (index % columns) * cellWidth
         val y = (index / columns) * cellHeight
-        return Bitmap.createBitmap(source, x, y, cellWidth, cellHeight)
+        val raw = Bitmap.createBitmap(source, x, y, cellWidth, cellHeight)
+        val cleaned = if (index >= 14) removeBakedMarker(raw) else raw
+
+        synchronized(cleanedPictures) {
+            cleanedPictures[index] = cleaned
+        }
+        return cleaned
+    }
+
+    /** The supplied atlas contains baked-in crown/premium circles on picture indexes 14..32. */
+    private fun removeBakedMarker(source: Bitmap): Bitmap {
+        val result = source.copy(Bitmap.Config.ARGB_8888, true)
+        val width = result.width
+        val height = result.height
+        val centerX = (width * 0.889f).toInt()
+        val centerY = (height * 0.085f).toInt()
+        val radius = (width * 0.116f).toInt().coerceAtLeast(16)
+        val radiusSquared = radius * radius
+
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val dx = x - centerX
+                val dy = y - centerY
+                if (dx * dx + dy * dy > radiusSquared) continue
+
+                val sourceX = (x - radius * 2).coerceIn(0, width - 1)
+                var red = 0L
+                var green = 0L
+                var blue = 0L
+                var count = 0
+                for (sampleY in (y - 2).coerceAtLeast(0)..(y + 2).coerceAtMost(height - 1)) {
+                    for (offsetX in -2..2) {
+                        val sampleX = (sourceX + offsetX).coerceIn(0, width - 1)
+                        val color = source.getPixel(sampleX, sampleY)
+                        red += Color.red(color)
+                        green += Color.green(color)
+                        blue += Color.blue(color)
+                        count++
+                    }
+                }
+                result.setPixel(
+                    x,
+                    y,
+                    Color.rgb((red / count).toInt(), (green / count).toInt(), (blue / count).toInt())
+                )
+            }
+        }
+        return result
     }
 
     fun apply(context: Context, root: View, id: Int) {
