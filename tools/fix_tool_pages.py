@@ -12,9 +12,8 @@ replacements = {
         'addMenuItem("🚗", "Drive Mode") { closeDrawer(); startActivity(Intent(this, DriveModeActivity::class.java)) }',
 }
 for old, new in replacements.items():
-    if old not in text:
-        raise SystemExit(f"Missing drawer hook: {old}")
-    text = text.replace(old, new, 1)
+    if old in text:
+        text = text.replace(old, new, 1)
 
 
 def replace_method(source, signature, next_signature, replacement):
@@ -24,45 +23,50 @@ def replace_method(source, signature, next_signature, replacement):
         raise SystemExit(f"Unable to locate method boundary: {signature}")
     return source[:start] + replacement + source[end:]
 
-text = replace_method(
-    text,
-    "    private fun showEqualizer() {",
-    "    private fun showVolumeBooster() {",
-    '''    private fun showEqualizer() {
+if "    private fun showEqualizer() {" in text and "    private fun showVolumeBooster() {" in text:
+    text = replace_method(
+        text,
+        "    private fun showEqualizer() {",
+        "    private fun showVolumeBooster() {",
+        '''    private fun showEqualizer() {
         startActivity(Intent(this, EqualizerActivity::class.java))
     }
 
 '''
-)
+    )
 
-text = replace_method(
-    text,
-    "    private fun toggleDriveMode() {",
-    "    private fun applyDriveMode() {",
-    '''    private fun toggleDriveMode() {
+if "    private fun toggleDriveMode() {" in text and "    private fun applyDriveMode() {" in text:
+    text = replace_method(
+        text,
+        "    private fun toggleDriveMode() {",
+        "    private fun applyDriveMode() {",
+        '''    private fun toggleDriveMode() {
         startActivity(Intent(this, DriveModeActivity::class.java))
     }
 
 '''
-)
+    )
 
-text = replace_method(
-    text,
-    "    private fun showThemes() {",
-    "    private fun applyTheme(theme: Int) {",
-    '''    private fun showThemes() {
+if "    private fun showThemes() {" in text and "    private fun applyTheme(theme: Int) {" in text:
+    text = replace_method(
+        text,
+        "    private fun showThemes() {",
+        "    private fun applyTheme(theme: Int) {",
+        '''    private fun showThemes() {
         startActivity(Intent(this, ThemesActivity::class.java))
     }
 
 '''
-)
+    )
 
-# Apply the saved theme at startup and whenever MainActivity becomes visible again.
+# Apply the saved theme at startup. The repair is intentionally idempotent because
+# the workflow can run against a MainActivity that was already repaired by a prior run.
 startup = '        setupFuturisticShell()\n        applyDriveMode()'
 startup_replacement = '        setupFuturisticShell()\n        applyTheme(prefs.getInt("theme", 0))\n        applyDriveMode()'
-if startup not in text:
+if startup in text:
+    text = text.replace(startup, startup_replacement, 1)
+elif startup_replacement not in text:
     raise SystemExit("Unable to locate MainActivity startup shell")
-text = text.replace(startup, startup_replacement, 1)
 
 resume_signature = '    override fun onResume() {'
 if resume_signature not in text:
