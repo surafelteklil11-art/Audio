@@ -57,13 +57,29 @@ text = replace_method(
 '''
 )
 
-# Theme selection is persisted by the dedicated Themes page; re-apply it whenever
-# MainActivity returns so the choice is reflected without requiring a cold start.
-on_resume = '    override fun onResume() { super.onResume(); applyDriveMode(); restoreSleepTimer(); if (::player.isInitialized) renderSection() }'
-new_on_resume = '    override fun onResume() { super.onResume(); applyDriveMode(); applyTheme(prefs.getInt("theme", 0)); restoreSleepTimer(); if (::player.isInitialized) renderSection() }'
-if on_resume not in text:
-    raise SystemExit("Unable to locate MainActivity onResume")
-text = text.replace(on_resume, new_on_resume, 1)
+# Apply the saved theme at startup and whenever MainActivity becomes visible again.
+startup = '        setupFuturisticShell()\n        applyDriveMode()'
+startup_replacement = '        setupFuturisticShell()\n        applyTheme(prefs.getInt("theme", 0))\n        applyDriveMode()'
+if startup not in text:
+    raise SystemExit("Unable to locate MainActivity startup shell")
+text = text.replace(startup, startup_replacement, 1)
+
+resume_signature = '    override fun onResume() {'
+if resume_signature not in text:
+    marker = '    private fun buildHomeView(): View {'
+    insert_at = text.find(marker)
+    if insert_at < 0:
+        raise SystemExit("Unable to locate stable MainActivity insertion point")
+    resume_block = '''    override fun onResume() {
+        super.onResume()
+        applyTheme(prefs.getInt("theme", 0))
+        applyDriveMode()
+        restoreSleepTimer()
+        if (::player.isInitialized) renderSection()
+    }
+
+'''
+    text = text[:insert_at] + resume_block + text[insert_at:]
 
 path.write_text(text, encoding="utf-8")
 print("Dedicated Themes, Equalizer and Drive Mode page hooks repaired")
