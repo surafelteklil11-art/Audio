@@ -17,44 +17,59 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply final Equalizer UI sizing
+      - name: Apply Equalizer responsive UI fix
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import re
+
           p = Path("app/src/main/java/com/surafel/audio/EqualizerActivity.kt")
           s = p.read_text(encoding="utf-8")
-          replacements = {
-              'content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(132)))': 'content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(146)))',
-              'root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(76)))': 'root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(68)))',
-              'textSize = 34f': 'textSize = 28f',
-              'LinearLayout.LayoutParams(dp(52), -1)': 'LinearLayout.LayoutParams(dp(44), -1)',
-              'textSize = 23f': 'textSize = 20f',
-              'LinearLayout.LayoutParams(dp(72), dp(44))': 'LinearLayout.LayoutParams(dp(60), dp(38))',
-              'addView(titleRow, LinearLayout.LayoutParams(-1, dp(40)))': 'addView(titleRow, LinearLayout.LayoutParams(-1, dp(40)))',
-              'val gap = dp(7)': 'val gap = dp(6)',
-              'val cardHeight = dp(48)': 'val cardHeight = dp(44)',
-              'page.addView(row, LinearLayout.LayoutParams(pageWidth, cardHeight + gap))': 'page.addView(row, LinearLayout.LayoutParams(pageWidth, cardHeight + gap))',
-              'pages.addView(page, LinearLayout.LayoutParams(pageWidth, dp(104)))': 'pages.addView(page, LinearLayout.LayoutParams(pageWidth, dp(100)))',
-              'horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(104)))': 'horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(100)))',
-              'addView(horizontal, LinearLayout.LayoutParams(-1, dp(104)))': 'addView(horizontal, LinearLayout.LayoutParams(-1, dp(100)))',
-              'val trackW = dp(if (tenBand) 8 else 10).toFloat()': 'val trackW = dp(if (tenBand) 7 else 9).toFloat()',
-              'paint.textSize = dp(if (tenBand) 9 else 10).toFloat()': 'paint.textSize = dp(if (tenBand) 8 else 10).toFloat()',
-              'val thumbW = dp(if (tenBand) 28 else 34).toFloat()': 'val thumbW = dp(if (tenBand) 24 else 32).toFloat()',
-              'val thumbH = dp(if (tenBand) 22 else 25).toFloat()': 'val thumbH = dp(if (tenBand) 19 else 23).toFloat()',
-              'paint.textSize = dp(if (tenBand) 7 else 8).toFloat()': 'paint.textSize = dp(if (tenBand) 6 else 8).toFloat()',
-              'val trackH = 34f * d': 'val trackH = 28f * d',
-              'val thumbR = 14f * d': 'val thumbR = 11f * d',
-              'val x = if (value) right - thumbR - 3f * d else left + thumbR + 3f * d': 'val x = if (value) right - thumbR - 3f * d else left + thumbR + 3f * d',
-          }
-          changed = False
-          for old, new in replacements.items():
-              if old in s:
-                  s = s.replace(old, new)
-                  changed = True
-          if not changed:
-              raise SystemExit("No Equalizer UI changes were found; source may already be patched")
+          original = s
+
+          # Header: smaller title/switch and exactly the same dark-blue surface as the page.
+          s = s.replace('root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(68)))',
+                        'root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(60)))')
+          s = s.replace('setBackgroundColor(Color.TRANSPARENT)\n\n        addView(TextView(this@EqualizerActivity).apply {\n            text = "←"',
+                        'setBackgroundColor(Color.rgb(7, 20, 45))\n\n        addView(TextView(this@EqualizerActivity).apply {\n            text = "←"')
+          s = s.replace('textSize = 28f', 'textSize = 24f', 1)
+          s = s.replace('LinearLayout.LayoutParams(dp(44), -1)', 'LinearLayout.LayoutParams(dp(38), -1)', 1)
+          s = s.replace('textSize = 20f', 'textSize = 18f', 1)
+          s = s.replace('LinearLayout.LayoutParams(dp(60), dp(38))', 'LinearLayout.LayoutParams(dp(52), dp(32))', 1)
+
+          # Presets: keep the 3x2 grid, but give the whole section enough height so
+          # the second row is never covered by the Equalizer card.
+          s = s.replace('content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(146)))',
+                        'content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(178)))')
+          s = s.replace('val cardHeight = dp(44)', 'val cardHeight = dp(40)')
+          s = s.replace('pages.addView(page, LinearLayout.LayoutParams(pageWidth, dp(100)))',
+                        'pages.addView(page, LinearLayout.LayoutParams(pageWidth, dp(92)))')
+          s = s.replace('horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(100)))',
+                        'horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(92)))')
+          s = s.replace('addView(horizontal, LinearLayout.LayoutParams(-1, dp(100)))',
+                        'addView(horizontal, LinearLayout.LayoutParams(-1, dp(92)))')
+
+          # 10-band: reduce horizontal footprint of every track/thumb/label so ten
+          # bands have visible breathing room instead of touching each other.
+          s = s.replace('val trackW = dp(if (tenBand) 7 else 9).toFloat()',
+                        'val trackW = dp(if (tenBand) 5 else 8).toFloat()')
+          s = s.replace('val thumbW = dp(if (tenBand) 24 else 32).toFloat()',
+                        'val thumbW = dp(if (tenBand) 20 else 30).toFloat()')
+          s = s.replace('val thumbH = dp(if (tenBand) 19 else 23).toFloat()',
+                        'val thumbH = dp(if (tenBand) 17 else 22).toFloat()')
+          s = s.replace('paint.textSize = dp(if (tenBand) 8 else 10).toFloat()',
+                        'paint.textSize = dp(if (tenBand) 7 else 9).toFloat()')
+          s = s.replace('paint.textSize = dp(if (tenBand) 6 else 8).toFloat()',
+                        'paint.textSize = dp(if (tenBand) 6 else 8).toFloat()')
+
+          # Make the band columns use all available width with no extra side margins.
+          s = s.replace('leftMargin = dp(1)\n                rightMargin = dp(1)',
+                        'leftMargin = 0\n                rightMargin = 0')
+
+          if s == original:
+              raise SystemExit("No Equalizer source changes were applied")
           p.write_text(s, encoding="utf-8")
           PY
 
@@ -68,7 +83,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No source changes to commit"
           else
-            git commit -m "fix: compact Equalizer header presets and 10-band controls [skip ci]"
+            git commit -m "fix: compact Equalizer header presets and 10-band spacing [skip ci]"
             git push origin HEAD:main
           fi
 
