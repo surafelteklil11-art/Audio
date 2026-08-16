@@ -1,0 +1,106 @@
+name: Final Equalizer UI Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply final Equalizer UI sizing
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("app/src/main/java/com/surafel/audio/EqualizerActivity.kt")
+          s = p.read_text(encoding="utf-8")
+          replacements = {
+              'content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(132)))': 'content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(146)))',
+              'root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(76)))': 'root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(68)))',
+              'textSize = 34f': 'textSize = 28f',
+              'LinearLayout.LayoutParams(dp(52), -1)': 'LinearLayout.LayoutParams(dp(44), -1)',
+              'textSize = 23f': 'textSize = 20f',
+              'LinearLayout.LayoutParams(dp(72), dp(44))': 'LinearLayout.LayoutParams(dp(60), dp(38))',
+              'addView(titleRow, LinearLayout.LayoutParams(-1, dp(40)))': 'addView(titleRow, LinearLayout.LayoutParams(-1, dp(40)))',
+              'val gap = dp(7)': 'val gap = dp(6)',
+              'val cardHeight = dp(48)': 'val cardHeight = dp(44)',
+              'page.addView(row, LinearLayout.LayoutParams(pageWidth, cardHeight + gap))': 'page.addView(row, LinearLayout.LayoutParams(pageWidth, cardHeight + gap))',
+              'pages.addView(page, LinearLayout.LayoutParams(pageWidth, dp(104)))': 'pages.addView(page, LinearLayout.LayoutParams(pageWidth, dp(100)))',
+              'horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(104)))': 'horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(100)))',
+              'addView(horizontal, LinearLayout.LayoutParams(-1, dp(104)))': 'addView(horizontal, LinearLayout.LayoutParams(-1, dp(100)))',
+              'val trackW = dp(if (tenBand) 8 else 10).toFloat()': 'val trackW = dp(if (tenBand) 7 else 9).toFloat()',
+              'paint.textSize = dp(if (tenBand) 9 else 10).toFloat()': 'paint.textSize = dp(if (tenBand) 8 else 10).toFloat()',
+              'val thumbW = dp(if (tenBand) 28 else 34).toFloat()': 'val thumbW = dp(if (tenBand) 24 else 32).toFloat()',
+              'val thumbH = dp(if (tenBand) 22 else 25).toFloat()': 'val thumbH = dp(if (tenBand) 19 else 23).toFloat()',
+              'paint.textSize = dp(if (tenBand) 7 else 8).toFloat()': 'paint.textSize = dp(if (tenBand) 6 else 8).toFloat()',
+              'val trackH = 34f * d': 'val trackH = 28f * d',
+              'val thumbR = 14f * d': 'val thumbR = 11f * d',
+              'val x = if (value) right - thumbR - 3f * d else left + thumbR + 3f * d': 'val x = if (value) right - thumbR - 3f * d else left + thumbR + 3f * d',
+          }
+          changed = False
+          for old, new in replacements.items():
+              if old in s:
+                  s = s.replace(old, new)
+                  changed = True
+          if not changed:
+              raise SystemExit("No Equalizer UI changes were found; source may already be patched")
+          p.write_text(s, encoding="utf-8")
+          PY
+
+      - name: Commit patched Equalizer source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/surafel/audio/EqualizerActivity.kt
+          if git diff --cached --quiet; then
+            echo "No source changes to commit"
+          else
+            git commit -m "fix: compact Equalizer header presets and 10-band controls [skip ci]"
+            git push origin HEAD:main
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: tools platform-tools
+          accept-android-sdk-licenses: true
+
+      - name: Install Android SDK 35
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
+
+      - name: Build debug APK
+        run: gradle clean assembleDebug --no-daemon --rerun-tasks --stacktrace
+
+      - name: Verify APK
+        run: test -f app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Audio-final-equalizer-ui-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
