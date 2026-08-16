@@ -1,0 +1,25 @@
+name: Apply Equalizer reference redesign
+on:
+  push:
+    paths:
+      - tools/redesign_equalizer_top.py
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  redesign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: python tools/redesign_equalizer_top.py
+      - name: Commit redesign
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/surafel/audio/EqualizerActivity.kt tools/redesign_equalizer_top.py .github/workflows/apply-equalizer-reference.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'ui: match equalizer top to reference layout'
+          git push
