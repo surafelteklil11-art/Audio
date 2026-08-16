@@ -98,7 +98,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         setContentView(root)
 
         // Header deliberately has NO rounded rectangle/card background.
-        root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(76)))
+        root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(68)))
 
         val scroll = ScrollView(this).apply {
             overScrollMode = View.OVER_SCROLL_NEVER
@@ -113,7 +113,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         scroll.addView(content, ViewGroup.LayoutParams(-1, -2))
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(132)))
+        content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(146)))
         content.addView(buildBandCard(), cardParams())
         content.addView(buildModeRow(), LinearLayout.LayoutParams(-1, dp(46)).apply { bottomMargin = dp(10) })
         content.addView(buildReverbCard(), cardParams())
@@ -130,16 +130,16 @@ class EqualizerActivity : AudioToolPageActivity() {
 
         addView(TextView(this@EqualizerActivity).apply {
             text = "←"
-            textSize = 34f
+            textSize = 28f
             gravity = Gravity.CENTER
             includeFontPadding = false
             setTextColor(Color.rgb(238, 242, 250))
             setOnClickListener { finish() }
-        }, LinearLayout.LayoutParams(dp(52), -1))
+        }, LinearLayout.LayoutParams(dp(44), -1))
 
         addView(TextView(this@EqualizerActivity).apply {
             text = "Equalizer"
-            textSize = 23f
+            textSize = 20f
             gravity = Gravity.CENTER_VERTICAL
             includeFontPadding = false
             setTextColor(Color.rgb(242, 245, 250))
@@ -152,7 +152,7 @@ class EqualizerActivity : AudioToolPageActivity() {
                 setEffectsEnabled(checked)
                 refreshContentAlpha()
             }
-        }, LinearLayout.LayoutParams(dp(72), dp(44)))
+        }, LinearLayout.LayoutParams(dp(60), dp(38)))
     }
 
     /**
@@ -198,9 +198,9 @@ class EqualizerActivity : AudioToolPageActivity() {
         }
 
         val pageWidth = resources.displayMetrics.widthPixels - dp(24)
-        val gap = dp(7)
+        val gap = dp(6)
         val cardWidth = ((pageWidth - gap * 2) / 3).coerceAtLeast(dp(90))
-        val cardHeight = dp(48)
+        val cardHeight = dp(44)
 
         presetNames.chunked(6).forEach { pageNames ->
             val page = LinearLayout(this@EqualizerActivity).apply {
@@ -223,11 +223,11 @@ class EqualizerActivity : AudioToolPageActivity() {
                 }
                 page.addView(row, LinearLayout.LayoutParams(pageWidth, cardHeight + gap))
             }
-            pages.addView(page, LinearLayout.LayoutParams(pageWidth, dp(104)))
+            pages.addView(page, LinearLayout.LayoutParams(pageWidth, dp(100)))
         }
 
-        horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(104)))
-        addView(horizontal, LinearLayout.LayoutParams(-1, dp(104)))
+        horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(100)))
+        addView(horizontal, LinearLayout.LayoutParams(-1, dp(100)))
     }
 
     private fun presetButton(name: String): UiButton {
@@ -642,7 +642,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             val d = resources.displayMetrics.density
             val w = width.toFloat()
             val h = height.toFloat()
-            val trackH = 34f * d
+            val trackH = 28f * d
             val left = 2f * d
             val right = w - 2f * d
             val top = (h - trackH) / 2f
@@ -659,7 +659,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             canvas.drawRoundRect(RectF(left, top, right, bottom), radius, radius, paint)
 
             // Colored ON state / neutral OFF state, with a clearly visible thumb.
-            val thumbR = 14f * d
+            val thumbR = 11f * d
             val x = if (value) right - thumbR - 3f * d else left + thumbR + 3f * d
             paint.style = Paint.Style.FILL
             paint.color = if (value) Color.rgb(249, 241, 255) else Color.rgb(225, 231, 239)
@@ -692,10 +692,10 @@ class EqualizerActivity : AudioToolPageActivity() {
             val cx = w / 2f
             val top = dp(32).toFloat()
             val bottom = h - dp(34).toFloat()
-            val trackW = dp(if (tenBand) 8 else 10).toFloat()
+            val trackW = dp(if (tenBand) 7 else 9).toFloat()
             paint.textAlign = Paint.Align.CENTER
             paint.typeface = Typeface.create("sans", Typeface.NORMAL)
-            paint.textSize = dp(if (tenBand) 9 else 10).toFloat()
+            paint.textSize = dp(if (tenBand) 8 else 10).toFloat()
             paint.color = Color.rgb(188, 199, 216)
             val signed = value.roundToInt()
             canvas.drawText(if (signed > 0) "+$signed" else signed.toString(), cx, dp(15).toFloat(), paint)
@@ -710,8 +710,8 @@ class EqualizerActivity : AudioToolPageActivity() {
             canvas.drawRoundRect(RectF(cx - trackW / 2, thumbY.coerceAtMost(bottom), cx + trackW / 2, bottom), trackW / 2, trackW / 2, paint)
             paint.shader = null
 
-            val thumbW = dp(if (tenBand) 28 else 34).toFloat()
-            val thumbH = dp(if (tenBand) 22 else 25).toFloat()
+            val thumbW = dp(if (tenBand) 24 else 32).toFloat()
+            val thumbH = dp(if (tenBand) 19 else 23).toFloat()
             val thumb = RectF(cx - thumbW / 2, thumbY - thumbH / 2, cx + thumbW / 2, thumbY + thumbH / 2)
             paint.style = Paint.Style.FILL
             paint.color = Color.rgb(43, 49, 64)
@@ -724,7 +724,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             paint.color = Color.rgb(18, 224, 211)
             canvas.drawRoundRect(RectF(cx - dp(9), thumbY - dp(1), cx + dp(9), thumbY + dp(2)), dp(2).toFloat(), dp(2).toFloat(), paint)
 
-            paint.textSize = dp(if (tenBand) 7 else 8).toFloat()
+            paint.textSize = dp(if (tenBand) 6 else 8).toFloat()
             paint.color = Color.rgb(170, 182, 202)
             canvas.drawText(formatFrequency(frequency), cx, h - dp(8).toFloat(), paint)
         }
