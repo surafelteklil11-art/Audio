@@ -1,5 +1,6 @@
 package com.surafel.audio
 
+import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -48,6 +49,7 @@ class EqualizerActivity : AudioToolPageActivity() {
     private var eqMax = 1500
     private var tenBand = false
     private var enabled = true
+    private var selectedPreset = "CUSTOM"
     private var reverbIndex = 0
 
     private val bandViews = mutableListOf<BandSliderView>()
@@ -113,7 +115,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         scroll.addView(content, ViewGroup.LayoutParams(-1, -2))
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(178)))
+        content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(184)))
         content.addView(buildBandCard(), cardParams())
         content.addView(buildModeRow(), LinearLayout.LayoutParams(-1, dp(46)).apply { bottomMargin = dp(10) })
         content.addView(buildReverbCard(), cardParams())
@@ -126,7 +128,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(14), 0, dp(10), 0)
-        setBackgroundColor(Color.rgb(7, 20, 45))
+        setBackgroundColor(if (enabled) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
 
         addView(TextView(this@EqualizerActivity).apply {
             text = "←"
@@ -151,6 +153,8 @@ class EqualizerActivity : AudioToolPageActivity() {
                 enabled = checked
                 setEffectsEnabled(checked)
                 refreshContentAlpha()
+                this@EqualizerActivity.root.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
+                this@EqualizerActivity.root.getChildAt(0)?.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
             }
         }, LinearLayout.LayoutParams(dp(52), dp(32)))
     }
@@ -269,8 +273,11 @@ class EqualizerActivity : AudioToolPageActivity() {
         presetButtons.forEach { (key, button) -> button.isSelected = key == name }
     }
 
-    private fun buildBandCard(): View = cleanCard().apply {
-        addView(sectionTitle("Equalizer bands"))
+    private fun buildBandCard(): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(2), dp(4), dp(2), dp(2))
+        setBackgroundColor(Color.TRANSPARENT)
+        addView(sectionTitle("Equalizer bands", "↻ Reset") { resetBands() })
         status = TextView(this@EqualizerActivity).apply {
             text = "AUDIO ENGINE • LIVE CONTROLS"
             textSize = 10f
@@ -330,7 +337,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         reverbValue = UiButton(this@EqualizerActivity, "${reverbDisplayName(reverbIndex)}   ›").apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(14), 0, dp(14), 0)
-            setOnClickListener { cycleReverb() }
+            setOnClickListener { showReverbChooser() }
         }
         addView(reverbValue, LinearLayout.LayoutParams(-1, dp(48)))
     }
@@ -403,6 +410,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         } catch (_: Throwable) {
             status.text = "AUDIO ENGINE • UI CONTROLS ACTIVE"
         }
+        ensureCustomSnapshot()
         renderBands()
         refreshContentAlpha()
     }
@@ -451,11 +459,16 @@ class EqualizerActivity : AudioToolPageActivity() {
         val level = (safe * 100f).roundToInt().coerceIn(eqMin, eqMax).toShort()
         try { nearestRealBand(frequency)?.let { equalizer?.setBandLevel(it, level) } } catch (_: Throwable) {}
         prefs.edit().putFloat("eq_ui_${tenBand}_$uiIndex", safe).apply()
+        if (selectedPreset == "CUSTOM") {
+            prefs.edit().putFloat("eq_custom_${tenBand}_$uiIndex", safe).apply()
+        }
     }
 
     private fun applyPreset(name: String) {
+        if (name != "CUSTOM" && selectedPreset == "CUSTOM") saveCustomSnapshotFromCurrent()
+        selectedPreset = name
         val values = when (name) {
-            "CUSTOM" -> FloatArray(if (tenBand) 10 else 5) { prefs.getFloat("eq_ui_${tenBand}_$it", 0f) }
+            "CUSTOM" -> FloatArray(if (tenBand) 10 else 5) { prefs.getFloat("eq_custom_${tenBand}_$it", prefs.getFloat("eq_ui_${tenBand}_$it", 0f)) }
             "NORMAL", "FLAT" -> FloatArray(if (tenBand) 10 else 5)
             "POP" -> floatArrayOf(2f, 1.5f, 0f, 1.5f, 2f).fitForMode()
             "LIVE" -> floatArrayOf(1.5f, .5f, 1f, 2f, 1.5f).fitForMode()
@@ -503,7 +516,33 @@ class EqualizerActivity : AudioToolPageActivity() {
     private fun reverbDisplayName(index: Int): String = reverbNames[index].lowercase().replaceFirstChar { it.uppercase() }
 
     private fun cycleReverb() {
-        reverbIndex = (reverbIndex + 1) % reverbNames.size
+        showReverbChooser()
+    }
+
+    private fun showReverbChooser() {
+        val names = arrayOf("None", "Small Room", "Medium Room", "Big Room", "Concert Hall", "Arena", "Studio Vocal")
+        val descriptions = arrayOf(
+            "No added ambience.",
+            "Light echo for everyday listening.",
+            "Add natural depth and balanced space.",
+            "Create a wider, more immersive feel.",
+            "Bring the atmosphere of a live concert.",
+            "Adds depth and a grand sense of space.",
+            "Make vocals clearer and more present."
+        )
+        var pending = reverbIndex.coerceIn(0, 5)
+        val items = Array(names.size) { i -> "${names[i]}\n${descriptions[i]}" }
+        AlertDialog.Builder(this)
+            .setTitle("Choose Reverb")
+            .setSingleChoiceItems(items, pending) { _, which -> pending = which }
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Apply") { _, _ -> applyReverbChoice(pending) }
+            .show()
+    }
+
+    private fun applyReverbChoice(index: Int) {
+        val safe = index.coerceIn(0, 5)
+        reverbIndex = safe
         reverbValue.text = "${reverbDisplayName(reverbIndex)}   ›"
         try {
             presetReverb?.preset = reverbPresets[reverbIndex]
@@ -530,6 +569,38 @@ class EqualizerActivity : AudioToolPageActivity() {
         } catch (_: Throwable) {}
         val key = when (index) { 0 -> "eq_bass"; 1 -> "eq_treble"; 2 -> "eq_surround"; else -> "eq_loudness" }
         prefs.edit().putFloat(key, v).apply()
+    }
+
+    private fun saveCustomSnapshotFromCurrent() {
+        val count = if (tenBand) 10 else 5
+        val edit = prefs.edit()
+        for (i in 0 until count) {
+            val v = if (i < bandViews.size) bandViews[i].value else prefs.getFloat("eq_ui_${tenBand}_$i", 0f)
+            edit.putFloat("eq_custom_${tenBand}_$i", v.coerceIn(-15f, 15f))
+        }
+        edit.apply()
+    }
+
+    private fun ensureCustomSnapshot() {
+        if (!prefs.contains("eq_custom_${tenBand}_0")) saveCustomSnapshotFromCurrent()
+    }
+
+    private fun resetBands() {
+        selectedPreset = "CUSTOM"
+        val count = if (tenBand) 10 else 5
+        val edit = prefs.edit()
+        for (i in 0 until count) {
+            edit.putFloat("eq_ui_${tenBand}_$i", 0f)
+            edit.putFloat("eq_custom_${tenBand}_$i", 0f)
+            if (i < bandViews.size) {
+                bandViews[i].value = 0f
+                applyBand(i, bandViews[i].frequency, 0f)
+                bandViews[i].invalidate()
+            }
+        }
+        edit.apply()
+        selectPreset("CUSTOM")
+        Toast.makeText(this, "Equalizer reset", Toast.LENGTH_SHORT).show()
     }
 
     private fun resetEnhancers() {
@@ -735,6 +806,10 @@ class EqualizerActivity : AudioToolPageActivity() {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
                     parent?.requestDisallowInterceptTouchEvent(true)
+                    if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                        selectedPreset = "CUSTOM"
+                        selectPreset("CUSTOM")
+                    }
                     val ratio = ((bottom - event.y) / (bottom - top)).coerceIn(0f, 1f)
                     value = ratio * 30f - 15f
                     applyBand(index, frequency, value)
