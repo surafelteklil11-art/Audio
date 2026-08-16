@@ -64,3 +64,7 @@ text = text.replace('root.addView(buildHeader(), LinearLayout.LayoutParams(-1, d
 text = text.replace('text = "Equalizer"; textSize = 20f;', 'text = "Equalizer"; textSize = 22f;', 1)
 text = text.replace('textSize = 16f; includeFontPadding = false; setTextColor(Color.rgb(224, 232, 246))', 'textSize = 22f; includeFontPadding = false; setTextColor(Color.rgb(238, 242, 250))', 1)
 path.write_text(text, encoding='utf-8')
+
+# Build-trigger marker: this script is also the source-of-truth for the reference-layout job.
+# Keep the marker so a source-only redesign can be rebuilt even when the GitHub bot commit
+# that applies the patch does not recursively trigger the normal push workflow.
