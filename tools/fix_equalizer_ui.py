@@ -3,34 +3,109 @@ from pathlib import Path
 PATH = Path("app/src/main/java/com/surafel/audio/EqualizerActivity.kt")
 s = PATH.read_text(encoding="utf-8")
 
-def replace(old: str, new: str, name: str) -> None:
-    global s
-    if old not in s:
-        raise SystemExit(f"Equalizer patch anchor missing: {name}")
+# Keep this repair script idempotent: the current source already contains the
+# preset/reverb/custom-state fixes, so this pass only normalizes the header and
+# ON/OFF appearance without undoing those fixes.
+
+old = '''    private fun buildHeader(): View = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(14), 0, dp(10), 0)
+        setBackgroundColor(if (enabled) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
+
+        addView(TextView(this@EqualizerActivity).apply {
+            text = "←"
+            textSize = 24f
+            gravity = Gravity.CENTER
+            includeFontPadding = false
+            setTextColor(Color.rgb(238, 242, 250))
+            setOnClickListener { finish() }
+        }, LinearLayout.LayoutParams(dp(38), -1))
+
+        addView(TextView(this@EqualizerActivity).apply {
+            text = "Equalizer"
+            textSize = 18f
+            gravity = Gravity.CENTER_VERTICAL
+            includeFontPadding = false
+            setTextColor(Color.rgb(242, 245, 250))
+        }, LinearLayout.LayoutParams(0, -1, 1f))
+'''
+
+new = '''    private fun buildHeader(): View = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(14), 0, dp(10), 0)
+        // ON: same flat dark-blue surface as the page. OFF: completely transparent.
+        // Never use a rounded/gradient card for the header.
+        setBackgroundColor(if (enabled) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
+
+        addView(TextView(this@EqualizerActivity).apply {
+            text = "←"
+            textSize = 24f
+            gravity = Gravity.CENTER
+            includeFontPadding = false
+            setTextColor(if (enabled) Color.rgb(238, 242, 250) else Color.rgb(92, 103, 124))
+            setOnClickListener { finish() }
+        }, LinearLayout.LayoutParams(dp(38), -1))
+
+        addView(TextView(this@EqualizerActivity).apply {
+            text = "Equalizer"
+            textSize = 18f
+            gravity = Gravity.CENTER_VERTICAL
+            includeFontPadding = false
+            setTextColor(if (enabled) Color.rgb(242, 245, 250) else Color.rgb(96, 108, 130))
+        }, LinearLayout.LayoutParams(0, -1, 1f))
+'''
+
+if old in s:
     s = s.replace(old, new, 1)
 
-replace('import android.content.Context\n', 'import android.app.AlertDialog\nimport android.content.Context\n', 'AlertDialog import')
-replace('    private var enabled = true\n    private var reverbIndex = 0\n', '    private var enabled = true\n    private var selectedPreset = "CUSTOM"\n    private var reverbIndex = 0\n', 'selected preset state')
-replace('        content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(178)))\n', '        content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(184)))\n', 'preset section height')
+# Ensure the toggle updates the header surface immediately.
+old_toggle = '''                refreshContentAlpha()
+                this@EqualizerActivity.root.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
+                this@EqualizerActivity.root.getChildAt(0)?.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
+'''
+new_toggle = '''                refreshContentAlpha()
+                this@EqualizerActivity.root.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
+                this@EqualizerActivity.root.getChildAt(0)?.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
+                this@EqualizerActivity.root.getChildAt(0)?.invalidate()
+'''
+if old_toggle in s:
+    s = s.replace(old_toggle, new_toggle, 1)
 
-replace('''    private fun buildHeader(): View = LinearLayout(this).apply {\n        orientation = LinearLayout.HORIZONTAL\n        gravity = Gravity.CENTER_VERTICAL\n        setPadding(dp(14), 0, dp(10), 0)\n        setBackgroundColor(Color.rgb(7, 20, 45))\n''','''    private fun buildHeader(): View = LinearLayout(this).apply {\n        orientation = LinearLayout.HORIZONTAL\n        gravity = Gravity.CENTER_VERTICAL\n        setPadding(dp(14), 0, dp(10), 0)\n        setBackgroundColor(if (enabled) Color.rgb(7, 20, 45) else Color.TRANSPARENT)\n''','header background')
-replace('''            value = enabled\n            setOnCheckedChangeListener { checked ->\n                enabled = checked\n                setEffectsEnabled(checked)\n                refreshContentAlpha()\n            }\n''','''            value = enabled\n            setOnCheckedChangeListener { checked ->\n                enabled = checked\n                setEffectsEnabled(checked)\n                refreshContentAlpha()\n                this@EqualizerActivity.root.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)\n                this@EqualizerActivity.root.getChildAt(0)?.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)\n            }\n''','header toggle')
+# Cleaner switch: OFF has no filled pill, only a visible outline; ON gets the
+# purple/blue filled track. This avoids the ugly large filled OFF appearance.
+old_switch = '''            paint.style = Paint.Style.FILL
+            paint.color = if (value) Color.rgb(72, 91, 205) else Color.rgb(48, 59, 79)
+            canvas.drawRoundRect(RectF(left, top, right, bottom), radius, radius, paint)
 
-replace('''    private fun buildBandCard(): View = cleanCard().apply {\n        addView(sectionTitle("Equalizer bands"))\n        status = TextView(this@EqualizerActivity).apply {\n            text = "AUDIO ENGINE • LIVE CONTROLS"\n            textSize = 10f\n            includeFontPadding = false\n            setTextColor(Color.rgb(128, 178, 231))\n            letterSpacing = .03f\n        }\n        addView(status, LinearLayout.LayoutParams(-1, dp(22)))\n        val bandRow = LinearLayout(this@EqualizerActivity).apply {\n            orientation = LinearLayout.HORIZONTAL\n            gravity = Gravity.CENTER\n        }\n        addBandViews(bandRow)\n        addView(bandRow, LinearLayout.LayoutParams(-1, dp(238)))\n    }\n''','''    private fun buildBandCard(): View = LinearLayout(this).apply {\n        orientation = LinearLayout.VERTICAL\n        setPadding(dp(2), dp(4), dp(2), dp(2))\n        setBackgroundColor(Color.TRANSPARENT)\n        addView(sectionTitle("Equalizer bands", "↻ Reset") { resetBands() })\n        status = TextView(this@EqualizerActivity).apply {\n            text = "AUDIO ENGINE • LIVE CONTROLS"\n            textSize = 10f\n            includeFontPadding = false\n            setTextColor(Color.rgb(128, 178, 231))\n            letterSpacing = .03f\n        }\n        addView(status, LinearLayout.LayoutParams(-1, dp(22)))\n        val bandRow = LinearLayout(this@EqualizerActivity).apply {\n            orientation = LinearLayout.HORIZONTAL\n            gravity = Gravity.CENTER\n        }\n        addBandViews(bandRow)\n        addView(bandRow, LinearLayout.LayoutParams(-1, dp(238)))\n    }\n''','free Equalizer bands')
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 2f * d
+            paint.color = if (value) Color.rgb(147, 91, 245) else Color.rgb(75, 89, 111)
+            canvas.drawRoundRect(RectF(left, top, right, bottom), radius, radius, paint)
+'''
+new_switch = '''            paint.style = Paint.Style.FILL
+            paint.color = if (value) Color.rgb(72, 91, 205) else Color.TRANSPARENT
+            canvas.drawRoundRect(RectF(left, top, right, bottom), radius, radius, paint)
 
-replace('''    private fun buildReverbCard(): View = cleanCard().apply {\n        addView(sectionTitle("Reverb"))\n        reverbValue = UiButton(this@EqualizerActivity, "${reverbDisplayName(reverbIndex)}   ›").apply {\n            gravity = Gravity.CENTER_VERTICAL\n            setPadding(dp(14), 0, dp(14), 0)\n            setOnClickListener { cycleReverb() }\n        }\n        addView(reverbValue, LinearLayout.LayoutParams(-1, dp(48)))\n    }\n''','''    private fun buildReverbCard(): View = cleanCard().apply {\n        addView(sectionTitle("Reverb"))\n        reverbValue = UiButton(this@EqualizerActivity, "${reverbDisplayName(reverbIndex)}   ›").apply {\n            gravity = Gravity.CENTER_VERTICAL\n            setPadding(dp(14), 0, dp(14), 0)\n            setOnClickListener { showReverbChooser() }\n        }\n        addView(reverbValue, LinearLayout.LayoutParams(-1, dp(48)))\n    }\n''','reverb chooser button')
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = if (value) 2f * d else 1.5f * d
+            paint.color = if (value) Color.rgb(147, 91, 245) else Color.rgb(76, 91, 116)
+            canvas.drawRoundRect(RectF(left, top, right, bottom), radius, radius, paint)
+'''
+if old_switch in s:
+    s = s.replace(old_switch, new_switch, 1)
 
-replace('''    private fun applyBand(uiIndex: Int, frequency: Int, db: Float) {\n        val safe = db.coerceIn(-15f, 15f)\n        val level = (safe * 100f).roundToInt().coerceIn(eqMin, eqMax).toShort()\n        try { nearestRealBand(frequency)?.let { equalizer?.setBandLevel(it, level) } } catch (_: Throwable) {}\n        prefs.edit().putFloat("eq_ui_${tenBand}_$uiIndex", safe).apply()\n    }\n''','''    private fun applyBand(uiIndex: Int, frequency: Int, db: Float) {\n        val safe = db.coerceIn(-15f, 15f)\n        val level = (safe * 100f).roundToInt().coerceIn(eqMin, eqMax).toShort()\n        try { nearestRealBand(frequency)?.let { equalizer?.setBandLevel(it, level) } } catch (_: Throwable) {}\n        prefs.edit().putFloat("eq_ui_${tenBand}_$uiIndex", safe).apply()\n        if (selectedPreset == "CUSTOM") {\n            prefs.edit().putFloat("eq_custom_${tenBand}_$uiIndex", safe).apply()\n        }\n    }\n''','custom persistence')
-
-replace('''    private fun applyPreset(name: String) {\n        val values = when (name) {\n            "CUSTOM" -> FloatArray(if (tenBand) 10 else 5) { prefs.getFloat("eq_ui_${tenBand}_$it", 0f) }\n''','''    private fun applyPreset(name: String) {\n        if (name != "CUSTOM" && selectedPreset == "CUSTOM") saveCustomSnapshotFromCurrent()\n        selectedPreset = name\n        val values = when (name) {\n            "CUSTOM" -> FloatArray(if (tenBand) 10 else 5) { prefs.getFloat("eq_custom_${tenBand}_$it", prefs.getFloat("eq_ui_${tenBand}_$it", 0f)) }\n''','custom restore')
-
-replace('''    private fun cycleReverb() {\n        reverbIndex = (reverbIndex + 1) % reverbNames.size\n        reverbValue.text = "${reverbDisplayName(reverbIndex)}   ›"\n        try {\n            presetReverb?.preset = reverbPresets[reverbIndex]\n            presetReverb?.enabled = enabled && reverbIndex != 0\n        } catch (_: Throwable) {}\n        prefs.edit().putInt("eq_reverb", reverbIndex).apply()\n    }\n''','''    private fun cycleReverb() {\n        showReverbChooser()\n    }\n\n    private fun showReverbChooser() {\n        val names = arrayOf("None", "Small Room", "Medium Room", "Big Room", "Concert Hall", "Arena", "Studio Vocal")\n        val descriptions = arrayOf(\n            "No added ambience.",\n            "Light echo for everyday listening.",\n            "Add natural depth and balanced space.",\n            "Create a wider, more immersive feel.",\n            "Bring the atmosphere of a live concert.",\n            "Adds depth and a grand sense of space.",\n            "Make vocals clearer and more present."\n        )\n        var pending = reverbIndex.coerceIn(0, 5)\n        val items = Array(names.size) { i -> "${names[i]}\\n${descriptions[i]}" }\n        AlertDialog.Builder(this)\n            .setTitle("Choose Reverb")\n            .setSingleChoiceItems(items, pending) { _, which -> pending = which }\n            .setNegativeButton("Cancel", null)\n            .setPositiveButton("Apply") { _, _ -> applyReverbChoice(pending) }\n            .show()\n    }\n\n    private fun applyReverbChoice(index: Int) {\n        val safe = index.coerceIn(0, 5)\n        reverbIndex = safe\n        reverbValue.text = "${reverbDisplayName(reverbIndex)}   ›"\n        try {\n            presetReverb?.preset = reverbPresets[reverbIndex]\n            presetReverb?.enabled = enabled && reverbIndex != 0\n        } catch (_: Throwable) {}\n        prefs.edit().putInt("eq_reverb", reverbIndex).apply()\n    }\n''','full reverb chooser')
-
-replace('''    private fun resetEnhancers() {\n''','''    private fun saveCustomSnapshotFromCurrent() {\n        val count = if (tenBand) 10 else 5\n        val edit = prefs.edit()\n        for (i in 0 until count) {\n            val v = if (i < bandViews.size) bandViews[i].value else prefs.getFloat("eq_ui_${tenBand}_$i", 0f)\n            edit.putFloat("eq_custom_${tenBand}_$i", v.coerceIn(-15f, 15f))\n        }\n        edit.apply()\n    }\n\n    private fun ensureCustomSnapshot() {\n        if (!prefs.contains("eq_custom_${tenBand}_0")) saveCustomSnapshotFromCurrent()\n    }\n\n    private fun resetBands() {\n        selectedPreset = "CUSTOM"\n        val count = if (tenBand) 10 else 5\n        val edit = prefs.edit()\n        for (i in 0 until count) {\n            edit.putFloat("eq_ui_${tenBand}_$i", 0f)\n            edit.putFloat("eq_custom_${tenBand}_$i", 0f)\n            if (i < bandViews.size) {\n                bandViews[i].value = 0f\n                applyBand(i, bandViews[i].frequency, 0f)\n                bandViews[i].invalidate()\n            }\n        }\n        edit.apply()\n        selectPreset("CUSTOM")\n        Toast.makeText(this, "Equalizer reset", Toast.LENGTH_SHORT).show()\n    }\n\n    private fun resetEnhancers() {\n''','band reset')
-
-replace('''        renderBands()\n        refreshContentAlpha()\n    }\n''','''        ensureCustomSnapshot()\n        renderBands()\n        refreshContentAlpha()\n    }\n''','custom initialization')
-
-replace('''                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {\n                    parent?.requestDisallowInterceptTouchEvent(true)\n                    val ratio = ((bottom - event.y) / (bottom - top)).coerceIn(0f, 1f)\n''','''                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {\n                    parent?.requestDisallowInterceptTouchEvent(true)\n                    if (event.actionMasked == MotionEvent.ACTION_DOWN) {\n                        selectedPreset = "CUSTOM"\n                        selectPreset("CUSTOM")\n                    }\n                    val ratio = ((bottom - event.y) / (bottom - top)).coerceIn(0f, 1f)\n''','manual slider custom state')
+old_thumb = '''            paint.style = Paint.Style.FILL
+            paint.color = if (value) Color.rgb(249, 241, 255) else Color.rgb(225, 231, 239)
+            canvas.drawCircle(x, top + trackH / 2f, thumbR, paint)
+'''
+new_thumb = '''            paint.style = Paint.Style.FILL
+            paint.color = if (value) Color.rgb(249, 241, 255) else Color.rgb(112, 122, 140)
+            canvas.drawCircle(x, top + trackH / 2f, thumbR, paint)
+'''
+if old_thumb in s:
+    s = s.replace(old_thumb, new_thumb, 1)
 
 PATH.write_text(s, encoding="utf-8")
-print("Equalizer UI patch applied successfully")
+print("Equalizer ON/OFF header polish applied")

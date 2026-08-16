@@ -1,1 +1,1 @@
-trigger equalizer fixes build 2026-08-17
+equalizer on/off header polish — flat ON surface, transparent OFF surface, clean switch
