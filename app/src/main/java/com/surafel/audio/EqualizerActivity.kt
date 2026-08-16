@@ -201,9 +201,9 @@ class EqualizerActivity : AudioToolPageActivity() {
             setPadding(0, 0, 0, 0)
         }
 
-        val pageWidth = resources.displayMetrics.widthPixels - dp(24)
         val gap = dp(6)
         val cardHeight = dp(40)
+        val pagesList = mutableListOf<LinearLayout>()
 
         presetNames.chunked(6).forEach { pageNames ->
             val isFinalPage = pageNames.size < 6
@@ -215,6 +215,7 @@ class EqualizerActivity : AudioToolPageActivity() {
                 clipChildren = false
                 clipToPadding = false
             }
+            pagesList += page
 
             rows.forEach { rowNames ->
                 val row = LinearLayout(this@EqualizerActivity).apply {
@@ -225,19 +226,32 @@ class EqualizerActivity : AudioToolPageActivity() {
                     clipToPadding = false
                 }
                 rowNames.forEachIndexed { index, name ->
-                    val params = LinearLayout.LayoutParams(0, cardHeight, 1f).apply {
+                    row.addView(presetButton(name), LinearLayout.LayoutParams(0, cardHeight, 1f).apply {
                         rightMargin = if (index == rowNames.lastIndex) 0 else gap
                         bottomMargin = gap
-                    }
-                    row.addView(presetButton(name), params)
+                    })
                 }
-                page.addView(row, LinearLayout.LayoutParams(pageWidth, cardHeight + gap))
+                page.addView(row, LinearLayout.LayoutParams(-1, cardHeight + gap))
             }
-            pages.addView(page, LinearLayout.LayoutParams(pageWidth, rows.size * (cardHeight + gap)))
+            pages.addView(page, LinearLayout.LayoutParams(-2, rows.size * (cardHeight + gap)))
         }
 
-        horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(92)))
+        horizontal.addView(pages, ViewGroup.LayoutParams(-1, dp(92)))
         addView(horizontal, LinearLayout.LayoutParams(-1, dp(92)))
+
+        // Never derive a page width from displayMetrics: on some devices that
+        // value differs from the actual content viewport and leaves a trailing
+        // blank strip. Size every horizontal page from the measured viewport.
+        horizontal.post {
+            val viewportWidth = horizontal.width
+            if (viewportWidth > 0) {
+                pagesList.forEach { page ->
+                    page.layoutParams = LinearLayout.LayoutParams(viewportWidth, page.height)
+                    page.requestLayout()
+                }
+                pages.requestLayout()
+            }
+        }
     }
 
     private fun presetButton(name: String): UiButton {
