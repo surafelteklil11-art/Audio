@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
@@ -20,6 +22,38 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add app/src/main/java/com/surafel/audio/EqualizerActivity.kt tools/redesign_equalizer_top.py .github/workflows/apply-equalizer-reference.yml
-          git diff --cached --quiet && exit 0
-          git commit -m 'ui: match equalizer top to reference layout'
-          git push
+          if git diff --cached --quiet; then
+            echo 'No Equalizer source change; building current main revision.'
+          else
+            git commit -m 'ui: match equalizer top to reference layout [skip ci]'
+            git push
+          fi
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Clean and build redesigned APK
+        run: gradle clean assembleDebug --no-daemon --rerun-tasks --stacktrace
+      - name: Verify redesigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "versionCode='319'"
+          ls -lh "$APK"
+      - name: Upload redesigned APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Audio-equalizer-reference-debug-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
