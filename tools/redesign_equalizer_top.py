@@ -115,4 +115,32 @@ text = text.replace(
     1,
 )
 
+# Keep the Equalizer surface completely flat and consistent with the page.
+if 'import android.graphics.drawable.ColorDrawable' not in text:
+    text = text.replace(
+        'import android.graphics.Shader\n',
+        'import android.graphics.Shader\nimport android.graphics.drawable.ColorDrawable\n',
+        1,
+    )
+text = text.replace(
+    'window.navigationBarColor = Color.rgb(7, 17, 37)\n',
+    'window.navigationBarColor = Color.rgb(7, 17, 37)\n        window.setBackgroundDrawable(ColorDrawable(Color.rgb(7, 20, 45)))\n',
+    1,
+)
+text = text.replace(
+    'setBackgroundColor(if (enabled) Color.rgb(7, 20, 45) else Color.TRANSPARENT)',
+    'setBackgroundColor(Color.rgb(7, 20, 45))',
+    1,
+)
+text = text.replace(
+    'this@EqualizerActivity.root.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)',
+    'this@EqualizerActivity.root.setBackgroundColor(Color.rgb(7, 20, 45))',
+    1,
+)
+text = text.replace(
+    'this@EqualizerActivity.root.getChildAt(0)?.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)',
+    'this@EqualizerActivity.root.getChildAt(0)?.setBackgroundColor(Color.rgb(7, 20, 45))',
+    1,
+)
+
 path.write_text(text, encoding='utf-8')
