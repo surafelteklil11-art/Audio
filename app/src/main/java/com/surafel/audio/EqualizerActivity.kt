@@ -8,6 +8,7 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Shader
+import android.graphics.drawable.ColorDrawable
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.audiofx.BassBoost
@@ -72,6 +73,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         super.onCreate(savedInstanceState)
         window.statusBarColor = Color.rgb(7, 20, 45)
         window.navigationBarColor = Color.rgb(7, 17, 37)
+        window.setBackgroundDrawable(ColorDrawable(Color.rgb(7, 20, 45)))
         buildPage()
         initializeEffects()
     }
@@ -115,7 +117,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         scroll.addView(content, ViewGroup.LayoutParams(-1, -2))
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(184)))
+        content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(142)))
         content.addView(buildBandCard(), cardParams())
         content.addView(buildModeRow(), LinearLayout.LayoutParams(-1, dp(46)).apply { bottomMargin = dp(10) })
         content.addView(buildReverbCard(), cardParams())
@@ -130,7 +132,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         setPadding(dp(14), 0, dp(10), 0)
         // ON: same flat dark-blue surface as the page. OFF: completely transparent.
         // Never use a rounded/gradient card for the header.
-        setBackgroundColor(if (enabled) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
+        setBackgroundColor(Color.rgb(7, 20, 45))
 
         addView(TextView(this@EqualizerActivity).apply {
             text = "←"
@@ -155,8 +157,8 @@ class EqualizerActivity : AudioToolPageActivity() {
                 enabled = checked
                 setEffectsEnabled(checked)
                 refreshContentAlpha()
-                this@EqualizerActivity.root.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
-                this@EqualizerActivity.root.getChildAt(0)?.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
+                this@EqualizerActivity.root.setBackgroundColor(Color.rgb(7, 20, 45))
+                this@EqualizerActivity.root.getChildAt(0)?.setBackgroundColor(Color.rgb(7, 20, 45))
                 this@EqualizerActivity.root.getChildAt(0)?.invalidate()
             }
         }, LinearLayout.LayoutParams(dp(52), dp(32)))
@@ -196,36 +198,38 @@ class EqualizerActivity : AudioToolPageActivity() {
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
             isFillViewport = false
-            clipToPadding = false
+            clipToPadding = true
+            clipChildren = true
             setPadding(0, 0, 0, 0)
         }
+
         val pages = LinearLayout(this@EqualizerActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, 0, 0, 0)
+            clipChildren = true
+            clipToPadding = false
         }
 
         val gap = dp(6)
         val cardHeight = dp(40)
-        val pagesList = mutableListOf<LinearLayout>()
+        val pageViews = mutableListOf<LinearLayout>()
 
         presetNames.chunked(6).forEach { pageNames ->
-            val isFinalPage = pageNames.size < 6
-            val columns = if (isFinalPage) 2 else 3
-            val rows = pageNames.chunked(columns)
             val page = LinearLayout(this@EqualizerActivity).apply {
                 orientation = LinearLayout.VERTICAL
+                gravity = Gravity.TOP
                 setPadding(0, 0, 0, 0)
-                clipChildren = false
+                clipChildren = true
                 clipToPadding = false
             }
-            pagesList += page
+            pageViews += page
 
-            rows.forEach { rowNames ->
+            pageNames.chunked(3).forEach { rowNames ->
                 val row = LinearLayout(this@EqualizerActivity).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(0, 0, 0, 0)
-                    clipChildren = false
+                    clipChildren = true
                     clipToPadding = false
                 }
                 rowNames.forEachIndexed { index, name ->
@@ -234,25 +238,29 @@ class EqualizerActivity : AudioToolPageActivity() {
                         bottomMargin = gap
                     })
                 }
+                repeat(3 - rowNames.size) {
+                    row.addView(View(this@EqualizerActivity), LinearLayout.LayoutParams(0, cardHeight, 1f).apply {
+                        rightMargin = if (it == 3 - rowNames.size - 1) 0 else gap
+                        bottomMargin = gap
+                    })
+                }
                 page.addView(row, LinearLayout.LayoutParams(-1, cardHeight + gap))
             }
-            pages.addView(page, LinearLayout.LayoutParams(-2, rows.size * (cardHeight + gap)))
+            pages.addView(page, LinearLayout.LayoutParams(0, dp(92)))
         }
 
-        horizontal.addView(pages, ViewGroup.LayoutParams(-1, dp(92)))
+        horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(92)))
         addView(horizontal, LinearLayout.LayoutParams(-1, dp(92)))
 
-        // Never derive a page width from displayMetrics: on some devices that
-        // value differs from the actual content viewport and leaves a trailing
-        // blank strip. Size every horizontal page from the measured viewport.
         horizontal.post {
             val viewportWidth = horizontal.width
-            if (viewportWidth > 0) {
-                pagesList.forEach { page ->
-                    page.layoutParams = LinearLayout.LayoutParams(viewportWidth, page.height)
-                    page.requestLayout()
+            if (viewportWidth > 0 && pageViews.isNotEmpty()) {
+                pageViews.forEach { page ->
+                    page.layoutParams = LinearLayout.LayoutParams(viewportWidth, dp(92))
                 }
+                pages.layoutParams = LinearLayout.LayoutParams(viewportWidth * pageViews.size, dp(92))
                 pages.requestLayout()
+                horizontal.requestLayout()
             }
         }
     }
