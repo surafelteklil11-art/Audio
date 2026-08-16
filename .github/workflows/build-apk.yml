@@ -49,12 +49,24 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
+          eq_path = Path("app/src/main/java/com/surafel/audio/EqualizerActivity.kt")
+          eq = eq_path.read_text(encoding="utf-8")
+          start = eq.find("            val innerCut = max(3f, cut - activity.dp(4))")
+          end = eq.find("            path.close()", start)
+          if start < 0 or end <= start:
+              raise SystemExit("Unable to locate Equalizer sci-fi frame coordinate block")
+          block = eq[start:end]
+          block = block.replace("activity.dp(4)", "activity.dp(4).toFloat()")
+          block = block.replace("activity.dp(5)", "activity.dp(5).toFloat()")
+          eq = eq[:start] + block + eq[end:]
+          eq_path.write_text(eq, encoding="utf-8")
+
           main = Path("app/src/main/java/com/surafel/audio/MainActivity.kt").read_text(encoding="utf-8")
           app = Path("app/src/main/java/com/surafel/audio/AudioApplication.kt").read_text(encoding="utf-8")
           manifest = Path("app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
           page_files = {
               "ThemesActivity": Path("app/src/main/java/com/surafel/audio/ThemesActivity.kt"),
-              "EqualizerActivity": Path("app/src/main/java/com/surafel/audio/EqualizerActivity.kt"),
+              "EqualizerActivity": eq_path,
               "DriveModeActivity": Path("app/src/main/java/com/surafel/audio/DriveModeActivity.kt"),
               "AudioToolPageActivity": Path("app/src/main/java/com/surafel/audio/AudioToolPageActivity.kt"),
           }
@@ -122,8 +134,8 @@ jobs:
           if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add app/src/main/java/com/surafel/audio/MainActivity.kt
-            git commit -m "fix: wire dedicated tool pages into Audio [skip ci]"
+            git add app/src/main/java/com/surafel/audio/MainActivity.kt app/src/main/java/com/surafel/audio/EqualizerActivity.kt
+            git commit -m "fix: repair dedicated tool page sources before APK build [skip ci]"
             git push origin HEAD:main
           fi
 
