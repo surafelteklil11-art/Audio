@@ -83,7 +83,7 @@ class EqualizerActivity : AudioToolPageActivity() {
     private fun buildPage() {
         root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(7, 20, 45)) }
         setContentView(root)
-        root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(64)))
+        root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(72)))
 
         val scroll = ScrollView(this).apply { overScrollMode = View.OVER_SCROLL_NEVER; isFillViewport = true; setBackgroundColor(Color.rgb(7, 20, 45)) }
         content = LinearLayout(this).apply {
@@ -106,22 +106,49 @@ class EqualizerActivity : AudioToolPageActivity() {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), 0, dp(10), 0)
         background = gradient(intArrayOf(Color.rgb(35, 84, 156), Color.rgb(65, 78, 165)), dp(16).toFloat())
         addView(TextView(this@EqualizerActivity).apply { text = "‹"; textSize = 30f; gravity = Gravity.CENTER; includeFontPadding = false; setTextColor(Color.WHITE); setOnClickListener { finish() } }, LinearLayout.LayoutParams(dp(42), -1))
-        addView(TextView(this@EqualizerActivity).apply { text = "Equalizer"; textSize = 20f; gravity = Gravity.CENTER_VERTICAL; includeFontPadding = false; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(0, -1, 1f))
+        addView(TextView(this@EqualizerActivity).apply { text = "Equalizer"; textSize = 22f; gravity = Gravity.CENTER_VERTICAL; includeFontPadding = false; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(0, -1, 1f))
         addView(CleanSwitch(this@EqualizerActivity).apply { value = enabled; setOnCheckedChangeListener { checked -> enabled = checked; setEffectsEnabled(checked); refreshContentAlpha() } }, LinearLayout.LayoutParams(dp(68), dp(40)))
     }
 
-    private fun buildPresetCard(): View = cleanCard().apply {
-        addView(sectionTitle("Presets"))
+    private fun buildPresetCard(): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(2), 0, dp(2), 0)
+        setBackgroundColor(Color.TRANSPARENT)
+        addView(sectionTitle("Presets", "More   ›"))
+
+        // Reference-style preset area: two rows, three cards visible, horizontal scroll for the rest.
         val scroll = HorizontalScrollView(this@EqualizerActivity).apply {
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
             clipToPadding = false
             setPadding(0, 0, 0, dp(2))
         }
-        val row = LinearLayout(this@EqualizerActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        presetNames.forEach { row.addView(presetButton(it), LinearLayout.LayoutParams(dp(112), dp(48)).apply { rightMargin = dp(7) }) }
-        scroll.addView(row, ViewGroup.LayoutParams(-2, dp(50)))
-        addView(scroll, LinearLayout.LayoutParams(-1, dp(52)))
+        val grid = LinearLayout(this@EqualizerActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 0, dp(10), 0)
+        }
+        val columns = 3
+        val cardWidth = dp(142)
+        val cardHeight = dp(52)
+        val gap = dp(7)
+        presetNames.chunked(columns).forEach { names ->
+            val row = LinearLayout(this@EqualizerActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            names.forEach { name ->
+                row.addView(presetButton(name), LinearLayout.LayoutParams(cardWidth, cardHeight).apply {
+                    rightMargin = gap
+                    bottomMargin = gap
+                })
+            }
+            while (row.childCount < columns) {
+                row.addView(View(this@EqualizerActivity), LinearLayout.LayoutParams(cardWidth, cardHeight).apply { rightMargin = gap })
+            }
+            grid.addView(row, LinearLayout.LayoutParams(-2, cardHeight + gap))
+        }
+        scroll.addView(grid, ViewGroup.LayoutParams(-2, -2))
+        addView(scroll, LinearLayout.LayoutParams(-1, dp(120)))
     }
 
     private fun presetButton(name: String): UiButton = UiButton(this, prettyPreset(name)).apply { setOnClickListener { applyPreset(name) } }
@@ -185,7 +212,7 @@ class EqualizerActivity : AudioToolPageActivity() {
 
     private fun sectionTitle(title: String, action: String? = null, actionClick: (() -> Unit)? = null): View = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-        addView(TextView(this@EqualizerActivity).apply { text = title; textSize = 16f; includeFontPadding = false; setTextColor(Color.rgb(224, 232, 246)) }, LinearLayout.LayoutParams(0, dp(36), 1f))
+        addView(TextView(this@EqualizerActivity).apply { text = title; textSize = 22f; includeFontPadding = false; setTextColor(Color.rgb(238, 242, 250)) }, LinearLayout.LayoutParams(0, dp(36), 1f))
         if (action != null) addView(TextView(this@EqualizerActivity).apply { text = action; textSize = 13f; gravity = Gravity.CENTER; includeFontPadding = false; setTextColor(Color.rgb(147, 163, 190)); isClickable = true; isFocusable = true; setOnClickListener { actionClick?.invoke() } }, LinearLayout.LayoutParams(dp(80), dp(36)))
     }
 
