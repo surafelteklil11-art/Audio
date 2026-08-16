@@ -1,0 +1,94 @@
+name: Repair Equalizer and Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair-and-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Repair Equalizer Int/Float expressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("app/src/main/java/com/surafel/audio/EqualizerActivity.kt")
+          s = p.read_text(encoding="utf-8")
+          replacements = {
+              "b.top + activity.dp(7)": "b.top + activity.dp(7).toFloat()",
+              "b.bottom - activity.dp(7)": "b.bottom - activity.dp(7).toFloat()",
+          }
+          original = s
+          for old, new in replacements.items():
+              s = s.replace(old, new)
+          if s == original:
+              raise SystemExit("Expected Equalizer Int/Float expressions were not found")
+          p.write_text(s, encoding="utf-8")
+          print("Equalizer Int/Float expressions repaired")
+          PY
+
+      - name: Commit source repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/surafel/audio/EqualizerActivity.kt
+          if git diff --cached --quiet; then
+            echo "No source repair commit needed"
+          else
+            git commit -m "fix: repair Equalizer float coordinate types [skip ci]"
+            git push origin HEAD:main
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: tools platform-tools
+          accept-android-sdk-licenses: true
+
+      - name: Install Android SDK 35
+        shell: bash
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
+
+      - name: Clean
+        run: gradle clean --no-daemon
+
+      - name: Build debug APK
+        run: gradle assembleDebug --no-daemon --rerun-tasks --stacktrace
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Audio-equalizer-fixed-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
