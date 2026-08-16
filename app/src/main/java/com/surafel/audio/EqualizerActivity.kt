@@ -75,8 +75,8 @@ class EqualizerActivity : AudioToolPageActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Color.rgb(4, 16, 43)
-        window.navigationBarColor = Color.rgb(6, 14, 31)
+        window.statusBarColor = Color.rgb(6, 18, 42)
+        window.navigationBarColor = Color.rgb(7, 17, 37)
         buildPage()
         initializeEffects()
     }
@@ -100,29 +100,29 @@ class EqualizerActivity : AudioToolPageActivity() {
     private fun buildPage() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(7, 17, 37))
+            setBackgroundColor(Color.rgb(7, 20, 45))
         }
         setContentView(root)
 
-        root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(76)))
+        root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(72)))
 
         val scroll = ScrollView(this).apply {
             overScrollMode = View.OVER_SCROLL_NEVER
             isFillViewport = true
-            setBackgroundColor(Color.rgb(7, 17, 37))
+            setBackgroundColor(Color.rgb(7, 20, 45))
         }
 
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(28))
-            setBackgroundColor(Color.rgb(7, 17, 37))
+            setPadding(dp(16), dp(10), dp(16), dp(24))
+            setBackgroundColor(Color.rgb(7, 20, 45))
         }
         scroll.addView(content, ViewGroup.LayoutParams(-1, -2))
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
         content.addView(buildPresetCard(), cardParams())
         content.addView(buildBandCard(), cardParams())
-        content.addView(buildModeRow(), LinearLayout.LayoutParams(-1, dp(54)).apply { bottomMargin = dp(14) })
+        content.addView(buildModeRow(), LinearLayout.LayoutParams(-1, dp(52)).apply { bottomMargin = dp(14) })
         content.addView(buildReverbCard(), cardParams())
         content.addView(buildEnhancerCard(), cardParams())
     }
@@ -136,13 +136,13 @@ class EqualizerActivity : AudioToolPageActivity() {
         gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(14), 0, dp(14), 0)
         background = gradient(
-            intArrayOf(Color.rgb(36, 103, 160), Color.rgb(74, 93, 187)),
-            dp(24).toFloat()
+            intArrayOf(Color.rgb(42, 101, 181), Color.rgb(83, 91, 191)),
+            dp(18).toFloat()
         )
 
         addView(TextView(this@EqualizerActivity).apply {
             text = "‹"
-            textSize = 40f
+            textSize = 34f
             gravity = Gravity.CENTER
             includeFontPadding = false
             setTextColor(Color.WHITE)
@@ -151,7 +151,7 @@ class EqualizerActivity : AudioToolPageActivity() {
 
         addView(TextView(this@EqualizerActivity).apply {
             text = "Equalizer"
-            textSize = 23f
+            textSize = 22f
             gravity = Gravity.CENTER_VERTICAL
             includeFontPadding = false
             typeface = Typeface.create("sans", Typeface.NORMAL)
@@ -165,7 +165,7 @@ class EqualizerActivity : AudioToolPageActivity() {
                 setEffectsEnabled(checked)
                 refreshContentAlpha()
             }
-        }, LinearLayout.LayoutParams(dp(78), dp(48)))
+        }, LinearLayout.LayoutParams(dp(76), dp(44)))
     }
 
     private fun buildPresetCard(): View = cleanCard().apply {
@@ -245,7 +245,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             gravity = Gravity.CENTER
         }
         addBandViews(bandRow)
-        addView(bandRow, LinearLayout.LayoutParams(-1, dp(350)))
+        addView(bandRow, LinearLayout.LayoutParams(-1, dp(340)))
     }
 
     private fun addBandViews(bandRow: LinearLayout) {
@@ -257,7 +257,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             bandViews += view
             bandRow.addView(
                 view,
-                LinearLayout.LayoutParams(0, dp(350), 1f).apply {
+                LinearLayout.LayoutParams(0, dp(340), 1f).apply {
                     leftMargin = dp(1)
                     rightMargin = dp(1)
                 }
@@ -308,7 +308,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             setPadding(dp(18), 0, dp(18), 0)
             setOnClickListener { cycleReverb() }
         }
-        addView(reverbValue, LinearLayout.LayoutParams(-1, dp(58)))
+        addView(reverbValue, LinearLayout.LayoutParams(-1, dp(60)))
     }
 
     private fun buildEnhancerCard(): View = cleanCard().apply {
@@ -332,17 +332,17 @@ class EqualizerActivity : AudioToolPageActivity() {
             val knob = KnobView(this@EqualizerActivity, label, value) { v -> applyEnhancer(index, v) }
             knobViews += knob
             val target = if (index < 2) first else second
-            target.addView(knob, LinearLayout.LayoutParams(0, dp(225), 1f))
+            target.addView(knob, LinearLayout.LayoutParams(0, dp(210), 1f))
         }
 
         grid.addView(first)
         grid.addView(second)
-        addView(grid, LinearLayout.LayoutParams(-1, dp(450)))
+        addView(grid, LinearLayout.LayoutParams(-1, dp(420)))
     }
 
     private fun cleanCard(): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(dp(14), dp(10), dp(14), dp(14))
+        setPadding(dp(14), dp(9), dp(14), dp(12))
         background = HudFrameDrawable(this@EqualizerActivity)
     }
 
@@ -356,7 +356,7 @@ class EqualizerActivity : AudioToolPageActivity() {
 
         addView(TextView(this@EqualizerActivity).apply {
             text = title
-            textSize = 16f
+            textSize = 17f
             includeFontPadding = false
             typeface = Typeface.create("sans", Typeface.NORMAL)
             setTextColor(Color.rgb(224, 232, 246))
@@ -591,12 +591,12 @@ class EqualizerActivity : AudioToolPageActivity() {
         override fun draw(canvas: Canvas) {
             val b = bounds
             paint.style = Paint.Style.FILL
-            paint.color = Color.rgb(9, 20, 42)
+            paint.color = Color.rgb(10, 26, 56)
             canvas.drawRoundRect(RectF(b), radius, radius, paint)
 
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = stroke
-            paint.color = Color.rgb(42, 61, 91)
+            paint.color = Color.rgb(42, 65, 104)
             canvas.drawRoundRect(
                 RectF(
                     b.left + stroke / 2f,
@@ -644,18 +644,18 @@ class EqualizerActivity : AudioToolPageActivity() {
             GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 if (selected) {
-                    intArrayOf(Color.rgb(58, 112, 194), Color.rgb(45, 75, 139))
+                    intArrayOf(Color.rgb(60, 112, 194), Color.rgb(52, 82, 151))
                 } else {
-                    intArrayOf(Color.rgb(18, 34, 60), Color.rgb(15, 28, 51))
+                    intArrayOf(Color.rgb(20, 40, 72), Color.rgb(16, 33, 60))
                 }
             ).apply {
-                cornerRadius = dp(13).toFloat()
-                setStroke(dp(1), if (selected) Color.rgb(77, 127, 205) else Color.rgb(26, 42, 67))
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), if (selected) Color.rgb(91, 145, 224) else Color.rgb(38, 61, 96))
             }
 
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-            val desiredWidth = dp(146)
-            val desiredHeight = dp(52)
+            val desiredWidth = dp(160)
+            val desiredHeight = dp(50)
             val w = resolveSize(desiredWidth, widthMeasureSpec)
             val h = resolveSize(desiredHeight, heightMeasureSpec)
             setMeasuredDimension(w, h)
@@ -786,8 +786,17 @@ class EqualizerActivity : AudioToolPageActivity() {
         override fun onTouchEvent(event: MotionEvent): Boolean {
             val top = dp(45).toFloat()
             val bottom = height - dp(48)
-            when (event.action) {
-                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    val ratio = ((bottom - event.y) / (bottom - top)).coerceIn(0f, 1f)
+                    value = ratio * 30f - 15f
+                    applyBand(index, frequency, value)
+                    invalidate()
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    parent?.requestDisallowInterceptTouchEvent(true)
                     val ratio = ((bottom - event.y) / (bottom - top)).coerceIn(0f, 1f)
                     value = ratio * 30f - 15f
                     applyBand(index, frequency, value)
@@ -795,6 +804,7 @@ class EqualizerActivity : AudioToolPageActivity() {
                     return true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    parent?.requestDisallowInterceptTouchEvent(false)
                     performClick()
                     return true
                 }
@@ -896,12 +906,14 @@ class EqualizerActivity : AudioToolPageActivity() {
         }
 
         override fun onTouchEvent(event: MotionEvent): Boolean {
-            when (event.action) {
+            when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    parent?.requestDisallowInterceptTouchEvent(true)
                     lastY = event.y
                     return true
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    parent?.requestDisallowInterceptTouchEvent(true)
                     val dy = lastY - event.y
                     value = (value + dy / dp(170)).coerceIn(0f, 1f)
                     lastY = event.y
@@ -910,6 +922,7 @@ class EqualizerActivity : AudioToolPageActivity() {
                     return true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    parent?.requestDisallowInterceptTouchEvent(false)
                     performClick()
                     return true
                 }
