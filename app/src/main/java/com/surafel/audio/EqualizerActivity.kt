@@ -203,40 +203,37 @@ class EqualizerActivity : AudioToolPageActivity() {
 
         val pageWidth = resources.displayMetrics.widthPixels - dp(24)
         val gap = dp(6)
-        val cardWidth = ((pageWidth - gap * 2) / 3).coerceAtLeast(dp(90))
         val cardHeight = dp(40)
 
         presetNames.chunked(6).forEach { pageNames ->
+            val isFinalPage = pageNames.size < 6
+            val columns = if (isFinalPage) 2 else 3
+            val rows = pageNames.chunked(columns)
             val page = LinearLayout(this@EqualizerActivity).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(0, 0, dp(2), 0)
+                setPadding(0, 0, 0, 0)
+                clipChildren = false
+                clipToPadding = false
             }
-            val rows = if (pageNames.size == 4) {
-                listOf(listOf(pageNames[0], pageNames[1], ""), listOf(pageNames[2], pageNames[3], ""))
-            } else {
-                pageNames.chunked(3)
-            }
+
             rows.forEach { rowNames ->
                 val row = LinearLayout(this@EqualizerActivity).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
+                    setPadding(0, 0, 0, 0)
+                    clipChildren = false
+                    clipToPadding = false
                 }
-                rowNames.forEach { name ->
-                    if (name.isNotEmpty()) {
-                        row.addView(presetButton(name), LinearLayout.LayoutParams(cardWidth, cardHeight).apply {
-                            rightMargin = gap
-                            bottomMargin = gap
-                        })
-                    } else {
-                        row.addView(View(this@EqualizerActivity), LinearLayout.LayoutParams(cardWidth, cardHeight).apply {
-                            rightMargin = gap
-                            bottomMargin = gap
-                        })
+                rowNames.forEachIndexed { index, name ->
+                    val params = LinearLayout.LayoutParams(0, cardHeight, 1f).apply {
+                        rightMargin = if (index == rowNames.lastIndex) 0 else gap
+                        bottomMargin = gap
                     }
+                    row.addView(presetButton(name), params)
                 }
                 page.addView(row, LinearLayout.LayoutParams(pageWidth, cardHeight + gap))
             }
-            pages.addView(page, LinearLayout.LayoutParams(pageWidth, dp(92)))
+            pages.addView(page, LinearLayout.LayoutParams(pageWidth, rows.size * (cardHeight + gap)))
         }
 
         horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(92)))
