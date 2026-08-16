@@ -599,8 +599,8 @@ class EqualizerActivity : AudioToolPageActivity() {
             val inner = activity.dp(4).toFloat()
             paint.strokeWidth = activity.dp(1).toFloat()
             paint.color = Color.rgb(174, 38, 255)
-            canvas.drawLine(b.left + inner + cut, b.top + activity.dp(7).toFloat(), b.right - inner - cut, b.top + activity.dp(7).toFloat(), paint)
-            canvas.drawLine(b.left + inner + cut, b.bottom - activity.dp(7).toFloat(), b.right - inner - cut, b.bottom - activity.dp(7).toFloat(), paint)
+            canvas.drawLine(b.left + inner + cut, b.top + activity.dp(7).toFloat().toFloat(), b.right - inner - cut, b.top + activity.dp(7).toFloat().toFloat(), paint)
+            canvas.drawLine(b.left + inner + cut, b.bottom - activity.dp(7).toFloat().toFloat(), b.right - inner - cut, b.bottom - activity.dp(7).toFloat().toFloat(), paint)
 
             paint.color = Color.argb(75, 45, 216, 255)
             for (i in 1..7) {
