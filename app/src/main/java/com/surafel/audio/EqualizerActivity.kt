@@ -128,6 +128,8 @@ class EqualizerActivity : AudioToolPageActivity() {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(14), 0, dp(10), 0)
+        // ON: same flat dark-blue surface as the page. OFF: completely transparent.
+        // Never use a rounded/gradient card for the header.
         setBackgroundColor(if (enabled) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
 
         addView(TextView(this@EqualizerActivity).apply {
@@ -135,7 +137,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             textSize = 24f
             gravity = Gravity.CENTER
             includeFontPadding = false
-            setTextColor(Color.rgb(238, 242, 250))
+            setTextColor(if (enabled) Color.rgb(238, 242, 250) else Color.rgb(92, 103, 124))
             setOnClickListener { finish() }
         }, LinearLayout.LayoutParams(dp(38), -1))
 
@@ -144,7 +146,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             textSize = 18f
             gravity = Gravity.CENTER_VERTICAL
             includeFontPadding = false
-            setTextColor(Color.rgb(242, 245, 250))
+            setTextColor(if (enabled) Color.rgb(242, 245, 250) else Color.rgb(96, 108, 130))
         }, LinearLayout.LayoutParams(0, -1, 1f))
 
         addView(CleanSwitch(this@EqualizerActivity).apply {
@@ -155,6 +157,7 @@ class EqualizerActivity : AudioToolPageActivity() {
                 refreshContentAlpha()
                 this@EqualizerActivity.root.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
                 this@EqualizerActivity.root.getChildAt(0)?.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
+                this@EqualizerActivity.root.getChildAt(0)?.invalidate()
             }
         }, LinearLayout.LayoutParams(dp(52), dp(32)))
     }
@@ -818,19 +821,19 @@ class EqualizerActivity : AudioToolPageActivity() {
             val radius = trackH / 2f
 
             paint.style = Paint.Style.FILL
-            paint.color = if (value) Color.rgb(72, 91, 205) else Color.rgb(48, 59, 79)
+            paint.color = if (value) Color.rgb(72, 91, 205) else Color.TRANSPARENT
             canvas.drawRoundRect(RectF(left, top, right, bottom), radius, radius, paint)
 
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 2f * d
-            paint.color = if (value) Color.rgb(147, 91, 245) else Color.rgb(75, 89, 111)
+            paint.strokeWidth = if (value) 2f * d else 1.5f * d
+            paint.color = if (value) Color.rgb(147, 91, 245) else Color.rgb(76, 91, 116)
             canvas.drawRoundRect(RectF(left, top, right, bottom), radius, radius, paint)
 
             // Colored ON state / neutral OFF state, with a clearly visible thumb.
             val thumbR = 11f * d
             val x = if (value) right - thumbR - 3f * d else left + thumbR + 3f * d
             paint.style = Paint.Style.FILL
-            paint.color = if (value) Color.rgb(249, 241, 255) else Color.rgb(225, 231, 239)
+            paint.color = if (value) Color.rgb(249, 241, 255) else Color.rgb(112, 122, 140)
             canvas.drawCircle(x, top + trackH / 2f, thumbR, paint)
         }
 
