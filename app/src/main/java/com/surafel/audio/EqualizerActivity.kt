@@ -58,8 +58,8 @@ class EqualizerActivity : AudioToolPageActivity() {
 
     private val fiveFrequencies = intArrayOf(60, 230, 910, 3600, 14000)
     private val tenFrequencies = intArrayOf(31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
-    private val reverbNames = arrayOf("NONE", "SMALL ROOM", "MEDIUM ROOM", "LARGE ROOM", "MEDIUM HALL", "LARGE HALL")
-    private val reverbPresets = shortArrayOf(PresetReverb.PRESET_NONE, PresetReverb.PRESET_SMALLROOM, PresetReverb.PRESET_MEDIUMROOM, PresetReverb.PRESET_LARGEROOM, PresetReverb.PRESET_MEDIUMHALL, PresetReverb.PRESET_LARGEHALL)
+    private val reverbNames = arrayOf("NONE", "SMALL ROOM", "MEDIUM ROOM", "BIG ROOM", "CONCERT HALL", "ARENA", "STUDIO VOCAL")
+    private val reverbPresets = shortArrayOf(PresetReverb.PRESET_NONE, PresetReverb.PRESET_SMALLROOM, PresetReverb.PRESET_MEDIUMROOM, PresetReverb.PRESET_LARGEROOM, PresetReverb.PRESET_MEDIUMHALL, PresetReverb.PRESET_LARGEHALL, PresetReverb.PRESET_LARGEHALL)
 
     private val presetNames = listOf(
         "CUSTOM", "NORMAL", "FLAT", "POP", "LIVE", "ROCK", "BASS_TREBLE", "BASS", "HIP_HOP", "JAZZ",
@@ -530,7 +530,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             "Adds depth and a grand sense of space.",
             "Make vocals clearer and more present."
         )
-        var pending = reverbIndex.coerceIn(0, 5)
+        var pending = reverbIndex.coerceIn(0, reverbNames.lastIndex)
         val items = Array(names.size) { i -> "${names[i]}\n${descriptions[i]}" }
         AlertDialog.Builder(this)
             .setTitle("Choose Reverb")
@@ -541,7 +541,7 @@ class EqualizerActivity : AudioToolPageActivity() {
     }
 
     private fun applyReverbChoice(index: Int) {
-        val safe = index.coerceIn(0, 5)
+        val safe = index.coerceIn(0, reverbNames.lastIndex)
         reverbIndex = safe
         reverbValue.text = "${reverbDisplayName(reverbIndex)}   ›"
         try {
