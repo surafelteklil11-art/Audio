@@ -343,12 +343,7 @@ class EqualizerActivity : AudioToolPageActivity() {
     private fun cleanCard(): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(14), dp(10), dp(14), dp(14))
-        background = rounded(
-            fill = Color.rgb(9, 20, 42),
-            stroke = Color.rgb(42, 61, 91),
-            width = dp(1),
-            radius = dp(18).toFloat()
-        )
+        background = HudFrameDrawable(this@EqualizerActivity)
     }
 
     private fun sectionTitle(
@@ -587,6 +582,45 @@ class EqualizerActivity : AudioToolPageActivity() {
         GradientDrawable(GradientDrawable.Orientation.TL_BR, colors).apply {
             cornerRadius = radius
         }
+
+    private class HudFrameDrawable(activity: EqualizerActivity) : android.graphics.drawable.Drawable() {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val radius = activity.dp(18).toFloat()
+        private val stroke = activity.dp(1).toFloat()
+
+        override fun draw(canvas: Canvas) {
+            val b = bounds
+            paint.style = Paint.Style.FILL
+            paint.color = Color.rgb(9, 20, 42)
+            canvas.drawRoundRect(RectF(b), radius, radius, paint)
+
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = stroke
+            paint.color = Color.rgb(42, 61, 91)
+            canvas.drawRoundRect(
+                RectF(
+                    b.left + stroke / 2f,
+                    b.top + stroke / 2f,
+                    b.right - stroke / 2f,
+                    b.bottom - stroke / 2f
+                ),
+                radius,
+                radius,
+                paint
+            )
+        }
+
+        override fun setAlpha(alpha: Int) {
+            paint.alpha = alpha
+        }
+
+        override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) {
+            paint.colorFilter = colorFilter
+        }
+
+        @Deprecated("Deprecated in Java")
+        override fun getOpacity(): Int = android.graphics.PixelFormat.TRANSLUCENT
+    }
 
     private inner class UiButton(context: Context, label: String) : TextView(context) {
         init {
