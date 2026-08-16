@@ -112,10 +112,10 @@ class EqualizerActivity : AudioToolPageActivity() {
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
         content.addView(buildPresetPanel(), LinearLayout.LayoutParams(-1, dp(174)).apply { bottomMargin = dp(10) })
-        content.addView(buildBandPanel(), LinearLayout.LayoutParams(-1, dp(466)).apply { bottomMargin = dp(10) })
+        content.addView(buildBandPanel(), LinearLayout.LayoutParams(-1, dp(490)).apply { bottomMargin = dp(10) })
         content.addView(buildModePanel(), LinearLayout.LayoutParams(-1, dp(58)).apply { bottomMargin = dp(10) })
         content.addView(buildReverbPanel(), LinearLayout.LayoutParams(-1, dp(122)).apply { bottomMargin = dp(10) })
-        content.addView(buildEnhancerPanel(), LinearLayout.LayoutParams(-1, dp(270)))
+        content.addView(buildEnhancerPanel(), LinearLayout.LayoutParams(-1, dp(278)))
     }
 
     private fun buildHeader(): View = LinearLayout(this@EqualizerActivity).apply {
@@ -546,10 +546,7 @@ class EqualizerActivity : AudioToolPageActivity() {
                 paint.strokeWidth = activity.dp(1).toFloat()
                 paint.color = Color.rgb(185, 42, 255)
                 val inset = activity.dp(5).toFloat()
-                canvas.drawRect(
-                    b.left + inset, b.top + inset,
-                    b.right - inset, b.bottom - inset, paint
-                )
+                canvas.drawRect(b.left + inset, b.top + inset, b.right - inset, b.bottom - inset, paint)
             }
             paint.style = Paint.Style.FILL
         }
@@ -646,10 +643,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             val bottom = cy + dpLocal(20f)
 
             paint.style = Paint.Style.FILL
-            paint.shader = LinearGradient(
-                left, top, right, bottom,
-                Color.rgb(26, 102, 255), Color.rgb(183, 39, 255), Shader.TileMode.CLAMP
-            )
+            paint.shader = LinearGradient(left, top, right, bottom, Color.rgb(26, 102, 255), Color.rgb(183, 39, 255), Shader.TileMode.CLAMP)
             canvas.drawRoundRect(RectF(left, top, right, bottom), dpLocal(20f), dpLocal(20f), paint)
             paint.shader = null
 
@@ -716,23 +710,14 @@ class EqualizerActivity : AudioToolPageActivity() {
                 canvas.drawLine(dp(4).toFloat(), y, w - dp(4).toFloat(), y, paint)
             }
 
-            paint.shader = LinearGradient(
-                0f, top, 0f, bottom,
-                Color.rgb(190, 43, 255), Color.rgb(16, 236, 225), Shader.TileMode.CLAMP
-            )
-            canvas.drawRoundRect(
-                RectF(cx - trackW / 2, top, cx + trackW / 2, bottom),
-                trackW / 2, trackW / 2, paint
-            )
+            paint.shader = LinearGradient(0f, top, 0f, bottom, Color.rgb(190, 43, 255), Color.rgb(16, 236, 225), Shader.TileMode.CLAMP)
+            canvas.drawRoundRect(RectF(cx - trackW / 2, top, cx + trackW / 2, bottom), trackW / 2, trackW / 2, paint)
             paint.shader = null
 
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = dp(2).toFloat()
             paint.color = Color.rgb(39, 126, 255)
-            canvas.drawRoundRect(
-                RectF(cx - trackW / 2 - dp(3), top - dp(2), cx + trackW / 2 + dp(3), bottom + dp(2)),
-                trackW, trackW, paint
-            )
+            canvas.drawRoundRect(RectF(cx - trackW / 2 - dp(3), top - dp(2), cx + trackW / 2 + dp(3), bottom + dp(2)), trackW, trackW, paint)
 
             val ratio = (value + 15f) / 30f
             val thumbY = bottom - ratio * (bottom - top)
@@ -817,14 +802,8 @@ class EqualizerActivity : AudioToolPageActivity() {
             paint.color = Color.rgb(19, 34, 61)
             canvas.drawArc(RectF(cx - radius, cy - radius, cx + radius, cy + radius), 140f, 260f, false, paint)
 
-            paint.shader = LinearGradient(
-                0f, 0f, w, h,
-                Color.rgb(8, 236, 224), Color.rgb(205, 43, 255), Shader.TileMode.CLAMP
-            )
-            canvas.drawArc(
-                RectF(cx - radius, cy - radius, cx + radius, cy + radius),
-                140f, 260f * value, false, paint
-            )
+            paint.shader = LinearGradient(0f, 0f, w, h, Color.rgb(8, 236, 224), Color.rgb(205, 43, 255), Shader.TileMode.CLAMP)
+            canvas.drawArc(RectF(cx - radius, cy - radius, cx + radius, cy + radius), 140f, 260f * value, false, paint)
             paint.shader = null
 
             paint.strokeCap = Paint.Cap.BUTT
@@ -844,10 +823,7 @@ class EqualizerActivity : AudioToolPageActivity() {
             }
 
             paint.style = Paint.Style.FILL
-            paint.shader = LinearGradient(
-                0f, cy - radius * .6f, 0f, cy + radius * .6f,
-                Color.rgb(45, 45, 104), Color.rgb(8, 12, 38), Shader.TileMode.CLAMP
-            )
+            paint.shader = LinearGradient(0f, cy - radius * .6f, 0f, cy + radius * .6f, Color.rgb(45, 45, 104), Color.rgb(8, 12, 38), Shader.TileMode.CLAMP)
             canvas.drawCircle(cx, cy, radius * .65f, paint)
             paint.shader = null
 
