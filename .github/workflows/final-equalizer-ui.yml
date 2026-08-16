@@ -17,7 +17,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply Equalizer responsive UI fix
+      - name: Apply Equalizer presets viewport fix
         shell: bash
         run: |
           set -euo pipefail
@@ -29,47 +29,126 @@ jobs:
           s = p.read_text(encoding="utf-8")
           original = s
 
-          # Header: smaller title/switch and exactly the same dark-blue surface as the page.
-          s = s.replace('root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(68)))',
-                        'root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(60)))')
-          s = s.replace('setBackgroundColor(Color.TRANSPARENT)\n\n        addView(TextView(this@EqualizerActivity).apply {\n            text = "←"',
-                        'setBackgroundColor(Color.rgb(7, 20, 45))\n\n        addView(TextView(this@EqualizerActivity).apply {\n            text = "←"')
-          s = s.replace('textSize = 28f', 'textSize = 24f', 1)
-          s = s.replace('LinearLayout.LayoutParams(dp(44), -1)', 'LinearLayout.LayoutParams(dp(38), -1)', 1)
-          s = s.replace('textSize = 20f', 'textSize = 18f', 1)
-          s = s.replace('LinearLayout.LayoutParams(dp(60), dp(38))', 'LinearLayout.LayoutParams(dp(52), dp(32))', 1)
+          # Replace only the Presets layout. Keep all Equalizer, Reverb,
+          # Enhancer, ON/OFF and Custom-state behavior untouched.
+          start = s.index('    private fun buildPresetSection(): View =')
+          end = s.index('    private fun presetButton(name: String): UiButton {', start)
 
-          # Presets: keep the 3x2 grid, but give the whole section enough height so
-          # the second row is never covered by the Equalizer card.
-          s = s.replace('content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(146)))',
-                        'content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(178)))')
-          s = s.replace('val cardHeight = dp(44)', 'val cardHeight = dp(40)')
-          s = s.replace('pages.addView(page, LinearLayout.LayoutParams(pageWidth, dp(100)))',
-                        'pages.addView(page, LinearLayout.LayoutParams(pageWidth, dp(92)))')
-          s = s.replace('horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(100)))',
-                        'horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(92)))')
-          s = s.replace('addView(horizontal, LinearLayout.LayoutParams(-1, dp(100)))',
-                        'addView(horizontal, LinearLayout.LayoutParams(-1, dp(92)))')
+          new_function = '''    private fun buildPresetSection(): View = LinearLayout(this).apply {
+          orientation = LinearLayout.VERTICAL
+          setBackgroundColor(Color.TRANSPARENT)
 
-          # 10-band: reduce horizontal footprint of every track/thumb/label so ten
-          # bands have visible breathing room instead of touching each other.
-          s = s.replace('val trackW = dp(if (tenBand) 7 else 9).toFloat()',
-                        'val trackW = dp(if (tenBand) 5 else 8).toFloat()')
-          s = s.replace('val thumbW = dp(if (tenBand) 24 else 32).toFloat()',
-                        'val thumbW = dp(if (tenBand) 20 else 30).toFloat()')
-          s = s.replace('val thumbH = dp(if (tenBand) 19 else 23).toFloat()',
-                        'val thumbH = dp(if (tenBand) 17 else 22).toFloat()')
-          s = s.replace('paint.textSize = dp(if (tenBand) 8 else 10).toFloat()',
-                        'paint.textSize = dp(if (tenBand) 7 else 9).toFloat()')
-          s = s.replace('paint.textSize = dp(if (tenBand) 6 else 8).toFloat()',
-                        'paint.textSize = dp(if (tenBand) 6 else 8).toFloat()')
+          val titleRow = LinearLayout(this@EqualizerActivity).apply {
+              orientation = LinearLayout.HORIZONTAL
+              gravity = Gravity.CENTER_VERTICAL
+          }
+          titleRow.addView(TextView(this@EqualizerActivity).apply {
+              text = "Presets"
+              textSize = 22f
+              includeFontPadding = false
+              gravity = Gravity.CENTER_VERTICAL
+              setTextColor(Color.rgb(238, 242, 250))
+          }, LinearLayout.LayoutParams(0, dp(38), 1f))
+          titleRow.addView(TextView(this@EqualizerActivity).apply {
+              text = "More   ›"
+              textSize = 16f
+              includeFontPadding = false
+              gravity = Gravity.CENTER
+              setTextColor(Color.rgb(170, 181, 201))
+              setOnClickListener { Toast.makeText(this@EqualizerActivity, "Swipe left/right for more presets", Toast.LENGTH_SHORT).show() }
+          }, LinearLayout.LayoutParams(dp(94), dp(38)))
+          addView(titleRow, LinearLayout.LayoutParams(-1, dp(40)))
 
-          # Make the band columns use all available width with no extra side margins.
-          s = s.replace('leftMargin = dp(1)\n                rightMargin = dp(1)',
-                        'leftMargin = 0\n                rightMargin = 0')
+          val horizontal = HorizontalScrollView(this@EqualizerActivity).apply {
+              isHorizontalScrollBarEnabled = false
+              overScrollMode = View.OVER_SCROLL_NEVER
+              isFillViewport = false
+              clipToPadding = true
+              clipChildren = true
+              setPadding(0, 0, 0, 0)
+          }
+
+          val pages = LinearLayout(this@EqualizerActivity).apply {
+              orientation = LinearLayout.HORIZONTAL
+              setPadding(0, 0, 0, 0)
+              clipChildren = true
+              clipToPadding = false
+          }
+
+          val gap = dp(6)
+          val cardHeight = dp(40)
+          val pageViews = mutableListOf<LinearLayout>()
+
+          presetNames.chunked(6).forEach { pageNames ->
+              val page = LinearLayout(this@EqualizerActivity).apply {
+                  orientation = LinearLayout.VERTICAL
+                  gravity = Gravity.TOP
+                  setPadding(0, 0, 0, 0)
+                  clipChildren = true
+                  clipToPadding = false
+              }
+              pageViews += page
+
+              pageNames.chunked(3).forEach { rowNames ->
+                  val row = LinearLayout(this@EqualizerActivity).apply {
+                      orientation = LinearLayout.HORIZONTAL
+                      gravity = Gravity.CENTER_VERTICAL
+                      setPadding(0, 0, 0, 0)
+                      clipChildren = true
+                      clipToPadding = false
+                  }
+                  rowNames.forEachIndexed { index, name ->
+                      row.addView(presetButton(name), LinearLayout.LayoutParams(0, cardHeight, 1f).apply {
+                          rightMargin = if (index == rowNames.lastIndex) 0 else gap
+                          bottomMargin = gap
+                      })
+                  }
+                  // Fill an incomplete final row with invisible spacers so
+                  // every page keeps exactly the same 3-column geometry.
+                  repeat(3 - rowNames.size) {
+                      row.addView(View(this@EqualizerActivity), LinearLayout.LayoutParams(0, cardHeight, 1f).apply {
+                          rightMargin = if (it == 3 - rowNames.size - 1) 0 else gap
+                          bottomMargin = gap
+                      })
+                  }
+                  page.addView(row, LinearLayout.LayoutParams(-1, cardHeight + gap))
+              }
+
+              // Every page is sized later to the actual horizontal viewport.
+              pages.addView(page, LinearLayout.LayoutParams(0, dp(92)))
+          }
+
+          horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(92)))
+          addView(horizontal, LinearLayout.LayoutParams(-1, dp(92)))
+
+          // Important: measure the real content viewport, not displayMetrics.
+          // Then give both each page and the pages container exact widths.
+          horizontal.post {
+              val viewportWidth = horizontal.width
+              if (viewportWidth > 0 && pageViews.isNotEmpty()) {
+                  pageViews.forEach { page ->
+                      page.layoutParams = LinearLayout.LayoutParams(viewportWidth, dp(92))
+                  }
+                  pages.layoutParams = LinearLayout.LayoutParams(viewportWidth * pageViews.size, dp(92))
+                  pages.requestLayout()
+                  horizontal.requestLayout()
+              }
+          }
+      }
+
+'''
+
+          s = s[:start] + new_function + s[end:]
+
+          # The section itself should contain only the title + the two preset rows;
+          # remove the old extra vertical space below the grid.
+          s = s.replace(
+              'content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(184)))',
+              'content.addView(buildPresetSection(), LinearLayout.LayoutParams(-1, dp(142)))'
+          )
 
           if s == original:
-              raise SystemExit("No Equalizer source changes were applied")
+              raise SystemExit("No Presets source changes were applied")
           p.write_text(s, encoding="utf-8")
           PY
 
@@ -83,7 +162,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No source changes to commit"
           else
-            git commit -m "fix: compact Equalizer header presets and 10-band spacing [skip ci]"
+            git commit -m "fix: make Equalizer presets pages fit viewport [skip ci]"
             git push origin HEAD:main
           fi
 
