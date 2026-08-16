@@ -544,7 +544,7 @@ class EqualizerActivity : AudioToolPageActivity() {
         }
         header.addView(TextView(this@EqualizerActivity).apply {
             text = "Choose Reverb"
-            textSize = 20f
+            textSize = 18f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.rgb(242, 245, 250))
         }, LinearLayout.LayoutParams(0, dp(46), 1f))
