@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#030812"/><stop offset=".55" stop-color="#0a1426"/><stop offset="1" stop-color="#050914"/></linearGradient>
+  <radialGradient id="metal" cx=".5" cy=".42" r=".72"><stop offset="0" stop-color="#17263a"/><stop offset=".65" stop-color="#0b1423"/><stop offset="1" stop-color="#030710"/></radialGradient>
+  <linearGradient id="neon" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#00f6ff"/><stop offset=".55" stop-color="#27a9ff"/><stop offset="1" stop-color="#556cff"/></linearGradient>
+  <filter id="glow"><feGaussianBlur stdDeviation="16" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect x="12" y="12" width="1000" height="1000" rx="190" fill="url(#bg)"/>
+<rect x="32" y="32" width="960" height="960" rx="170" fill="url(#metal)" stroke="#17283d" stroke-width="5"/>
+<g fill="none" stroke="url(#neon)" opacity=".25"><circle cx="512" cy="500" r="395" stroke-width="5"/><circle cx="512" cy="500" r="350" stroke-width="3"/><circle cx="512" cy="500" r="305" stroke-width="2"/></g>
+<g fill="none" stroke="#00eaff" stroke-width="8" stroke-linecap="round" opacity=".45" filter="url(#glow)"><path d="M150 650 A380 380 0 0 1 250 260"/><path d="M770 260 A380 380 0 0 1 874 650"/></g>
+<g fill="none" stroke="#02060c" stroke-width="58" stroke-linecap="round"><path d="M250 570 A262 262 0 0 1 774 570"/></g>
+<g fill="none" stroke="url(#neon)" stroke-width="12" stroke-linecap="round" filter="url(#glow)"><path d="M250 570 A262 262 0 0 1 774 570"/></g>
+<g><rect x="238" y="540" width="100" height="210" rx="42" fill="#050a12" stroke="#16dfff" stroke-width="8"/><rect x="686" y="540" width="100" height="210" rx="42" fill="#050a12" stroke="#16dfff" stroke-width="8"/><rect x="258" y="570" width="60" height="150" rx="28" fill="#18273a" stroke="#31506a" stroke-width="5"/><rect x="706" y="570" width="60" height="150" rx="28" fill="#18273a" stroke="#31506a" stroke-width="5"/></g>
+<g fill="#00eaff" filter="url(#glow)"><rect x="326" y="477" width="28" height="70" rx="14"/><rect x="366" y="432" width="28" height="160" rx="14"/><rect x="406" y="390" width="28" height="244" rx="14"/><rect x="446" y="345" width="28" height="334" rx="14"/><rect x="486" y="405" width="28" height="214" rx="14"/><rect x="526" y="360" width="28" height="304" rx="14"/><rect x="566" y="414" width="28" height="196" rx="14"/><rect x="606" y="390" width="28" height="244" rx="14"/><rect x="646" y="445" width="28" height="134" rx="14"/></g>
+<g fill="#fff" opacity=".9"><circle cx="512" cy="215" r="6"/><circle cx="512" cy="785" r="6"/></g>
+<text x="512" y="892" text-anchor="middle" font-family="sans-serif" font-size="82" font-weight="700" letter-spacing="12" fill="#35dfff" filter="url(#glow)">AUDIO</text>
+<rect x="32" y="32" width="960" height="960" rx="170" fill="none" stroke="#00dfff" stroke-opacity=".12" stroke-width="3"/>
+</svg>

@@ -10,7 +10,7 @@
         android:name=".AudioApplication"
         android:theme="@style/Theme.Audio"
         android:label="Audio"
-        android:icon="@drawable/ic_audio"
+        android:icon="@mipmap/ic_launcher"
         android:allowBackup="true">
         <provider android:name=".VaultHookProvider" android:authorities="${applicationId}.vault-hook" android:exported="false" android:initOrder="100" />
         <provider android:name=".WeeklyReportRedirectProvider" android:authorities="${applicationId}.weekly-report-redirect" android:exported="false" android:initOrder="90" />
