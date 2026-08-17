@@ -4,7 +4,7 @@ import cairosvg
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-svg = ROOT / "app/src/main/res/drawable/ic_launcher_art.svg"
+svg = ROOT / "tools/ic_launcher_art.svg"
 data = svg.read_bytes()
 sizes = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
 png = cairosvg.svg2png(bytestring=data, output_width=1024, output_height=1024)
