@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "app/src/main/res/drawable/ic_launcher_art.svg"
+      - "tools/ic_launcher_art.svg"
       - ".github/workflows/generate-launcher-icons.yml"
       - "tools/generate_launcher_icons.py"
   workflow_dispatch:
