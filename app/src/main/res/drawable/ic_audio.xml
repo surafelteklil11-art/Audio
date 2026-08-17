@@ -1,9 +1,44 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#090D1D" android:pathData="M54,4A50,50 0,1 0,54 104A50,50 0,1 0,54 4"/>
-    <path android:fillColor="#26E6C5" android:pathData="M54,9A45,45 0,0 0,18 27L23,32A38,38 0,0 1,54 16Z"/>
-    <path android:fillColor="#8A48FF" android:pathData="M18,27A45,45 0,0 0,13 54L21,54A37,37 0,0 1,23 32Z"/>
-    <path android:fillColor="#FF3F9F" android:pathData="M13,54A45,45 0,0 0,78 92L74,84A37,37 0,0 1,21 54Z"/>
-    <path android:fillColor="#FFC85A" android:pathData="M78,92A45,45 0,0 0,95 54L87,54A37,37 0,0 1,74 84Z"/>
-    <path android:fillColor="#FFFFFF" android:pathData="M59,25L59,63A12,12 0,1 0,66 73L66,43L84,37L84,27L59,25Z"/>
-    <path android:fillColor="#FFFFFF" android:pathData="M24,58L29,58L29,79L24,79ZM34,50L39,50L39,79L34,79ZM44,42L49,42L49,79L44,79Z"/>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Soft dark background -->
+    <path
+        android:fillColor="#0B0F1A"
+        android:pathData="M54,0C24.2,0 0,24.2 0,54s24.2,54 54,54 54,-24.2 54,-54S83.8,0 54,0z"/>
+
+    <!-- Subtle cyan glow ring -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#26E6C5"
+        android:strokeWidth="1.5"
+        android:strokeAlpha="0.35"
+        android:pathData="M54,8A46,46 0,1 1,54 100A46,46 0,1 1,54 8z"/>
+
+    <!-- Soft purple accent -->
+    <path
+        android:fillColor="#8A48FF"
+        android:fillAlpha="0.18"
+        android:pathData="M54,12A42,42 0,0 1,90 40L84,44A35,35 0,0 0,54 20Z"/>
+
+    <!-- Soft cyan accent -->
+    <path
+        android:fillColor="#26E6C5"
+        android:fillAlpha="0.15"
+        android:pathData="M18,40A42,42 0,0 1,54 12L54,20A35,35 0,0 0,24 44Z"/>
+
+    <!-- Modern music note -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M62,28 L62,62 C62,68.6 56.6,74 50,74 C43.4,74 38,68.6 38,62 C38,55.4 43.4,50 50,50 C52.2,50 54.2,50.6 56,51.6 L56,34 L76,28 L76,36 L62,40 Z"/>
+
+    <!-- Equalizer bars -->
+    <path android:fillColor="#26E6C5" android:pathData="M28,58 h6 v18 h-6z"/>
+    <path android:fillColor="#8A48FF" android:pathData="M38,48 h6 v28 h-6z"/>
+    <path android:fillColor="#FF3F9F" android:pathData="M48,40 h6 v36 h-6z"/>
+    <path android:fillColor="#FFC85A" android:pathData="M58,50 h6 v26 h-6z"/>
+    <path android:fillColor="#26E6C5" android:pathData="M68,44 h6 v32 h-6z"/>
+
 </vector>
