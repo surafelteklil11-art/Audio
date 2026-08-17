@@ -4,41 +4,50 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Soft dark background -->
+    <!-- Dark rounded background -->
     <path
         android:fillColor="#0B0F1A"
-        android:pathData="M54,0C24.2,0 0,24.2 0,54s24.2,54 54,54 54,-24.2 54,-54S83.8,0 54,0z"/>
+        android:pathData="M24,8 C14,8 8,14 8,24 L8,84 C8,94 14,100 24,100 L84,100 C94,100 100,94 100,84 L100,24 C100,14 94,8 84,8 Z"/>
 
-    <!-- Subtle cyan glow ring -->
+    <!-- Outer soft glow ring -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#26E6C5"
-        android:strokeWidth="1.5"
-        android:strokeAlpha="0.35"
-        android:pathData="M54,8A46,46 0,1 1,54 100A46,46 0,1 1,54 8z"/>
+        android:strokeColor="#00B4FF"
+        android:strokeWidth="2.5"
+        android:strokeAlpha="0.6"
+        android:pathData="M54,14 A40,40 0 1,1 53.9,14 Z"/>
 
-    <!-- Soft purple accent -->
+    <!-- Headphones headband -->
     <path
-        android:fillColor="#8A48FF"
-        android:fillAlpha="0.18"
-        android:pathData="M54,12A42,42 0,0 1,90 40L84,44A35,35 0,0 0,54 20Z"/>
+        android:fillColor="#00000000"
+        android:strokeColor="#00D4FF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M32,42 C32,28 42,22 54,22 C66,22 76,28 76,42"/>
 
-    <!-- Soft cyan accent -->
+    <!-- Left ear cup -->
     <path
-        android:fillColor="#26E6C5"
-        android:fillAlpha="0.15"
-        android:pathData="M18,40A42,42 0,0 1,54 12L54,20A35,35 0,0 0,24 44Z"/>
+        android:fillColor="#121826"
+        android:strokeColor="#00D4FF"
+        android:strokeWidth="3"
+        android:pathData="M28,48 C22,48 18,54 18,62 C18,70 22,76 28,76 C34,76 38,70 38,62 C38,54 34,48 28,48 Z"/>
 
-    <!-- Modern music note -->
+    <!-- Right ear cup -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M62,28 L62,62 C62,68.6 56.6,74 50,74 C43.4,74 38,68.6 38,62 C38,55.4 43.4,50 50,50 C52.2,50 54.2,50.6 56,51.6 L56,34 L76,28 L76,36 L62,40 Z"/>
+        android:fillColor="#121826"
+        android:strokeColor="#00D4FF"
+        android:strokeWidth="3"
+        android:pathData="M80,48 C74,48 70,54 70,62 C70,70 74,76 80,76 C86,76 90,70 90,62 C90,54 86,48 80,48 Z"/>
 
-    <!-- Equalizer bars -->
-    <path android:fillColor="#26E6C5" android:pathData="M28,58 h6 v18 h-6z"/>
-    <path android:fillColor="#8A48FF" android:pathData="M38,48 h6 v28 h-6z"/>
-    <path android:fillColor="#FF3F9F" android:pathData="M48,40 h6 v36 h-6z"/>
-    <path android:fillColor="#FFC85A" android:pathData="M58,50 h6 v26 h-6z"/>
-    <path android:fillColor="#26E6C5" android:pathData="M68,44 h6 v32 h-6z"/>
+    <!-- Waveform in the center -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M42,62 L44,54 L46,68 L48,50 L50,70 L52,48 L54,72 L56,46 L58,70 L60,52 L62,66 L64,56 L66,62"/>
+
+    <!-- Small accent dots -->
+    <path android:fillColor="#00B4FF" android:pathData="M24,28 A1.5,1.5 0 1,1 23.9,28 Z"/>
+    <path android:fillColor="#00B4FF" android:pathData="M84,28 A1.5,1.5 0 1,1 83.9,28 Z"/>
+    <path android:fillColor="#00B4FF" android:pathData="M24,80 A1.5,1.5 0 1,1 23.9,80 Z"/>
+    <path android:fillColor="#00B4FF" android:pathData="M84,80 A1.5,1.5 0 1,1 83.9,80 Z"/>
 
 </vector>
