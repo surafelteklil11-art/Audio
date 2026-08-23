@@ -1,1 +1,1 @@
-equalizer on/off header polish — flat ON surface, transparent OFF surface, clean switch
+equalizer audio-session crash fix — bind insert effects to the active Media3 session and retry safely
