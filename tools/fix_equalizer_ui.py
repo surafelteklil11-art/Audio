@@ -1,111 +1,103 @@
 from pathlib import Path
+import re
 
 PATH = Path("app/src/main/java/com/surafel/audio/EqualizerActivity.kt")
 s = PATH.read_text(encoding="utf-8")
 
-# Keep this repair script idempotent: the current source already contains the
-# preset/reverb/custom-state fixes, so this pass only normalizes the header and
-# ON/OFF appearance without undoing those fixes.
+# Keep the existing UI fixes intact. This repair targets the crash that can
+# happen when Android audio effects are created against session 0 before the
+# Media3 player has exposed its real audio session.
 
-old = '''    private fun buildHeader(): View = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(14), 0, dp(10), 0)
-        setBackgroundColor(if (enabled) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
+if "private var effectsSessionId = 0" not in s:
+    marker = "    private var reverbIndex = 0\n"
+    s = s.replace(marker, marker + "    private var effectsSessionId = 0\n", 1)
 
-        addView(TextView(this@EqualizerActivity).apply {
-            text = "←"
-            textSize = 24f
-            gravity = Gravity.CENTER
-            includeFontPadding = false
-            setTextColor(Color.rgb(238, 242, 250))
-            setOnClickListener { finish() }
-        }, LinearLayout.LayoutParams(dp(38), -1))
+if "private val effectRetry" not in s:
+    marker = "    private val presetButtons = mutableMapOf<String, UiButton>()\n"
+    s = s.replace(marker, marker + '''
+    private val effectRetry = Runnable {
+        if (!isFinishing && !isDestroyed) initializeEffects()
+    }
+''', 1)
 
-        addView(TextView(this@EqualizerActivity).apply {
-            text = "Equalizer"
-            textSize = 18f
-            gravity = Gravity.CENTER_VERTICAL
-            includeFontPadding = false
-            setTextColor(Color.rgb(242, 245, 250))
-        }, LinearLayout.LayoutParams(0, -1, 1f))
-'''
+s = s.replace(
+'''    override fun onDestroy() {
+        equalizer?.release()''',
+'''    override fun onDestroy() {
+        if (::root.isInitialized) root.removeCallbacks(effectRetry)
+        equalizer?.release()''', 1)
 
-new = '''    private fun buildHeader(): View = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(14), 0, dp(10), 0)
-        // ON: same flat dark-blue surface as the page. OFF: completely transparent.
-        // Never use a rounded/gradient card for the header.
-        setBackgroundColor(if (enabled) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
+pattern = re.compile(r"    private fun initializeEffects\(\) \{.*?\n    \}\n\n    private fun refreshContentAlpha\(\)", re.S)
+replacement = '''    private fun initializeEffects() {
+        val sessionId = VolumeBoosterController.getAudioSessionId()
 
-        addView(TextView(this@EqualizerActivity).apply {
-            text = "←"
-            textSize = 24f
-            gravity = Gravity.CENTER
-            includeFontPadding = false
-            setTextColor(if (enabled) Color.rgb(238, 242, 250) else Color.rgb(92, 103, 124))
-            setOnClickListener { finish() }
-        }, LinearLayout.LayoutParams(dp(38), -1))
+        // Insert effects must be attached to the same audio session as the
+        // Media3/ExoPlayer output. Session 0 is the global mix and is not a
+        // safe target for Equalizer/BassBoost/Virtualizer on modern Android.
+        if (sessionId <= 0) {
+            status.text = "AUDIO ENGINE • WAITING FOR PLAYBACK SESSION"
+            root.removeCallbacks(effectRetry)
+            root.postDelayed(effectRetry, 500L)
+            ensureCustomSnapshot()
+            renderBands()
+            refreshContentAlpha()
+            return
+        }
 
-        addView(TextView(this@EqualizerActivity).apply {
-            text = "Equalizer"
-            textSize = 18f
-            gravity = Gravity.CENTER_VERTICAL
-            includeFontPadding = false
-            setTextColor(if (enabled) Color.rgb(242, 245, 250) else Color.rgb(96, 108, 130))
-        }, LinearLayout.LayoutParams(0, -1, 1f))
-'''
+        if (effectsSessionId == sessionId && equalizer != null) {
+            loadEffectValues()
+            setEffectsEnabled(enabled)
+            status.text = "AUDIO ENGINE • LIVE CONTROLS"
+            ensureCustomSnapshot()
+            renderBands()
+            refreshContentAlpha()
+            return
+        }
 
-if old in s:
-    s = s.replace(old, new, 1)
+        equalizer?.release()
+        bassBoost?.release()
+        virtualizer?.release()
+        loudnessEnhancer?.release()
+        presetReverb?.release()
+        equalizer = null
+        bassBoost = null
+        virtualizer = null
+        loudnessEnhancer = null
+        presetReverb = null
+        effectsSessionId = sessionId
 
-# Ensure the toggle updates the header surface immediately.
-old_toggle = '''                refreshContentAlpha()
-                this@EqualizerActivity.root.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
-                this@EqualizerActivity.root.getChildAt(0)?.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
-'''
-new_toggle = '''                refreshContentAlpha()
-                this@EqualizerActivity.root.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
-                this@EqualizerActivity.root.getChildAt(0)?.setBackgroundColor(if (checked) Color.rgb(7, 20, 45) else Color.TRANSPARENT)
-                this@EqualizerActivity.root.getChildAt(0)?.invalidate()
-'''
-if old_toggle in s:
-    s = s.replace(old_toggle, new_toggle, 1)
+        // Vendor audio engines can expose only a subset of these effects.
+        // Create each independently so one unsupported effect cannot crash
+        // the whole Equalizer page.
+        equalizer = try {
+            Equalizer(0, sessionId).also {
+                eqMin = it.bandLevelRange[0].toInt()
+                eqMax = it.bandLevelRange[1].toInt()
+            }
+        } catch (_: Throwable) { null }
+        bassBoost = try { BassBoost(0, sessionId) } catch (_: Throwable) { null }
+        virtualizer = try { Virtualizer(0, sessionId) } catch (_: Throwable) { null }
+        loudnessEnhancer = try { LoudnessEnhancer(sessionId) } catch (_: Throwable) { null }
+        // PresetReverb is an auxiliary/output-mix effect and intentionally
+        // remains on session 0; failure here must not affect insert effects.
+        presetReverb = try { PresetReverb(0, 0) } catch (_: Throwable) { null }
 
-# Cleaner switch: OFF has no filled pill, only a visible outline; ON gets the
-# purple/blue filled track. This avoids the ugly large filled OFF appearance.
-old_switch = '''            paint.style = Paint.Style.FILL
-            paint.color = if (value) Color.rgb(72, 91, 205) else Color.rgb(48, 59, 79)
-            canvas.drawRoundRect(RectF(left, top, right, bottom), radius, radius, paint)
+        loadEffectValues()
+        setEffectsEnabled(enabled)
+        status.text = if (equalizer != null || bassBoost != null || virtualizer != null || loudnessEnhancer != null)
+            "AUDIO ENGINE • LIVE CONTROLS"
+        else
+            "AUDIO ENGINE • UI CONTROLS ACTIVE"
 
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 2f * d
-            paint.color = if (value) Color.rgb(147, 91, 245) else Color.rgb(75, 89, 111)
-            canvas.drawRoundRect(RectF(left, top, right, bottom), radius, radius, paint)
-'''
-new_switch = '''            paint.style = Paint.Style.FILL
-            paint.color = if (value) Color.rgb(72, 91, 205) else Color.TRANSPARENT
-            canvas.drawRoundRect(RectF(left, top, right, bottom), radius, radius, paint)
+        ensureCustomSnapshot()
+        renderBands()
+        refreshContentAlpha()
+    }
 
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = if (value) 2f * d else 1.5f * d
-            paint.color = if (value) Color.rgb(147, 91, 245) else Color.rgb(76, 91, 116)
-            canvas.drawRoundRect(RectF(left, top, right, bottom), radius, radius, paint)
-'''
-if old_switch in s:
-    s = s.replace(old_switch, new_switch, 1)
-
-old_thumb = '''            paint.style = Paint.Style.FILL
-            paint.color = if (value) Color.rgb(249, 241, 255) else Color.rgb(225, 231, 239)
-            canvas.drawCircle(x, top + trackH / 2f, thumbR, paint)
-'''
-new_thumb = '''            paint.style = Paint.Style.FILL
-            paint.color = if (value) Color.rgb(249, 241, 255) else Color.rgb(112, 122, 140)
-            canvas.drawCircle(x, top + trackH / 2f, thumbR, paint)
-'''
-if old_thumb in s:
-    s = s.replace(old_thumb, new_thumb, 1)
+    private fun refreshContentAlpha()'''
+if not pattern.search(s):
+    raise SystemExit("initializeEffects block not found")
+s = pattern.sub(replacement, s, count=1)
 
 PATH.write_text(s, encoding="utf-8")
-print("Equalizer ON/OFF header polish applied")
+print("Equalizer audio-session crash fix applied")
