@@ -16,6 +16,9 @@ object VolumeBoosterController {
     }
 
     @Synchronized
+    fun getAudioSessionId(): Int = audioSessionId
+
+    @Synchronized
     fun setGain(gainMb: Int) {
         requestedGainMb = gainMb.coerceIn(0, 2000)
         rebuild()
