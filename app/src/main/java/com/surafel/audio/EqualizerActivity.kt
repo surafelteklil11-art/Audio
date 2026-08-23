@@ -52,10 +52,15 @@ class EqualizerActivity : AudioToolPageActivity() {
     private var enabled = true
     private var selectedPreset = "CUSTOM"
     private var reverbIndex = 0
+    private var effectsSessionId = 0
 
     private val bandViews = mutableListOf<BandSliderView>()
     private val knobViews = mutableListOf<KnobView>()
     private val presetButtons = mutableMapOf<String, UiButton>()
+
+    private val effectRetry = Runnable {
+        if (!isFinishing && !isDestroyed) initializeEffects()
+    }
 
     private val fiveFrequencies = intArrayOf(60, 230, 910, 3600, 14000)
     private val tenFrequencies = intArrayOf(31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
@@ -81,6 +86,7 @@ class EqualizerActivity : AudioToolPageActivity() {
     override fun buildContent(): View = LinearLayout(this)
 
     override fun onDestroy() {
+        if (::root.isInitialized) root.removeCallbacks(effectRetry)
         equalizer?.release()
         bassBoost?.release()
         virtualizer?.release()
@@ -425,22 +431,66 @@ class EqualizerActivity : AudioToolPageActivity() {
     }
 
     private fun initializeEffects() {
-        try {
-            equalizer = Equalizer(0, 0).also {
-                it.enabled = true
-                eqMin = it.bandLevelRange[0].toInt()
-                eqMax = it.bandLevelRange[1].toInt()
-            }
-            bassBoost = BassBoost(0, 0)
-            virtualizer = Virtualizer(0, 0)
-            loudnessEnhancer = LoudnessEnhancer(0)
-            presetReverb = PresetReverb(0, 0)
+        val sessionId = VolumeBoosterController.getAudioSessionId()
+
+        // Insert effects must be attached to the same audio session as the
+        // Media3/ExoPlayer output. Session 0 is the global mix and is not a
+        // safe target for Equalizer/BassBoost/Virtualizer on modern Android.
+        if (sessionId <= 0) {
+            status.text = "AUDIO ENGINE • WAITING FOR PLAYBACK SESSION"
+            root.removeCallbacks(effectRetry)
+            root.postDelayed(effectRetry, 500L)
+            ensureCustomSnapshot()
+            renderBands()
+            refreshContentAlpha()
+            return
+        }
+
+        if (effectsSessionId == sessionId && equalizer != null) {
             loadEffectValues()
             setEffectsEnabled(enabled)
             status.text = "AUDIO ENGINE • LIVE CONTROLS"
-        } catch (_: Throwable) {
-            status.text = "AUDIO ENGINE • UI CONTROLS ACTIVE"
+            ensureCustomSnapshot()
+            renderBands()
+            refreshContentAlpha()
+            return
         }
+
+        equalizer?.release()
+        bassBoost?.release()
+        virtualizer?.release()
+        loudnessEnhancer?.release()
+        presetReverb?.release()
+        equalizer = null
+        bassBoost = null
+        virtualizer = null
+        loudnessEnhancer = null
+        presetReverb = null
+        effectsSessionId = sessionId
+
+        // Vendor audio engines can expose only a subset of these effects.
+        // Create each independently so one unsupported effect cannot crash
+        // the whole Equalizer page.
+        equalizer = try {
+            Equalizer(0, sessionId).also {
+                eqMin = it.bandLevelRange[0].toInt()
+                eqMax = it.bandLevelRange[1].toInt()
+            }
+        } catch (_: Throwable) { null }
+        bassBoost = try { BassBoost(0, sessionId) } catch (_: Throwable) { null }
+        virtualizer = try { Virtualizer(0, sessionId) } catch (_: Throwable) { null }
+        loudnessEnhancer = try { LoudnessEnhancer(sessionId) } catch (_: Throwable) { null }
+        // PresetReverb is an auxiliary/output-mix effect and intentionally
+        // remains on session 0; failure here must not affect insert effects.
+        presetReverb = try { PresetReverb(0, 0) } catch (_: Throwable) { null }
+
+        loadEffectValues()
+        setEffectsEnabled(enabled)
+        status.text = if (equalizer != null || bassBoost != null || virtualizer != null || loudnessEnhancer != null)
+            "AUDIO ENGINE • LIVE CONTROLS"
+        else
+            "AUDIO ENGINE • UI CONTROLS ACTIVE"
+
         ensureCustomSnapshot()
         renderBands()
         refreshContentAlpha()
