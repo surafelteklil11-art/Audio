@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.text.InputFilter
@@ -17,7 +18,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 
 class EthiopianCalendarActivity : AppCompatActivity() {
     internal var nowMillis: () -> Long = { System.currentTimeMillis() }
@@ -56,9 +56,17 @@ class EthiopianCalendarActivity : AppCompatActivity() {
     }
     override fun onStart() {
         super.onStart()
-        ContextCompat.registerReceiver(this, timeChanges, IntentFilter().apply {
+        val filter = IntentFilter().apply {
             addAction(Intent.ACTION_TIME_CHANGED); addAction(Intent.ACTION_DATE_CHANGED); addAction(Intent.ACTION_TIMEZONE_CHANGED)
-        }, ContextCompat.RECEIVER_NOT_EXPORTED)
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(timeChanges, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            // These are protected system broadcasts. Older Android versions do not
+            // need AndroidX's synthetic permission to receive them safely.
+            @Suppress("DEPRECATION")
+            registerReceiver(timeChanges, filter)
+        }
         receiverRegistered = true
         refreshDate(); scheduleMidnight()
     }
