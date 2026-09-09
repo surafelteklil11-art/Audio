@@ -3,11 +3,6 @@ package com.surafel.audio
 import android.app.Activity
 import android.app.Application
 import android.content.Context
-import android.graphics.BitmapFactory
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.ColorDrawable
-import android.graphics.drawable.LayerDrawable
-import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import java.io.File
@@ -49,9 +44,9 @@ object BackgroundManager {
         val prefs = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val custom = prefs.getString(MODE, "default") == "custom"
         val path = prefs.getString(CUSTOM, null)
-        val bitmap = if (custom && path != null) BitmapFactory.decodeFile(path) else null
+        val bitmap = if (custom && path != null) ThemeCatalog.decodeImage(File(path)) else null
         if (bitmap != null) {
-            root.background = LayerDrawable(arrayOf(BitmapDrawable(activity.resources, bitmap).apply { gravity = Gravity.FILL }, ColorDrawable(0x52000000)))
+            root.background = ThemeImageDrawable(bitmap)
         } else {
             ThemeCatalog.apply(activity, root, prefs.getInt("theme", 0))
         }

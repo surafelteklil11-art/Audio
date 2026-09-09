@@ -673,9 +673,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyTheme(theme: Int) {
-        val root = findViewById<View>(android.R.id.content)
-        val colors = when (theme) { 1 -> intArrayOf(Color.rgb(5, 18, 40), Color.rgb(9, 42, 72)); 2 -> intArrayOf(Color.rgb(6, 9, 20), Color.rgb(20, 12, 31)); else -> intArrayOf(Color.rgb(10, 9, 29), Color.rgb(31, 11, 58)) }
-        root.background = roundedGradient(colors, Color.TRANSPARENT, 0, 0)
+        val content = findViewById<ViewGroup>(android.R.id.content)
+        val root = content.getChildAt(0) ?: return
+        if (BackgroundManager.isCustom(this)) BackgroundManager.apply(this)
+        else ThemeCatalog.apply(this, root, theme)
     }
 
     private fun showWidgets() {
