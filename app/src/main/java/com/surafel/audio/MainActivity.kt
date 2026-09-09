@@ -512,6 +512,7 @@ class MainActivity : AppCompatActivity() {
         }
         addMenuItem("◷", "Sleep Timer") { closeDrawer(); showSleepTimer() }
         addMenuItem("🚗", "Drive Mode") { closeDrawer(); startActivity(Intent(this, DriveModeActivity::class.java)) }
+        addMenuItem("▦", "Calendar · ቀን መቁጠሪያ") { closeDrawer(); startActivity(Intent(this, EthiopianCalendarActivity::class.java)) }
         addSection("APP")
         addMenuItem("⚙", "Settings") {
             closeDrawer()
