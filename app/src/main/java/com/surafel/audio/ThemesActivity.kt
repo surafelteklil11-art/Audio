@@ -1,6 +1,9 @@
 package com.surafel.audio
 
 import android.app.Dialog
+import android.graphics.Canvas
+import android.graphics.Path
+import android.graphics.RectF
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -57,7 +60,7 @@ class ThemesActivity : AudioToolPageActivity() {
         addView(label("PERSONALIZE YOUR PLAYER", 10f, accent).apply { letterSpacing = .16f })
         addView(label("Make it yours.", 32f, ink, true), spaceParams(8, 6))
         addView(label("Color, atmosphere, and a little more you.", 13f, muted), spaceParams(0, 22))
-        featured = FrameLayout(this@ThemesActivity).apply { tag = "active-theme"; clipToOutline = true }
+        featured = roundedFrame().apply { tag = "active-theme"; clipToOutline = true }
         addView(featured, LinearLayout.LayoutParams(-1, dp(146)))
         updateFeatured()
         importButton = pill("＋  Use your own photo", false) { picker.launch(arrayOf("image/*")) }
@@ -119,7 +122,7 @@ class ThemesActivity : AudioToolPageActivity() {
         }
     }
 
-    private fun themeCard(theme: ThemeCatalog.ThemeOption): View = LinearLayout(this).apply {
+    private fun themeCard(theme: ThemeCatalog.ThemeOption): View = roundedColumn().apply {
         orientation = LinearLayout.VERTICAL
         val selected = ThemeCatalog.selectedId(this@ThemesActivity) == theme.id
         tag = "theme-${theme.id}"
@@ -158,16 +161,28 @@ class ThemesActivity : AudioToolPageActivity() {
         root.addView(label("PLAYER PREVIEW", 10f, accent).apply { letterSpacing = .16f })
         root.addView(label(name, 28f, ink, true), spaceParams(8, 12))
         val scroll = ScrollView(this).apply { isFillViewport = true; isVerticalScrollBarEnabled = false }
-        val sample = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL }
-        sample.addView(label("Your music.\nYour atmosphere.", 34f, ink, true).apply { setLineSpacing(0f, 1.08f) }, spaceParams(24, 12))
-        sample.addView(label("The same artwork appears in your player.\nYour music and playlists stay just as they are.", 13f, ink), spaceParams(0, 32))
+        val sample = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.BOTTOM
+            setPadding(0, dp(24), 0, dp(24))
+        }
+        // Keep the illustration unobstructed; sample player text has its own
+        // high-contrast surface instead of sitting directly over bright artwork.
         sample.addView(LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(18), dp(18), dp(18))
-            background = surface(0x557F94AD, 0xD91A273A.toInt())
-            addView(label("AUDIO  /  YOUR COLLECTION", 10f, accent).apply { letterSpacing = .1f })
-            addView(label("Find your next favorite", 20f, ink, true), spaceParams(12, 4))
-            addView(label("Songs     Albums     Playlists", 12f, muted), spaceParams(0, 20))
-            addView(label("♪     A soundtrack for every day", 14f, ink))
+            background = surface(0x557F94AD, 0xF0182538.toInt())
+            addView(label("YOUR PLAYER · PREVIEW", 10f, accent).apply { letterSpacing = .1f })
+            addView(label("Your favorite track", 21f, ink, true), spaceParams(14, 5))
+            addView(label("Your music library", 12f, muted), spaceParams(0, 20))
+            addView(FrameLayout(this@ThemesActivity).apply {
+                background = surface(Color.TRANSPARENT, 0xFF45536A.toInt())
+                addView(View(this@ThemesActivity).apply { setBackgroundColor(accent) }, FrameLayout.LayoutParams(dp(72), -1))
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, LinearLayout.LayoutParams(-1, dp(3)))
+            addView(label("‹‹          ▶          ››", 24f, ink).apply {
+                gravity = Gravity.CENTER
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, LinearLayout.LayoutParams(-1, dp(58)))
         }, LinearLayout.LayoutParams(-1, -2))
         scroll.addView(sample, FrameLayout.LayoutParams(-1, -2))
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -206,6 +221,22 @@ class ThemesActivity : AudioToolPageActivity() {
                 })
             }
         }
+    }
+
+    private fun drawRounded(view: View, canvas: Canvas, draw: () -> Unit) {
+        val save = canvas.save()
+        val path = Path().apply {
+            addRoundRect(RectF(0f, 0f, view.width.toFloat(), view.height.toFloat()), dp(14).toFloat(), dp(14).toFloat(), Path.Direction.CW)
+        }
+        canvas.clipPath(path)
+        draw()
+        canvas.restoreToCount(save)
+    }
+    private fun roundedFrame() = object : FrameLayout(this) {
+        override fun draw(canvas: Canvas) = drawRounded(this, canvas) { super.draw(canvas) }
+    }
+    private fun roundedColumn() = object : LinearLayout(this) {
+        override fun draw(canvas: Canvas) = drawRounded(this, canvas) { super.draw(canvas) }
     }
 
     private fun label(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {

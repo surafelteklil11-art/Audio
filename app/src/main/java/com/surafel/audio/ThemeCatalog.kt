@@ -34,7 +34,10 @@ object ThemeCatalog {
         colors("#683B51", "#C8766F", "#794C70"),
         colors("#123E4C", "#298A85", "#185160"),
         colors("#4D205D", "#B54C94", "#4F336E"),
-        colors("#222F3C", "#536578", "#253643")
+        colors("#222F3C", "#536578", "#253643"),
+        colors("#63412B", "#C69857", "#745748"),
+        colors("#173E3C", "#438D66", "#214C47"),
+        colors("#39355E", "#817CB2", "#48416E")
     )
     private val gradients = listOf(
         "Amethyst" to "Violet light, indigo depth",
@@ -56,7 +59,7 @@ object ThemeCatalog {
         "Indigo Rhythm", "Golden Hour", "Pink Horizon"
     )
     private val motifs = intArrayOf(0, 2, 0, 1, 2, 0, 3, 0, 1, 3, 0, 2, 3, 1, 1, 0, 3, 1, 2, 0, 3, 2, 3, 2, 3, 1, 2, 3, 0, 2, 3, 2, 3)
-    private val paletteIds = intArrayOf(5, 4, 3, 1, 4, 0, 1, 6, 0, 6, 1, 4, 0, 6, 2, 5, 6, 1, 4, 5, 3, 5, 3, 4, 6, 2, 6, 5, 3, 1, 0, 4, 6)
+    private val paletteIds = intArrayOf(5, 4, 3, 1, 4, 0, 1, 10, 0, 6, 1, 8, 10, 6, 2, 9, 6, 1, 8, 9, 3, 5, 3, 4, 6, 2, 6, 9, 3, 1, 0, 8, 6)
     val all: List<ThemeOption> = gradients + artworkNames.mapIndexed { index, name ->
         val category = when (motifs[index]) { 0, 2 -> "Nature"; 1 -> "Space"; else -> "Abstract" }
         ThemeOption(8 + index, name, "$category · original illustration", palettes[paletteIds[index]], index, setOf(category), motifs[index])

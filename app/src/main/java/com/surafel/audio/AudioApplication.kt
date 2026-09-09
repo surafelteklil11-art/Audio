@@ -41,6 +41,11 @@ object BackgroundManager {
     fun apply(activity: Activity) {
         val content = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
         val root = content.getChildAt(0) ?: return
+        // A neutral gallery surface lets artwork and selection states stay legible.
+        if (activity is ThemesActivity) {
+            root.setBackgroundColor(android.graphics.Color.rgb(16, 25, 40))
+            return
+        }
         val prefs = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val custom = prefs.getString(MODE, "default") == "custom"
         val path = prefs.getString(CUSTOM, null)

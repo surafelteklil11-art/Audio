@@ -70,15 +70,31 @@ class ThemesActivityTest {
         }
     }
 
+    @Test fun narrowScreenKeepsCardsAndPreviewActionsInsideViewport() {
+        Robolectric.buildActivity(ThemesActivity::class.java).use { controller ->
+            val root = controller.setup().visible().get().findViewById<ViewGroup>(android.R.id.content)
+            layout(root, 640, 1280)
+            assertTrue(cards(root).all { it.width in 1..300 })
+            root.findViewWithTag<View>("theme-12").performClick()
+            val preview = ShadowDialog.getLatestDialog().findViewById<ViewGroup>(android.R.id.content)
+            layout(preview, 640, 1280)
+            val apply = descendants(preview).filterIsInstance<TextView>().first { it.text.toString() == "Apply theme" }
+            val rect = android.graphics.Rect()
+            assertTrue(apply.getGlobalVisibleRect(rect))
+            assertTrue(rect.width() > 0 && rect.height() >= 96)
+            snapshot(preview, "preview-narrow")
+        }
+    }
+
     private fun click(root: View, text: String) {
         assertTrue(descendants(root).filterIsInstance<TextView>().first { it.text.toString() == text }.performClick())
         layout(root)
     }
     private fun cards(root: View) = descendants(root).filter { it.tag?.toString()?.matches(Regex("theme-\\d+")) == true }
-    private fun layout(root: View) {
+    private fun layout(root: View, width: Int = 720, height: Int = 1600) {
         repeat(3) {
-            root.measure(View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(1600, View.MeasureSpec.EXACTLY))
-            root.layout(0, 0, 720, 1600)
+            root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
+            root.layout(0, 0, width, height)
             shadowOf(Looper.getMainLooper()).idle()
         }
     }
