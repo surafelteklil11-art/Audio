@@ -121,7 +121,7 @@ class CheckersBoardView(context: Context) : View(context) {
                 c.drawRect(b.left + 2, b.top + 2, b.right - 2, b.bottom - 2, paint); paint.style = Paint.Style.FILL
             }
             val piece = position.board[i]
-            if (piece != 0) drawPiece(c, b.centerX(), b.centerY(), cell * .39f, piece)
+            if (piece != 0) CheckersTokens.draw(c, paint, b.centerX(), b.centerY(), cell * .39f, piece, tokenStyle)
             else if (i in next && selected.isNotEmpty()) { paint.color = 0xCC1F6D43.toInt(); c.drawCircle(b.centerX(), b.centerY(), cell * .12f, paint) }
             if (isFocused && i == cursor) {
                 paint.style = Paint.Style.STROKE; paint.strokeWidth = 2f; paint.color = Color.WHITE
@@ -133,7 +133,19 @@ class CheckersBoardView(context: Context) : View(context) {
             selected.zipWithNext().forEach { (a, b) -> val from = bounds(a); val to = bounds(b); c.drawLine(from.centerX(), from.centerY(), to.centerX(), to.centerY(), paint) }
         }
     }
-    private fun drawPiece(c: Canvas, x: Float, y: Float, radius: Float, piece: Int) {
+    companion object {
+        val names = listOf("Walnut", "Classic", "Crimson", "Ocean", "Forest", "Sunset", "Sapphire", "Slate")
+        val palettes = listOf(
+            intArrayOf(0xFFF1DDB4.toInt(), 0xFF8D4D29.toInt()), intArrayOf(0xFFEAE5DC.toInt(), 0xFF383D3D.toInt()),
+            intArrayOf(0xFFFFEADA.toInt(), 0xFFA93E38.toInt()), intArrayOf(0xFFD9EAF2.toInt(), 0xFF346876.toInt()),
+            intArrayOf(0xFFE2E9CC.toInt(), 0xFF376951.toInt()), intArrayOf(0xFFF5C59E.toInt(), 0xFF775268.toInt()),
+            intArrayOf(0xFFE5EAF5.toInt(), 0xFF365CA0.toInt()), intArrayOf(0xFFBAC4CE.toInt(), 0xFF37434E.toInt())
+        )
+    }
+}
+
+internal object CheckersTokens {
+    fun draw(c: Canvas, paint: Paint, x: Float, y: Float, radius: Float, piece: Int, tokenStyle: Int) {
         val white = piece > 0
         paint.color = 0x55000000; c.drawOval(x - radius, y - radius + radius * .18f, x + radius, y + radius * 1.18f, paint)
         paint.color = if (white) 0xFFA56328.toInt() else 0xFF131514.toInt(); c.drawCircle(x, y + radius * .11f, radius, paint)
@@ -158,13 +170,19 @@ class CheckersBoardView(context: Context) : View(context) {
             c.drawText("K", x, y + radius * .31f, paint)
         }
     }
-    companion object {
-        val names = listOf("Walnut", "Classic", "Crimson", "Ocean", "Forest", "Sunset", "Sapphire", "Slate")
-        val palettes = listOf(
-            intArrayOf(0xFFF1DDB4.toInt(), 0xFF8D4D29.toInt()), intArrayOf(0xFFEAE5DC.toInt(), 0xFF383D3D.toInt()),
-            intArrayOf(0xFFFFEADA.toInt(), 0xFFA93E38.toInt()), intArrayOf(0xFFD9EAF2.toInt(), 0xFF346876.toInt()),
-            intArrayOf(0xFFE2E9CC.toInt(), 0xFF376951.toInt()), intArrayOf(0xFFF5C59E.toInt(), 0xFF775268.toInt()),
-            intArrayOf(0xFFE5EAF5.toInt(), 0xFF365CA0.toInt()), intArrayOf(0xFFBAC4CE.toInt(), 0xFF37434E.toInt())
-        )
+}
+
+class CheckersLogoView(context: Context) : View(context) {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    init { importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO }
+    override fun onMeasure(w: Int, h: Int) {
+        setMeasuredDimension(resolveSize((300 * resources.displayMetrics.density).toInt(), w), (110 * resources.displayMetrics.density).toInt())
+    }
+    override fun onDraw(canvas: Canvas) {
+        val r = minOf(width * .12f, height * .31f)
+        val x = width / 2f; val y = height * .52f
+        for (dx in listOf(-1.8f, 0f, 1.8f)) CheckersTokens.draw(canvas, paint, x + dx * r, y + r * .3f, r, 1, 0)
+        for (dx in listOf(-.95f, .95f)) CheckersTokens.draw(canvas, paint, x + dx * r, y - r * .16f, r, -1, 0)
+        CheckersTokens.draw(canvas, paint, x, y - r * .72f, r, 1, 0)
     }
 }

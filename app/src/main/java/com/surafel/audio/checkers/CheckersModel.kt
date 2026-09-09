@@ -41,7 +41,9 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
     private var recorded = false
     private var started = 0L
     private var elapsedBefore = 0L
-    val elapsedSeconds get() = elapsedBefore + if (match != null) (SystemClock.elapsedRealtime() - started) / 1000 else 0
+    private var finishedAt: Long? = null
+    private var pendingMove: Move? = null
+    val elapsedSeconds get() = finishedAt ?: (elapsedBefore + if (match != null) (SystemClock.elapsedRealtime() - started) / 1000 else 0)
     val network get() = mode == PlayMode.HOST || mode == PlayMode.GUEST
     val mySide get() = if (mode == PlayMode.GUEST) -1 else if (mode == PlayMode.HOST) 1 else human
     val canMove get() = match?.let { it.result == null && !thinking && !waiting &&
@@ -55,7 +57,7 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
     }
     fun start(newMode: PlayMode) {
         disconnect(); cancelThought(); mode = newMode
-        match = CheckersMatch(rules); recorded = false; started = SystemClock.elapsedRealtime(); elapsedBefore = 0
+        match = CheckersMatch(rules); recorded = false; finishedAt = null; started = SystemClock.elapsedRealtime(); elapsedBefore = 0
         lastMove = null; hintPath = emptyList(); notice = ""; roomCode = ""; waiting = false
         revision++; persist(); changed(); requestAi()
     }
@@ -72,6 +74,7 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
         human = if (j.optInt("human", 1) == -1) -1 else 1
         difficulty = Difficulty.valueOf(j.getString("difficulty")); recorded = j.optBoolean("recorded")
         elapsedBefore = j.optLong("elapsed").coerceIn(0, 10000000); started = SystemClock.elapsedRealtime()
+        finishedAt = if (restored.result != null) elapsedBefore else null
         notice = ""; lastMove = null; hintPath = emptyList(); revision++; changed(); requestAi(); true
     } catch (_: Exception) { prefs.edit().remove("saved").apply(); notice = "Saved game could not be restored. Start a new game."; changed(); false }
 
@@ -82,7 +85,7 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
         val before = game.position
         if (mode == PlayMode.GUEST) {
             if (move !in CheckersEngine.legal(before, game.rules)) return
-            waiting = true
+            waiting = true; pendingMove = move
             lan?.send(turnMessage("request", before, move)); changed(); return
         }
         if (!game.play(move)) return
@@ -92,9 +95,10 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
     private fun turnMessage(type: String, before: Position, move: Move) = JSONObject().put("type", type)
         .put("ply", before.ply).put("before", CheckersCodec.digest(before)).put("move", CheckersCodec.move(move))
     private fun advanced(move: Move) {
-        lastMove = move; hintPath = emptyList(); waiting = false; revision++
+        lastMove = move; hintPath = emptyList(); waiting = false; pendingMove = null; revision++
         val game = match ?: return
         while (game.history.size > 256) game.history.removeAt(0)
+        if (game.result != null && finishedAt == null) finishedAt = elapsedSeconds
         if (game.result != null && !recorded) {
             val outcome = game.result!!
             val key = when (mode) {
@@ -179,6 +183,7 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
                     require(connected && if (request) mode == PlayMode.HOST && game.position.turn == -1 else mode == PlayMode.GUEST)
                     val move = CheckersCodec.move(j.getJSONObject("move")); val before = game.position
                     require(j.getInt("ply") == before.ply && j.getString("before") == CheckersCodec.digest(before))
+                    if (!request && before.turn == -1) require(waiting && pendingMove == move)
                     val next = CheckersEngine.play(before, game.rules, move)
                     if (!request) require(j.getString("after") == CheckersCodec.digest(next))
                     require(game.play(move))
@@ -191,7 +196,7 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
             disconnect(); notice = "The boards could not be synchronized. Return home and create a new room."; changed()
         }
     }
-    private fun disconnect() { networkGeneration++; lan?.close(); lan = null; connected = false; waiting = false }
+    private fun disconnect() { networkGeneration++; lan?.close(); lan = null; connected = false; waiting = false; pendingMove = null }
     private fun persist() {
         val game = match ?: return
         if (network) return

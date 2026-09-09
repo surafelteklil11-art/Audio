@@ -7,6 +7,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -92,26 +93,27 @@ class CheckersActivity : AppCompatActivity() {
             text = if (model.roomCode.isNotEmpty() && !model.connected) "Room code · ኮዱን ንካና copy አድርግ\n${model.roomCode}" else ""
             visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
         }
-        undo?.apply { isEnabled = !model.network && result == null && game.history.size > 1; alpha = if (isEnabled) 1f else .45f }
+        undo?.apply { isEnabled = !model.network && result == null && game.history.size > (if (model.mode == PlayMode.SOLO && game.position.turn == model.human) 2 else 1); alpha = if (isEnabled) 1f else .45f }
         hint?.apply { isEnabled = !model.network && model.canMove; alpha = if (isEnabled) 1f else .45f }
     }
     private fun renderHome() {
         gameScreen = false; board = null; clock = null; renderedRevision = -1
         content.removeAllViews()
         content.addView(button("‹  Audio") { finish() }, spaced())
-        content.addView(label("◉  ◉  ◉\nCheckers", 38f, true).apply {
+        content.addView(CheckersLogoView(this), LinearLayout.LayoutParams(-1, -2))
+        content.addView(label("Checkers", 38f, true).apply {
             gravity = Gravity.CENTER; setTextColor(0xFFA8E0EA.toInt()); typeface = Typeface.create("serif", Typeface.BOLD_ITALIC)
-            setPadding(0, dp(12), 0, dp(20))
+            setPadding(0, 0, 0, dp(12))
         }, spaced())
         content.addView(button("PLAY · ከአፑ ጋር") { model.start(PlayMode.SOLO) }.apply {
-            tag = "checkers-solo"; setBackgroundColor(0xFFCCDA75.toInt()); textSize = 23f
+            tag = "checkers-solo"; background = GradientDrawable().apply { setColor(0xFFCCDA75.toInt()); cornerRadius = dp(12).toFloat() }; textSize = 23f
         }, spaced())
         if (model.hasSaved) content.addView(button("Continue saved game · ቀጥል") { model.resumeSaved() }.apply { tag = "checkers-continue" }, spaced())
         content.addView(button("Rules: ${model.rules.name} · ${model.rules.size}×${model.rules.size}") { chooseRules() }.apply { tag = "checkers-rules" }, spaced())
         content.addView(button("Difficulty: ${model.difficulty.label}") { chooseDifficulty() }.apply { tag = "checkers-difficulty" }, spaced())
         content.addView(button("2 PLAYERS · በአንድ ስልክ") { model.start(PlayMode.TWO_PLAYERS) }.apply { tag = "checkers-local" }, spaced())
         content.addView(button("NEARBY · ከሌላ ስልክ ጋር") { nearby() }.apply {
-            tag = "checkers-nearby"; setBackgroundColor(0xFF337D70.toInt()); setTextColor(Color.WHITE)
+            tag = "checkers-nearby"; background = GradientDrawable().apply { setColor(0xFF337D70.toInt()); cornerRadius = dp(12).toFloat() }; setTextColor(Color.WHITE)
         }, spaced())
         val row = LinearLayout(this).apply { gravity = Gravity.CENTER }
         row.addView(button("Settings") { settings() }, weight())
