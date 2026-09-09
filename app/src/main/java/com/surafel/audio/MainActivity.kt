@@ -514,6 +514,7 @@ class MainActivity : AppCompatActivity() {
         addMenuItem("🚗", "Drive Mode") { closeDrawer(); startActivity(Intent(this, DriveModeActivity::class.java)) }
         addMenuItem("▦", "Calendar · ቀን መቁጠሪያ") { closeDrawer(); startActivity(Intent(this, EthiopianCalendarActivity::class.java)) }
         addMenuItem("◎", "Fingerprint · አሻራ") { closeDrawer(); startActivity(Intent(this, FingerprintActivity::class.java)) }
+        addMenuItem("▦", "Checkers · ዳማ") { closeDrawer(); startActivity(Intent(this, CheckersActivity::class.java)) }
         addSection("APP")
         addMenuItem("⚙", "Settings") {
             closeDrawer()
