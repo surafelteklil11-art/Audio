@@ -6,6 +6,15 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
+    <uses-feature android:name="android.hardware.fingerprint" android:required="false" />
+    <queries>
+        <intent><action android:name="android.settings.FINGERPRINT_ENROLL" /></intent>
+        <intent><action android:name="android.settings.BIOMETRIC_ENROLL" /></intent>
+        <intent><action android:name="android.settings.SECURITY_SETTINGS" /></intent>
+        <intent><action android:name="android.settings.SETTINGS" /></intent>
+    </queries>
+
     <application
         android:name=".AudioApplication"
         android:theme="@style/Theme.Audio"
@@ -25,6 +34,7 @@
         <activity android:name=".EqualizerActivity" android:exported="false" />
         <activity android:name=".DriveModeActivity" android:exported="false" />
         <activity android:name=".EthiopianCalendarActivity" android:exported="false" />
+        <activity android:name=".FingerprintActivity" android:exported="false" />
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".SearchActivity" android:exported="false" />
         <activity android:name=".VolumeBoosterActivity" android:exported="false" />

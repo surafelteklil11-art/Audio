@@ -39,10 +39,11 @@ jobs:
             app/build/test-results/testDebugUnitTest/
             app/build/theme-previews/
             app/build/calendar-previews/
+            app/build/fingerprint-previews/
           if-no-files-found: warn
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
-          name: Audio-calendar-themes-equalizer-${{ github.sha }}
+          name: Audio-verified-${{ github.sha }}
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
