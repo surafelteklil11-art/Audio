@@ -29,7 +29,10 @@ class FingerprintActivity : AudioToolPageActivity() {
     }
 
     override fun buildContent(): View = contentColumn().apply {
-        addView(sectionTitle("Fingerprint settings", "የስልክህን የአሻራ ምዝገባ ክፈት"))
+        addView(panel().apply {
+            addView(label("Fingerprint settings", 17f, true))
+            addView(label("የስልክህን የአሻራ ምዝገባ ክፈት", 14f))
+        }, space())
         addView(panel().apply {
             statusTitle = label("", 20f, true).apply { tag = "fingerprint-status" }
             statusDetail = label("", 14f).apply { tag = "fingerprint-detail" }
