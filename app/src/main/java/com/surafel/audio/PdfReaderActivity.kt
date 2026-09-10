@@ -60,7 +60,7 @@ class PdfReaderActivity : PdfUiActivity() {
         toolbar.addView(action("Save copy") { if (model.marks.isEmpty()) toast("Add text, a signature or a mark first") else if (!model.state.value!!.busy) model.saveMarks(page.overlay()) }, LinearLayout.LayoutParams(0, dp(52), 1f))
         root.addView(toolbar)
         model.state.observe(this) { s ->
-            page.bitmap = s.bitmap; page.enabled = !s.busy
+            page.bitmap = s.bitmap; page.inputEnabled = !s.busy
             counter.text = if (s.count > 0) "${s.page + 1} / ${s.count}" else "—"
             status.text = when { s.busy -> "Working…"; s.error != null -> s.error; model.marks.isNotEmpty() -> "Unsaved marks · Save copy to keep them"; else -> "Pinch to zoom · Double tap to reset" }
             if (s.passwordRequired && !passwordDialogShown) { passwordDialogShown = true

@@ -68,6 +68,19 @@ class PdfToolsTest {
         library.trash(setOf(parent.id)); library.restore(child.id)
         assertFalse(library.get(child.id).trashed); assertEquals("", library.get(child.id).folder)
     }
+    @Test fun restoringFolderKeepsPreviouslyTrashedChildInRecycleBin() {
+        val library = PdfLibrary(context); val folder = library.createFolder("Books"); val source = fixture(1)
+        val old = library.import("Old.pdf", folder.id) { source.inputStream() }
+        val fresh = library.import("Fresh.pdf", folder.id) { source.inputStream() }
+        library.trash(setOf(old.id)); library.trash(setOf(folder.id)); library.restore(folder.id)
+        assertTrue(library.get(old.id).trashed); assertFalse(library.get(fresh.id).trashed)
+    }
+    @Test fun failedBulkMoveDoesNotMoveAnySelectedEntry() {
+        val library = PdfLibrary(context); val folder = library.createFolder("Books"); val nested = library.createFolder("Child", folder.id)
+        val other = library.createFolder("Other")
+        assertThrows(IllegalArgumentException::class.java) { library.move(setOf(other.id, folder.id), nested.id) }
+        assertEquals("", library.get(other.id).folder)
+    }
     @Test fun mergeReorderRotateAndExtractKeepPageText() {
         val source = fixture(); val output = tools.temp(); tools.pages(source, output, listOf(2, 0), true)
         tools.load(output).use { assertEquals(2, it.numberOfPages); assertEquals(90, it.getPage(0).rotation) }

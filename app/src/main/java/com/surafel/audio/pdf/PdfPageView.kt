@@ -14,7 +14,7 @@ class PdfPageView(context: Context, val marks: MutableList<PdfMark>) : View(cont
         set(value) { if (field !== value) { field = value; zoom = 1f; panX = 0f; panY = 0f }; invalidate() }
     var mode = "Read"
     var stamp = ""
-    var enabled = true
+    var inputEnabled = true
     var onMarksChanged: (() -> Unit)? = null
     var night = false
     private var zoom = 1f; private var panX = 0f; private var panY = 0f
@@ -47,26 +47,29 @@ class PdfPageView(context: Context, val marks: MutableList<PdfMark>) : View(cont
     }
     private fun drawMarks(canvas: Canvas) {
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        val aspect = bitmap?.let { it.height.toFloat() / it.width } ?: 1f
+        val save = canvas.save(); canvas.scale(1f, 1f / aspect)
         for (mark in marks) {
             p.color = if (mark.highlight) 0x66FFD329 else 0xFF1967D2.toInt(); p.strokeWidth = if (mark.highlight) .024f else .003f
             p.strokeCap = Paint.Cap.ROUND; p.strokeJoin = Paint.Join.ROUND
             if (mark.text != null) {
                 p.style = Paint.Style.FILL; p.textSize = .027f
                 val point = mark.points.firstOrNull() ?: continue
-                mark.text.lines().forEachIndexed { i, line -> canvas.drawText(line, point.x, point.y + i * .033f, p) }
+                mark.text.lines().forEachIndexed { i, line -> canvas.drawText(line, point.x, point.y * aspect + i * .033f, p) }
             } else {
                 p.style = Paint.Style.STROKE; val path = Path()
-                mark.points.forEachIndexed { i, v -> if (i == 0) path.moveTo(v.x, v.y) else path.lineTo(v.x, v.y) }
+                mark.points.forEachIndexed { i, v -> if (i == 0) path.moveTo(v.x, v.y * aspect) else path.lineTo(v.x, v.y * aspect) }
                 canvas.drawPath(path, p)
             }
         }
+        canvas.restoreToCount(save)
     }
     fun overlay(): Bitmap {
         val b = bitmap ?: error("Open a page first")
         return Bitmap.createBitmap(b.width, b.height, Bitmap.Config.ARGB_8888).also { val canvas = Canvas(it); canvas.scale(b.width.toFloat(), b.height.toFloat()); drawMarks(canvas) }
     }
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (!enabled || bitmap == null) return false
+        if (!inputEnabled || bitmap == null) return false
         if (mode == "Read") {
             scaleDetector.onTouchEvent(event); gestures.onTouchEvent(event)
             when (event.actionMasked) {

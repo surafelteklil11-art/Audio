@@ -16,7 +16,7 @@ class PdfLibrary(context: Context) {
     private val index = AtomicFile(File(directory, "index.json"))
     data class Entry(val id: String, val name: String, val folder: String = "", val isFolder: Boolean = false,
         val bytes: Long = 0, val pages: Int = 0, val favorite: Boolean = false, val opened: Long = 0,
-        val page: Int = 0, val trashed: Boolean = false, val created: Long = System.currentTimeMillis())
+        val page: Int = 0, val trashed: Boolean = false, val created: Long = System.currentTimeMillis(), val trashGroup: String = "")
 
     fun file(entry: Entry): File {
         require(entry.id.matches(Regex("[a-f0-9-]{36}")) && !entry.isFolder)
@@ -48,19 +48,24 @@ class PdfLibrary(context: Context) {
     fun rename(id: String, name: String) = change(id) { it.copy(name = validName(name).let { n -> if (it.isFolder || n.endsWith(".pdf", true)) n else "$n.pdf" }) }
     fun favorite(id: String) = change(id) { it.copy(favorite = !it.favorite) }
     fun opened(id: String, page: Int) = change(id) { it.copy(opened = System.currentTimeMillis(), page = page.coerceAtLeast(0)) }
-    fun move(id: String, parent: String) = synchronized(lock) {
+    fun move(id: String, parent: String) = move(setOf(id), parent)
+    fun move(ids: Set<String>, parent: String) = synchronized(lock) {
         val list = read(); validateParent(list, parent)
-        require(parent != id && parent !in descendants(list, id)) { "A folder cannot be moved inside itself" }
-        require(list.any { it.id == id && !it.trashed })
-        write(list.map { if (it.id == id) it.copy(folder = parent) else it })
+        ids.forEach { id ->
+            require(parent != id && parent !in descendants(list, id)) { "A folder cannot be moved inside itself" }
+            require(list.any { it.id == id && !it.trashed })
+        }
+        write(list.map { if (it.id in ids) it.copy(folder = parent) else it })
     }
     fun trash(ids: Set<String>) = synchronized(lock) {
         val list = read(); val affected = ids + ids.flatMap { descendants(list, it) }
-        write(list.map { if (it.id in affected) it.copy(trashed = true) else it })
+        val group = UUID.randomUUID().toString()
+        write(list.map { if (it.id in affected && !it.trashed) it.copy(trashed = true, trashGroup = group) else it })
     }
     fun restore(id: String) = synchronized(lock) {
-        val list = read(); val affected = descendants(list, id) + id
-        write(list.map { e -> if (e.id !in affected) e else e.copy(trashed = false,
+        val list = read(); val root = list.first { it.id == id }; require(root.trashed)
+        val affected = (descendants(list, id) + id).filter { candidate -> list.any { it.id == candidate && it.trashGroup == root.trashGroup } }.toSet()
+        write(list.map { e -> if (e.id !in affected) e else e.copy(trashed = false, trashGroup = "",
             folder = if (e.folder in affected || list.any { it.id == e.folder && !it.trashed }) e.folder else "") })
     }
     fun deleteForever(id: String) = synchronized(lock) {
@@ -87,14 +92,14 @@ class PdfLibrary(context: Context) {
         return (0 until array.length()).map { i -> array.getJSONObject(i).let { j ->
             Entry(j.getString("id"), j.getString("name"), j.optString("folder"), j.optBoolean("isFolder"),
                 j.optLong("bytes"), j.optInt("pages"), j.optBoolean("favorite"), j.optLong("opened"),
-                j.optInt("page"), j.optBoolean("trashed"), j.optLong("created"))
+                j.optInt("page"), j.optBoolean("trashed"), j.optLong("created"), j.optString("trashGroup"))
         } }
     }
     private fun write(list: List<Entry>) {
         val array = JSONArray()
         list.forEach { e -> array.put(JSONObject().put("id", e.id).put("name", e.name).put("folder", e.folder)
             .put("isFolder", e.isFolder).put("bytes", e.bytes).put("pages", e.pages).put("favorite", e.favorite)
-            .put("opened", e.opened).put("page", e.page).put("trashed", e.trashed).put("created", e.created)) }
+            .put("opened", e.opened).put("page", e.page).put("trashed", e.trashed).put("created", e.created).put("trashGroup", e.trashGroup)) }
         val output = index.startWrite()
         try { output.write(array.toString().toByteArray()); index.finishWrite(output) }
         catch (e: Throwable) { index.failWrite(output); throw e }

@@ -150,7 +150,7 @@ class PdfLibraryActivity : PdfUiActivity() {
         if (model.selection.isEmpty()) { selecting = false; render(); return }
         val ids = model.selection.toSet()
         choices("${ids.size} selected", listOf("Move", "Move to Recycle bin", "Cancel selection")) { i ->
-            when (i) { 0 -> chooseFolder { parent -> model.run("Moving documents") { ids.forEach { model.library.move(it, parent) }; PdfLibraryModel.Result("Moved") } }; 1 -> confirm("Move to Recycle bin?", "You can restore these library copies later.") { model.run("Moving to Recycle bin") { model.library.trash(ids); PdfLibraryModel.Result("Moved to Recycle bin") } } }
+            when (i) { 0 -> chooseFolder { parent -> model.run("Moving documents") { model.library.move(ids, parent); PdfLibraryModel.Result("Moved") } }; 1 -> confirm("Move to Recycle bin?", "You can restore these library copies later.") { model.run("Moving to Recycle bin") { model.library.trash(ids); PdfLibraryModel.Result("Moved to Recycle bin") } } }
             selecting = false; model.selection.clear(); render()
         }
     }

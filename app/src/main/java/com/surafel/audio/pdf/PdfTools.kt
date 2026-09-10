@@ -96,7 +96,8 @@ class PdfTools(private val context: Context) {
         require(text.isNotBlank() && text.length <= 100000) { "Enter text (up to 100,000 characters)" }
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK; textSize = 14f; typeface = Typeface.create("sans-serif", Typeface.NORMAL) }
         val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, 499).setAlignment(Layout.Alignment.ALIGN_NORMAL).setIncludePad(false).build()
-        PdfDocument().use { doc ->
+        val doc = PdfDocument()
+        try {
             var start = 0; var number = 1
             while (start < layout.lineCount) {
                 val top = layout.getLineTop(start); var end = start + 1
@@ -108,7 +109,7 @@ class PdfTools(private val context: Context) {
                 doc.finishPage(page); start = end
             }
             output.outputStream().use(doc::writeTo)
-        }
+        } finally { doc.close() }
     }
     fun images(files: List<File>, output: File) {
         require(files.size in 1..100) { "Choose 1–100 images" }
