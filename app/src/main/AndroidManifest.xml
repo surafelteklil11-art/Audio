@@ -38,7 +38,6 @@
         <activity android:name=".EthiopianCalendarActivity" android:exported="false" />
         <activity android:name=".FingerprintActivity" android:exported="false" />
         <activity android:name=".CheckersActivity" android:exported="false" />
-        <activity android:name=".PianoTilesActivity" android:exported="false" />
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".SearchActivity" android:exported="false" />
         <activity android:name=".VolumeBoosterActivity" android:exported="false" />

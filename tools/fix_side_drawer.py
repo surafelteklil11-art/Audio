@@ -153,7 +153,6 @@ new_show_menu = '''    private fun showMenu() {
         addMenuItem("▦", "Calendar · ቀን መቁጠሪያ") { closeDrawer(); startActivity(Intent(this, EthiopianCalendarActivity::class.java)) }
         addMenuItem("◎", "Fingerprint · አሻራ") { closeDrawer(); startActivity(Intent(this, FingerprintActivity::class.java)) }
         addMenuItem("▦", "Checkers · ዳማ") { closeDrawer(); startActivity(Intent(this, CheckersActivity::class.java)) }
-        addMenuItem("♫", "Piano Tiles · ፒያኖ") { closeDrawer(); startActivity(Intent(this, PianoTilesActivity::class.java)) }
         addSection("APP")
         addMenuItem("⚙", "Settings") {
             closeDrawer()
