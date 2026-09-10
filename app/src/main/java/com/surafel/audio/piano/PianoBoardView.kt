@@ -30,7 +30,7 @@ class PianoBoardView(context: Context, val engine: PianoEngine,
         val laneWidth = width / 4f
         val head = targetY - ((note.atMs - engine.elapsedMs) * pixelsPerMs).toFloat()
         val tileHeight = max(dp(90f), (targetY - boardTop) * .21f)
-        val top = head - tileHeight - (note.holdMs * pixelsPerMs).toFloat()
+        val top = head - if (note.holdMs > 0) (note.holdMs * pixelsPerMs).toFloat() else tileHeight
         return RectF(note.lane * laneWidth + dp(5f), top, (note.lane + 1) * laneWidth - dp(5f),
             if (engine.progress[note.id].state == NoteState.HOLDING) targetY + dp(18f) else head)
     }

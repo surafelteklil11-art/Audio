@@ -42,6 +42,18 @@ class PianoTilesActivityTest {
             c.start().resume().visible(); assertEquals(PianoPhase.PAUSED, e.phase)
         }
     }
+    @Test fun unpluggingHeadphonesPausesTheActualActivityWithoutAdvancingSongTime() {
+        Robolectric.buildActivity(PianoTilesActivity::class.java).use { c ->
+            val a = c.setup().visible().get(); val root = a.findViewById<ViewGroup>(android.R.id.content)
+            root.findViewWithTag<View>("piano-play-aurora").performClick(); click(root, "Start · ጀምር")
+            val e = ViewModelProvider(a)[PianoModel::class.java].engine!!
+            val time = e.elapsedMs
+            a.sendBroadcast(android.content.Intent(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY))
+            shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(PianoPhase.PAUSED, e.phase); assertEquals(time, e.elapsedMs, .001)
+            assertEquals(3, e.lives)
+        }
+    }
     @Test fun twoFingersHoldSeparateLanesAndCancellationPausesWithoutPenalty() {
         val app = RuntimeEnvironment.getApplication()
         val e = PianoEngine(listOf(PianoNote(0, 0, 72, 0.0, 900.0), PianoNote(1, 3, 79, 0.0, 900.0)), PianoDifficulty.NORMAL)

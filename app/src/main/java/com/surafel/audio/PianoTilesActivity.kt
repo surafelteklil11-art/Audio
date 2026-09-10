@@ -206,7 +206,8 @@ class PianoTilesActivity : AppCompatActivity() {
         host.addView(scroll, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
     }
     private fun pauseGame() {
-        board?.pause(); model.engine?.pause(); stopPreview(); renderPhase()
+        board?.pause(); model.engine?.pause(); stopPreview()
+        if (model.engine == null) renderHome() else renderPhase()
     }
     private fun leaveGame() {
         pauseGame()
