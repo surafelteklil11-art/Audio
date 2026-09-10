@@ -42,7 +42,11 @@ class PianoTilesActivityTest {
             a.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_2))
             a.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_2))
             assertEquals(200, e.score)
-            c.recreate(); a = c.get(); root = a.findViewById(android.R.id.content); layout(root)
+            // Let Robolectric attach the recreated window without auto-running the song clock.
+            android.view.Choreographer.getInstance().removeFrameCallback(b)
+            org.robolectric.shadows.ShadowChoreographer.setPaused(false)
+            try { c.recreate() } finally { org.robolectric.shadows.ShadowChoreographer.setPaused(true) }
+            a = c.get(); root = a.findViewById(android.R.id.content); layout(root)
             assertSame(e, ViewModelProvider(a)[PianoModel::class.java].engine)
             assertEquals(PianoPhase.PAUSED, e.phase); assertEquals(200, e.score)
             click(root, "Resume · ቀጥል"); assertEquals(PianoPhase.RUNNING, e.phase)
@@ -164,7 +168,8 @@ class PianoTilesActivityTest {
     private fun loadAudio(a: PianoTilesActivity): android.media.SoundPool {
         val audio = org.robolectric.util.ReflectionHelpers.getField<PianoAudio>(a, "audio")
         org.robolectric.util.ReflectionHelpers.getField<java.util.concurrent.ExecutorService>(audio, "executor").submit {}.get(5, java.util.concurrent.TimeUnit.SECONDS)
-        shadowOf(Looper.getMainLooper()).idle()
+        // API 24 can queue this Handler post behind the initial window's sync barrier.
+        repeat(4) { shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(16)) }
         val pool = org.robolectric.util.ReflectionHelpers.getField<android.media.SoundPool>(audio, "pool")
         val path = PianoWave.cached(a.applicationContext).absolutePath
         val loadedPaths = org.robolectric.util.ReflectionHelpers.getField<android.util.SparseArray<String>>(shadowOf(pool), "idToPaths")
