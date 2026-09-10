@@ -7,6 +7,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import com.surafel.audio.pdf.PdfLibrary
+import com.surafel.audio.pdf.PdfLibraryModel
+import androidx.lifecycle.ViewModelProvider
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -33,7 +35,7 @@ class PdfLibraryActivityTest {
     }
     @Test fun homeToolsAndThemeRemainStableAcrossResume() {
         val controller = Robolectric.buildActivity(PdfLibraryActivity::class.java).setup().visible()
-        val activity = controller.get(); waitUntil { descendants(activity.window.decorView).any { it is TextView && it.text.toString() == "Books" } }
+        val activity = controller.get(); awaitLibrary(activity)
         val root = activity.findViewById<ViewGroup>(android.R.id.content).getChildAt(0)
         val before = root.background; BackgroundManager.apply(activity); assertSame(before, root.background)
         screenshot(activity, "home")
@@ -47,13 +49,22 @@ class PdfLibraryActivityTest {
     @Test fun lightModeAndFolderNavigationSurviveRecreation() {
         RuntimeEnvironment.getApplication().getSharedPreferences("pdf_preferences", 0).edit().putBoolean("dark", false).commit()
         val controller = Robolectric.buildActivity(PdfLibraryActivity::class.java).setup().visible()
-        waitUntil { descendants(controller.get().window.decorView).any { it is TextView && it.text.toString() == "Books" } }
+        awaitLibrary(controller.get())
         val book = descendants(controller.get().window.decorView).first { it is TextView && it.text.toString() == "Books" }
         (book.parent.parent as View).performClick(); shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(50))
         controller.recreate().visible(); shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(50))
         assertTrue(descendants(controller.get().window.decorView).any { it is TextView && it.text.toString().contains("Books /") })
         screenshot(controller.get(), "light-folder")
         controller.pause().stop().destroy()
+    }
+    private fun awaitLibrary(activity: PdfLibraryActivity) {
+        val model = ViewModelProvider(activity)[PdfLibraryModel::class.java]
+        waitUntil { model.entries.value.orEmpty().any { it.name == "Books" } }
+        val content = activity.findViewById<ViewGroup>(android.R.id.content)
+        content.measure(View.MeasureSpec.makeMeasureSpec(786, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(1660, View.MeasureSpec.EXACTLY))
+        content.layout(0, 0, 786, 1660)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(50))
+        assertTrue(descendants(content).any { it is TextView && it.text.toString() == "Books" })
     }
     private fun waitUntil(check: () -> Boolean) {
         val end = System.nanoTime() + 10_000_000_000L

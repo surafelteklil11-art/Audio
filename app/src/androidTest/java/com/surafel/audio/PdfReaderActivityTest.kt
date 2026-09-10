@@ -77,10 +77,5 @@ class PdfReaderActivityTest {
         assertTrue(check())
     }
     private fun descendants(v: View): List<View> = listOf(v) + if (v is ViewGroup) (0 until v.childCount).flatMap { descendants(v.getChildAt(it)) } else emptyList()
-    private fun screenshot(name: String) {
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
-        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
-        val file = File(app.getExternalFilesDir(null), "pdf-previews/$name.png"); file.parentFile!!.mkdirs()
-        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }; bitmap.recycle()
-    }
+    private fun screenshot(name: String) { PdfTestScreenshots.capture(name) }
 }

@@ -84,7 +84,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             gradle :app:connectedDebugAndroidTest --no-daemon --stacktrace
-            adb pull /sdcard/Android/data/com.surafel.audio/files/pdf-previews app/build/pdf-device-previews
+            adb pull /sdcard/Download/AudioPdfPreviews app/build/pdf-device-previews
       - name: Upload native PDF results
         if: always()
         uses: actions/upload-artifact@v4
