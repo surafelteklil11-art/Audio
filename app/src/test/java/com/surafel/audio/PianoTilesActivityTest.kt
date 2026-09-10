@@ -62,15 +62,20 @@ class PianoTilesActivityTest {
             assertEquals(PianoPhase.RUNNING, e.phase)
             e.advance(e.difficulty.travelMs); tap(root.findViewWithTag("piano-board"), 0, 0)
             assertEquals(100, e.score)
-            assertTrue(shadowOf(pool).wasPathPlayed(PianoWave.cached(a).absolutePath))
+            assertTrue(shadowOf(pool).wasPathPlayed(PianoWave.cached(a.applicationContext).absolutePath))
             manager.lastAudioFocusRequest.listener.onAudioFocusChange(android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT)
             assertEquals(PianoPhase.PAUSED, e.phase)
             click(root, "Resume · ቀጥል"); assertEquals(PianoPhase.RUNNING, e.phase)
             val time = e.elapsedMs
-            a.sendBroadcast(android.content.Intent(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY))
-            shadowOf(Looper.getMainLooper()).idle()
+            val action = android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY
+            val receiver = org.robolectric.util.ReflectionHelpers.getField<android.content.BroadcastReceiver>(a, "noisy")
+            val registration = shadowOf(a.application).registeredReceivers.first { it.broadcastReceiver === receiver }
+            assertTrue(registration.intentFilter.hasAction(action))
+            registration.broadcastReceiver.onReceive(a, android.content.Intent(action))
             assertEquals(PianoPhase.PAUSED, e.phase); assertEquals(time, e.elapsedMs, .001)
             assertEquals(3, e.lives); assertEquals(100, e.score)
+            c.pause().stop()
+            assertFalse(shadowOf(a.application).registeredReceivers.any { it.broadcastReceiver === receiver })
         }
     }
     @Test fun twoFingersHoldSeparateLanesAndCancellationPausesWithoutPenalty() {
@@ -126,9 +131,9 @@ class PianoTilesActivityTest {
             click(root, "Start · ጀምር"); layout(root)
             val e = ViewModelProvider(a)[PianoModel::class.java].engine!!
             assertEquals(PianoPhase.RUNNING, e.phase)
-            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(50))
+            repeat(4) { shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(16)) }
             assertTrue(e.elapsedMs > -e.difficulty.travelMs)
-            assertTrue(e.elapsedMs <= -e.difficulty.travelMs + 50)
+            assertTrue(e.elapsedMs <= -e.difficulty.travelMs + 64)
             e.advance(-120.0 - e.elapsedMs)
             val b = root.findViewWithTag<PianoBoardView>("piano-board")
             assertTrue(b.targetY > b.boardTop + 300); assertTrue(b.height > 900)
@@ -161,7 +166,10 @@ class PianoTilesActivityTest {
         org.robolectric.util.ReflectionHelpers.getField<java.util.concurrent.ExecutorService>(audio, "executor").submit {}.get(5, java.util.concurrent.TimeUnit.SECONDS)
         shadowOf(Looper.getMainLooper()).idle()
         val pool = org.robolectric.util.ReflectionHelpers.getField<android.media.SoundPool>(audio, "pool")
-        shadowOf(pool).notifyPathLoaded(PianoWave.cached(a).absolutePath, true)
+        val path = PianoWave.cached(a.applicationContext).absolutePath
+        val loadedPaths = org.robolectric.util.ReflectionHelpers.getField<android.util.SparseArray<String>>(shadowOf(pool), "idToPaths")
+        assertTrue("Expected $path; loaded=$loadedPaths; error=${audio.error}", (0 until loadedPaths.size()).any { loadedPaths.valueAt(it) == path })
+        shadowOf(pool).notifyPathLoaded(path, true)
         assertTrue(audio.ready); return pool
     }
     private fun silence(root: View) {

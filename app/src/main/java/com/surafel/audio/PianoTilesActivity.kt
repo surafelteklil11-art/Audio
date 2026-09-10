@@ -14,6 +14,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.widget.*
 import androidx.activity.addCallback
@@ -51,6 +52,10 @@ class PianoTilesActivity : AppCompatActivity() {
         audio = PianoAudio(this, { updateAudioStatus() }, { pauseGame() })
         onBackPressedDispatcher.addCallback(this) { if (model.engine != null) leaveGame() else finish() }
         if (model.engine == null) renderHome() else buildGame()
+    }
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (board?.dispatchPianoKey(event) == true) return true
+        return super.dispatchKeyEvent(event)
     }
     override fun onStart() {
         super.onStart()
@@ -196,7 +201,7 @@ class PianoTilesActivity : AppCompatActivity() {
             if (e.phase == PianoPhase.COMPLETE || e.phase == PianoPhase.FAILED) { audio.releaseFocus(); model.retry(); buildGame(); return@button }
             if (!acquireAudio()) return@button
             if (e.phase == PianoPhase.READY) e.start() else e.resume()
-            board?.apply { requestFocus(); wake() }; renderPhase()
+            renderPhase(); board?.apply { requestFocus(); wake() }
         }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(18) })
         card.addView(button(if (model.sound) "♫ Sound on" else "Sound off") {
             model.setSound(!model.sound); if (!model.sound) audio.releaseFocus(); displayedPhase = null; renderPhase()

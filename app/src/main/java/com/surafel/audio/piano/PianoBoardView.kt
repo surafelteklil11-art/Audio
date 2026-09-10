@@ -89,6 +89,14 @@ class PianoBoardView(context: Context, val engine: PianoEngine,
     }
     override fun performClick(): Boolean { super.performClick(); return true }
     private fun keyLane(code: Int) = when(code) { KeyEvent.KEYCODE_1, KeyEvent.KEYCODE_D -> 0; KeyEvent.KEYCODE_2, KeyEvent.KEYCODE_F -> 1; KeyEvent.KEYCODE_3, KeyEvent.KEYCODE_J -> 2; KeyEvent.KEYCODE_4, KeyEvent.KEYCODE_K -> 3; else -> -1 }
+    fun dispatchPianoKey(event: KeyEvent): Boolean {
+        if (keyLane(event.keyCode) < 0 || engine.phase != PianoPhase.RUNNING) return false
+        return when (event.action) {
+            KeyEvent.ACTION_DOWN -> onKeyDown(event.keyCode, event)
+            KeyEvent.ACTION_UP -> onKeyUp(event.keyCode, event)
+            else -> false
+        }
+    }
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         val lane = keyLane(keyCode)
         if (lane < 0 || engine.phase != PianoPhase.RUNNING) return super.onKeyDown(keyCode, event)
