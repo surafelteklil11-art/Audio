@@ -46,16 +46,26 @@ class PianoTilesActivityTest {
             c.start().resume().visible(); assertEquals(PianoPhase.PAUSED, e.phase)
         }
     }
-    @Test fun unpluggingHeadphonesPausesTheActualActivityWithoutAdvancingSongTime() {
+    @Test fun soundPlaybackFocusInterruptionAndHeadphoneUnplugPauseTheActualActivity() {
         Robolectric.buildActivity(PianoTilesActivity::class.java).use { c ->
             val a = c.setup().visible().get(); val root = a.findViewById<ViewGroup>(android.R.id.content)
-            silence(root); root.findViewWithTag<View>("piano-play-aurora").performClick(); click(root, "Start · ጀምር")
+            val pool = loadAudio(a)
+            val manager = shadowOf(a.getSystemService(android.media.AudioManager::class.java))
+            manager.setNextFocusRequestResponse(android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
+            root.findViewWithTag<View>("piano-play-aurora").performClick(); click(root, "Start · ጀምር"); layout(root)
             val e = ViewModelProvider(a)[PianoModel::class.java].engine!!
+            assertEquals(PianoPhase.RUNNING, e.phase)
+            e.advance(e.difficulty.travelMs); tap(root.findViewWithTag("piano-board"), 0, 0)
+            assertEquals(100, e.score)
+            assertTrue(shadowOf(pool).wasPathPlayed(PianoWave.cached(a).absolutePath))
+            manager.lastAudioFocusRequest.listener.onAudioFocusChange(android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT)
+            assertEquals(PianoPhase.PAUSED, e.phase)
+            click(root, "Resume · ቀጥል"); assertEquals(PianoPhase.RUNNING, e.phase)
             val time = e.elapsedMs
             a.sendBroadcast(android.content.Intent(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY))
             shadowOf(Looper.getMainLooper()).idle()
             assertEquals(PianoPhase.PAUSED, e.phase); assertEquals(time, e.elapsedMs, .001)
-            assertEquals(3, e.lives)
+            assertEquals(3, e.lives); assertEquals(100, e.score)
         }
     }
     @Test fun twoFingersHoldSeparateLanesAndCancellationPausesWithoutPenalty() {
@@ -106,7 +116,7 @@ class PianoTilesActivityTest {
     fun renderSongLibraryReadyAndPlayingAtPhoneSize() {
         Robolectric.buildActivity(PianoTilesActivity::class.java).use { c ->
             val a = c.setup().visible().get(); val root = a.findViewById<ViewGroup>(android.R.id.content)
-            layout(root); snapshot(root, "home")
+            loadAudio(a); layout(root); snapshot(root, "home")
             silence(root); root.findViewWithTag<View>("piano-play-blue").performClick(); layout(root); snapshot(root, "ready")
             click(root, "Start · ጀምር"); layout(root)
             val e = ViewModelProvider(a)[PianoModel::class.java].engine!!
@@ -137,6 +147,14 @@ class PianoTilesActivityTest {
         val coords = lanes.map { lane -> MotionEvent.PointerCoords().apply { x = (lane + .5f) * b.width / 4; y = b.targetY - 10; pressure = 1f; size = 1f } }.toTypedArray()
         val event = MotionEvent.obtain(0, 0, action, ids.size, properties, coords, 0, 0, 1f, 1f, 0, 0, android.view.InputDevice.SOURCE_TOUCHSCREEN, 0)
         b.dispatchTouchEvent(event); event.recycle()
+    }
+    private fun loadAudio(a: PianoTilesActivity): android.media.SoundPool {
+        val audio = org.robolectric.util.ReflectionHelpers.getField<PianoAudio>(a, "audio")
+        org.robolectric.util.ReflectionHelpers.getField<java.util.concurrent.ExecutorService>(audio, "executor").submit {}.get(5, java.util.concurrent.TimeUnit.SECONDS)
+        shadowOf(Looper.getMainLooper()).idle()
+        val pool = org.robolectric.util.ReflectionHelpers.getField<android.media.SoundPool>(audio, "pool")
+        shadowOf(pool).notifyPathLoaded(PianoWave.cached(a).absolutePath, true)
+        assertTrue(audio.ready); return pool
     }
     private fun silence(root: View) {
         click(root, "♫ Sound on")
