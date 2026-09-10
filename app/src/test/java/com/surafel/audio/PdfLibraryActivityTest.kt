@@ -37,10 +37,10 @@ class PdfLibraryActivityTest {
         val root = activity.findViewById<ViewGroup>(android.R.id.content).getChildAt(0)
         val before = root.background; BackgroundManager.apply(activity); assertSame(before, root.background)
         screenshot(activity, "home")
-        descendants(root).first { it.contentDescription == "Tools" }.performClick(); shadowOf(Looper.getMainLooper()).idle()
+        descendants(root).first { it.contentDescription == "Tools" }.performClick(); shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(50))
         assertTrue(descendants(root).any { it.contentDescription == "Merge PDF" })
         screenshot(activity, "tools")
-        controller.pause().stop().start().resume().visible(); shadowOf(Looper.getMainLooper()).idle()
+        controller.pause().stop().start().resume().visible(); shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(50))
         assertSame(before, root.background)
         controller.pause().stop().destroy()
     }
@@ -49,15 +49,15 @@ class PdfLibraryActivityTest {
         val controller = Robolectric.buildActivity(PdfLibraryActivity::class.java).setup().visible()
         waitUntil { descendants(controller.get().window.decorView).any { it is TextView && it.text.toString() == "Books" } }
         val book = descendants(controller.get().window.decorView).first { it is TextView && it.text.toString() == "Books" }
-        (book.parent.parent as View).performClick(); shadowOf(Looper.getMainLooper()).idle()
-        controller.recreate().visible(); shadowOf(Looper.getMainLooper()).idle()
+        (book.parent.parent as View).performClick(); shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(50))
+        controller.recreate().visible(); shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(50))
         assertTrue(descendants(controller.get().window.decorView).any { it is TextView && it.text.toString().contains("Books /") })
         screenshot(controller.get(), "light-folder")
         controller.pause().stop().destroy()
     }
     private fun waitUntil(check: () -> Boolean) {
         val end = System.nanoTime() + 10_000_000_000L
-        while (!check() && System.nanoTime() < end) { Thread.sleep(30); shadowOf(Looper.getMainLooper()).idle() }
+        while (!check() && System.nanoTime() < end) { Thread.sleep(30); shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(50)) }
         assertTrue(check())
     }
     private fun descendants(v: View): List<View> = listOf(v) + if (v is ViewGroup) (0 until v.childCount).flatMap { descendants(v.getChildAt(it)) } else emptyList()

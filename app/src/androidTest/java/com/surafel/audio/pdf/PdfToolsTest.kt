@@ -12,19 +12,15 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.annotation.Config
-import org.robolectric.annotation.GraphicsMode
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.core.app.ApplicationProvider
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.util.zip.ZipFile
 
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [33])
-@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@RunWith(AndroidJUnit4::class)
 class PdfToolsTest {
-    private val context: Context get() = RuntimeEnvironment.getApplication()
+    private val context: Context get() = ApplicationProvider.getApplicationContext<Context>()
     private lateinit var tools: PdfTools
     @Before fun setup() { File(context.filesDir, "pdf_library").deleteRecursively(); tools = PdfTools(context) }
     private fun fixture(pages: Int = 3): File = tools.temp().also { file ->
@@ -82,9 +78,11 @@ class PdfToolsTest {
         assertEquals("", library.get(other.id).folder)
     }
     @Test fun mergeReorderRotateAndExtractKeepPageText() {
-        val source = fixture(); val output = tools.temp(); tools.pages(source, output, listOf(2, 0), true)
-        tools.load(output).use { assertEquals(2, it.numberOfPages); assertEquals(90, it.getPage(0).rotation) }
+        val source = fixture(); val output = tools.temp(); tools.pages(source, output, listOf(2, 0))
+        tools.load(output).use { assertEquals(2, it.numberOfPages); assertEquals(0, it.getPage(0).rotation) }
         val text = tools.extract(output); assertTrue(text.indexOf("Page 3") < text.indexOf("Page 1")); assertFalse(text.contains("Page 2"))
+        val rotated = tools.temp(); tools.pages(source, rotated, listOf(0), true)
+        tools.load(rotated).use { assertEquals(90, it.getPage(0).rotation) }
         val merged = tools.temp(); tools.merge(listOf(output, fixture(1)), merged)
         assertEquals(3, tools.pageCount(merged)); assertEquals(3, tools.pageCount(source))
         assertTrue(tools.extract(source, query = "Page 2").startsWith("Page 2"))
