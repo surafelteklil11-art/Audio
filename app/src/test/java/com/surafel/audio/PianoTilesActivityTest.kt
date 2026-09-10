@@ -42,11 +42,15 @@ class PianoTilesActivityTest {
             a.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_2))
             a.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_2))
             assertEquals(200, e.score)
-            // Let Robolectric attach the recreated window without auto-running the song clock.
+            // Exercise a real orientation configuration change, including retained ViewModel state.
             android.view.Choreographer.getInstance().removeFrameCallback(b)
-            org.robolectric.shadows.ShadowChoreographer.setPaused(false)
-            try { c.recreate() } finally { org.robolectric.shadows.ShadowChoreographer.setPaused(true) }
-            a = c.get(); root = a.findViewById(android.R.id.content); layout(root)
+            val landscape = android.content.res.Configuration(a.resources.configuration).apply {
+                orientation = android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                screenWidthDp = 800; screenHeightDp = 360
+            }
+            c.configurationChange(landscape).visible()
+            assertNotSame(a, c.get())
+            a = c.get(); root = a.findViewById(android.R.id.content); layout(root, 1600, 720)
             assertSame(e, ViewModelProvider(a)[PianoModel::class.java].engine)
             assertEquals(PianoPhase.PAUSED, e.phase); assertEquals(200, e.score)
             click(root, "Resume · ቀጥል"); assertEquals(PianoPhase.RUNNING, e.phase)
