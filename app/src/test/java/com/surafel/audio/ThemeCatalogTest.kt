@@ -55,6 +55,26 @@ class ThemeCatalogTest {
         assertTrue(bitmap.sameAs(render(26)))
     }
 
+    @Test fun everyThemeKeepsItsColorsAcrossRepeatedRedraws() {
+        for (theme in ThemeCatalog.all) {
+            for (alpha in listOf(255, 127)) {
+                val drawable = ThemeCatalog.drawable(context, theme.id)
+                drawable.setBounds(0, 0, 160, 320)
+                drawable.alpha = alpha
+                fun frame(): Bitmap = Bitmap.createBitmap(160, 320, Bitmap.Config.ARGB_8888).also {
+                    drawable.draw(Canvas(it))
+                }
+                val first = frame()
+                repeat(4) { redraw ->
+                    val next = frame()
+                    assertTrue("${theme.name}, alpha $alpha, redraw $redraw changed colors", first.sameAs(next))
+                    next.recycle()
+                }
+                first.recycle()
+            }
+        }
+    }
+
     @Test fun invalidStoredIdFallsBackToDefault() {
         assertTrue(render(500).sameAs(render(0)))
         assertTrue(render(ThemeCatalog.CUSTOM_ID).sameAs(render(0)))

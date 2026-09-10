@@ -17,6 +17,9 @@ class ThemeArtworkDrawable(private val theme: ThemeCatalog.ThemeOption) : Drawab
         canvas.clipRect(bounds)
         canvas.translate(bounds.left.toFloat(), bounds.top.toFloat())
         canvas.scale(bounds.width() / 400f, bounds.height() / 800f)
+        // Paint alpha also modulates shaders. Do not inherit a translucent motif's
+        // color from the previous frame when repainting the background gradients.
+        paint.color = Color.WHITE
         paint.colorFilter = filter
         paint.style = Paint.Style.FILL
         paint.shader = LinearGradient(0f, 0f, 400f, 800f, theme.colors, null, Shader.TileMode.CLAMP)
