@@ -23,7 +23,7 @@ class PdfReaderActivity : PdfUiActivity() {
         setContentView(root)
         val top = row().apply { setPadding(dp(6), 0, dp(6), 0) }
         top.addView(action("‹", "Back to PDF library") { leave() })
-        top.addView(label(entry.name, 15f, ink, true).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(0, dp(56), 1f))
+        top.addView(label(entry.name, 15f, ink, true).apply { gravity = Gravity.CENTER_VERTICAL; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(0, dp(56), 1f))
         top.addView(action("⌕", "Search PDF text") { prompt("Search PDF", "Find text") { model.search(it) } })
         top.addView(action("⋮", "Reader options") { choices("Reader", listOf("Share", "Print", "Toggle page night mode", "Keep screen on")) { option ->
             when (option) {

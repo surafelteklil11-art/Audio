@@ -28,7 +28,7 @@ abstract class PdfUiActivity : AppCompatActivity() {
     }
     protected fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
     protected fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-    protected fun row() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+    protected fun row() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; isBaselineAligned = false }
     protected fun label(value: String, size: Float = 15f, color: Int = ink, bold: Boolean = false) = TextView(this).apply {
         text = value; textSize = size; setTextColor(color); if (bold) typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     }

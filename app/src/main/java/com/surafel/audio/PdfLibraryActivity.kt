@@ -28,6 +28,7 @@ class PdfLibraryActivity : PdfUiActivity() {
     private lateinit var model: PdfLibraryModel
     private lateinit var title: TextView
     private lateinit var location: TextView
+    private lateinit var toolbar: LinearLayout
     private lateinit var progress: TextView
     private lateinit var empty: TextView
     private lateinit var list: RecyclerView
@@ -72,12 +73,12 @@ class PdfLibraryActivity : PdfUiActivity() {
         }
         val top = row()
         top.addView(action("☰", "PDF Reader settings") { settingsMenu() })
-        top.addView(label("AUDIO  /  DOCUMENTS", 10f, muted, true), LinearLayout.LayoutParams(0, dp(48), 1f))
+        top.addView(label("AUDIO  /  DOCUMENTS", 10f, muted, true).apply { gravity = Gravity.CENTER_VERTICAL }, LinearLayout.LayoutParams(0, dp(48), 1f))
         top.addView(action("⌕", "Search documents") { prompt("Search documents", "File or folder name", model.query) { model.query = it; render() } })
         top.addView(action("×", "Close PDF Reader") { finish() }); header.addView(top)
         title = label("PDF Reader", 30f, ink, true); header.addView(title)
         header.addView(label("Your documents, always at hand", 12f, muted)); root.addView(header)
-        val toolbar = row().apply { setPadding(dp(12), dp(4), dp(12), 0) }
+        toolbar = row().apply { setPadding(dp(12), dp(4), dp(12), 0) }
         location = action("All ▾", "Filter documents") { choices("Show", listOf("All", "PDF", "Folder", "Clear search")) { i ->
             if (i == 3) model.query = "" else model.filter = listOf("All", "PDF", "Folder")[i]; render()
         } }
@@ -102,7 +103,7 @@ class PdfLibraryActivity : PdfUiActivity() {
         root.addView(frame, LinearLayout.LayoutParams(-1, 0, 1f))
         navigation = row().apply { setPadding(dp(8), dp(6), dp(8), dp(6)) }; root.addView(navigation)
         model.entries.observe(this) { render() }
-        model.busy.observe(this) { progress.text = it?.let { label -> "$label…" } ?: if (model.query.isNotEmpty()) "Search: ${model.query} · Filter → Clear search" else ""; add.isEnabled = it == null }
+        model.busy.observe(this) { add.isEnabled = it == null; render() }
         model.result.observe(this) { outcome -> if (outcome != null) {
             model.result.value = null
             if (outcome.text != null) prompt("Edit extracted text", "Text", outcome.text, multi = true) { text -> textPdf(text) }
@@ -127,6 +128,7 @@ class PdfLibraryActivity : PdfUiActivity() {
         location.text = if (selecting) "${model.selection.size} selected" else (folder?.name?.take(18)?.plus(" / ") ?: "") + model.filter + " ▾"
         selectButton.text = if (selecting) "⋮" else "☑"
         val inTools = model.tab == "Tools"
+        toolbar.visibility = if (inTools) View.GONE else View.VISIBLE
         toolsScroll.visibility = if (inTools) View.VISIBLE else View.GONE
         list.visibility = if (inTools) View.GONE else View.VISIBLE; add.visibility = if (inTools || model.tab == "Recycle bin") View.GONE else View.VISIBLE
         val filtered = entries.filter { e ->
@@ -143,6 +145,7 @@ class PdfLibraryActivity : PdfUiActivity() {
             navigation.addView(action(value, tab) { model.tab = tab; selecting = false; model.selection.clear(); model.filter = "All"; model.query = ""; render() }.apply { setTextColor(if (model.tab == tab) blue else ink); textSize = 13f }, LinearLayout.LayoutParams(0, dp(56), 1f))
         }
         progress.text = model.busy.value?.plus("…") ?: if (model.query.isNotEmpty()) "Search: ${model.query} · Filter → Clear search" else ""
+        progress.visibility = if (progress.text.isEmpty()) View.GONE else View.VISIBLE
     }
     private fun open(id: String) { startActivity(Intent(this, PdfReaderActivity::class.java).putExtra("document_id", id)) }
     private fun newFolder() { prompt("Create folder", "Folder name") { name -> model.run("Creating folder") { model.library.createFolder(name, model.folder); PdfLibraryModel.Result("Folder created") } } }
@@ -310,7 +313,10 @@ class PdfLibraryActivity : PdfUiActivity() {
         var data = emptyList<PdfLibrary.Entry>()
         inner class Holder(val root: LinearLayout, val icon: PdfFileIcon, val name: TextView, val detail: TextView, val menu: TextView) : RecyclerView.ViewHolder(root)
         override fun onCreateViewHolder(parent: ViewGroup, type: Int): Holder {
-            val root = row().apply { setPadding(dp(8), dp(8), dp(2), dp(8)); minimumHeight = dp(88) }
+            val root = row().apply {
+                layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                setPadding(dp(8), dp(8), dp(2), dp(8)); minimumHeight = dp(88)
+            }
             val icon = PdfFileIcon(this@PdfLibraryActivity); root.addView(icon, LinearLayout.LayoutParams(dp(48), dp(58)))
             val names = column().apply { setPadding(dp(18), dp(2), dp(4), dp(2)) }
             val name = label("", 16f, ink, true).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END }

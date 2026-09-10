@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -49,12 +50,28 @@ class PdfLibraryScreenTest {
         ActivityScenario.launch(PdfLibraryActivity::class.java).use { scenario ->
             waitUntil(scenario) { a -> descendants(a.window.decorView).any { it is TextView && it.text.toString() == "Books" } }
             waitUntil(scenario) { a -> descendants(a.window.decorView).filterIsInstance<PdfFileIcon>().any { it.thumbnail != null } }
+            scenario.onActivity { activity ->
+                val root = activity.findViewById<ViewGroup>(android.R.id.content).getChildAt(0)
+                val background = root.background
+                BackgroundManager.apply(activity)
+                assertSame(background, root.background)
+                val books = descendants(root).first { it is TextView && it.text.toString() == "Books" }
+                val row = books.parent.parent as View
+                assertEquals((row.parent as View).width - (row.parent as View).paddingLeft - (row.parent as View).paddingRight, row.width)
+            }
             PdfTestScreenshots.capture("home")
             scenario.onActivity { activity -> descendants(activity.window.decorView).first { it.contentDescription == "Tools" }.performClick() }
+            scenario.moveToState(Lifecycle.State.CREATED); scenario.moveToState(Lifecycle.State.RESUMED)
+            waitUntil(scenario) { a -> ViewModelProvider(a)[PdfLibraryModel::class.java].busy.value == null }
+            scenario.onActivity { activity ->
+                val root = activity.findViewById<ViewGroup>(android.R.id.content).getChildAt(0)
+                val background = root.background; BackgroundManager.apply(activity); assertSame(background, root.background)
+                assertTrue(descendants(root).any { it.contentDescription == "Merge PDF" })
+            }
             InstrumentationRegistry.getInstrumentation().waitForIdleSync(); PdfTestScreenshots.capture("tools")
             scenario.onActivity { activity ->
                 assertEquals("Tools", ViewModelProvider(activity)[PdfLibraryModel::class.java].tab)
-                descendants(activity.window.decorView).filterIsInstance<ScrollView>().first { it.isShown }.fullScroll(View.FOCUS_DOWN)
+                descendants(activity.window.decorView).filterIsInstance<ScrollView>().first { it.isShown }.apply { scrollTo(0, getChildAt(0).height) }
             }
             InstrumentationRegistry.getInstrumentation().waitForIdleSync(); PdfTestScreenshots.capture("tools-bottom")
             scenario.onActivity { activity -> descendants(activity.window.decorView).first { it.contentDescription == "Home" }.performClick() }
