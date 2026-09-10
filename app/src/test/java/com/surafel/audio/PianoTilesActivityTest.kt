@@ -26,17 +26,21 @@ import java.io.File
 @Config(sdk = [24, 33, 35], qualifiers = "w360dp-h800dp-xhdpi")
 @LooperMode(LooperMode.Mode.PAUSED)
 class PianoTilesActivityTest {
-    @Before fun clean() { RuntimeEnvironment.getApplication().getSharedPreferences("piano_tiles", 0).edit().clear().putBoolean("sound", false).commit() }
+    @Before fun clean() { RuntimeEnvironment.getApplication().getSharedPreferences("piano_tiles", 0).edit().clear().commit() }
     @Test fun rotationAndBackgroundPreserveAttemptAndRequireExplicitResume() {
         Robolectric.buildActivity(PianoTilesActivity::class.java).use { c ->
             var a = c.setup().visible().get(); var root = a.findViewById<ViewGroup>(android.R.id.content)
-            root.findViewWithTag<View>("piano-play-aurora").performClick(); click(root, "Start · ጀምር"); layout(root)
+            silence(root); root.findViewWithTag<View>("piano-play-aurora").performClick(); click(root, "Start · ጀምር"); layout(root)
             val e = ViewModelProvider(a)[PianoModel::class.java].engine!!
             e.advance(e.difficulty.travelMs); val b = root.findViewWithTag<PianoBoardView>("piano-board")
             tap(b, 0, 0); assertEquals(100, e.score)
+            e.advance(600.0)
+            a.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_2))
+            a.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_2))
+            assertEquals(200, e.score)
             c.recreate(); a = c.get(); root = a.findViewById(android.R.id.content); layout(root)
             assertSame(e, ViewModelProvider(a)[PianoModel::class.java].engine)
-            assertEquals(PianoPhase.PAUSED, e.phase); assertEquals(100, e.score)
+            assertEquals(PianoPhase.PAUSED, e.phase); assertEquals(200, e.score)
             click(root, "Resume · ቀጥል"); assertEquals(PianoPhase.RUNNING, e.phase)
             c.pause().stop(); assertEquals(PianoPhase.PAUSED, e.phase)
             c.start().resume().visible(); assertEquals(PianoPhase.PAUSED, e.phase)
@@ -45,7 +49,7 @@ class PianoTilesActivityTest {
     @Test fun unpluggingHeadphonesPausesTheActualActivityWithoutAdvancingSongTime() {
         Robolectric.buildActivity(PianoTilesActivity::class.java).use { c ->
             val a = c.setup().visible().get(); val root = a.findViewById<ViewGroup>(android.R.id.content)
-            root.findViewWithTag<View>("piano-play-aurora").performClick(); click(root, "Start · ጀምር")
+            silence(root); root.findViewWithTag<View>("piano-play-aurora").performClick(); click(root, "Start · ጀምር")
             val e = ViewModelProvider(a)[PianoModel::class.java].engine!!
             val time = e.elapsedMs
             a.sendBroadcast(android.content.Intent(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY))
@@ -84,7 +88,7 @@ class PianoTilesActivityTest {
     }
     @Test fun completedSongRecordsHighScoreAndStarsOnceAndByDifficulty() {
         val app = RuntimeEnvironment.getApplication(); val model = PianoModel(app)
-        val song = PianoSongs.all.first(); model.select(song)
+        val song = PianoSongs.all.first(); model.setSound(false); assertFalse(PianoModel(app).sound); model.select(song)
         val e = model.engine!!; e.start()
         for (n in e.notes) {
             e.advance(n.atMs - e.elapsedMs); e.down(n.lane, n.id)
@@ -103,9 +107,10 @@ class PianoTilesActivityTest {
         Robolectric.buildActivity(PianoTilesActivity::class.java).use { c ->
             val a = c.setup().visible().get(); val root = a.findViewById<ViewGroup>(android.R.id.content)
             layout(root); snapshot(root, "home")
-            root.findViewWithTag<View>("piano-play-blue").performClick(); layout(root); snapshot(root, "ready")
+            silence(root); root.findViewWithTag<View>("piano-play-blue").performClick(); layout(root); snapshot(root, "ready")
             click(root, "Start · ጀምር"); layout(root)
             val e = ViewModelProvider(a)[PianoModel::class.java].engine!!
+            assertEquals(PianoPhase.RUNNING, e.phase)
             e.advance(e.difficulty.travelMs - 120.0)
             val b = root.findViewWithTag<PianoBoardView>("piano-board")
             assertTrue(b.targetY > b.boardTop + 300); assertTrue(b.height > 900)
@@ -117,7 +122,7 @@ class PianoTilesActivityTest {
     fun compactLandscapeStillHasPlayableLanesAndReachableStart() {
         Robolectric.buildActivity(PianoTilesActivity::class.java).use { c ->
             val root = c.setup().visible().get().findViewById<ViewGroup>(android.R.id.content)
-            root.findViewWithTag<View>("piano-play-aurora").performClick(); layout(root, 960, 640)
+            silence(root); root.findViewWithTag<View>("piano-play-aurora").performClick(); layout(root, 960, 640)
             click(root, "Start · ጀምር"); layout(root, 960, 640)
             val b = root.findViewWithTag<PianoBoardView>("piano-board")
             assertTrue(b.targetY > b.boardTop); assertEquals(PianoPhase.RUNNING, b.engine.phase)
@@ -132,6 +137,10 @@ class PianoTilesActivityTest {
         val coords = lanes.map { lane -> MotionEvent.PointerCoords().apply { x = (lane + .5f) * b.width / 4; y = b.targetY - 10; pressure = 1f; size = 1f } }.toTypedArray()
         val event = MotionEvent.obtain(0, 0, action, ids.size, properties, coords, 0, 0, 1f, 1f, 0, 0, android.view.InputDevice.SOURCE_TOUCHSCREEN, 0)
         b.dispatchTouchEvent(event); event.recycle()
+    }
+    private fun silence(root: View) {
+        click(root, "♫ Sound on")
+        assertTrue(descendants(root).filterIsInstance<TextView>().any { it.text.toString() == "Sound off" })
     }
     private fun click(root: View, title: String) { descendants(root).filterIsInstance<TextView>().first { it.text.toString() == title }.performClick() }
     private fun layout(root: View, width: Int = 720, height: Int = 1600) { repeat(2) {

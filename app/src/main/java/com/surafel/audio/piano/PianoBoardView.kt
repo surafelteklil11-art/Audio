@@ -24,7 +24,7 @@ class PianoBoardView(context: Context, val engine: PianoEngine,
     val boardTop get() = dp(112f)
     val targetY get() = boardTop + (height - boardTop) * .78f
     private val pixelsPerMs get() = (targetY - boardTop) / engine.difficulty.travelMs
-    init { isFocusable = true; contentDescription = "Four piano lanes. Tap tiles at the glowing line. Keep long tiles pressed. Keys 1 to 4 also play."; setLayerType(LAYER_TYPE_SOFTWARE, null) }
+    init { isFocusable = true; isFocusableInTouchMode = true; contentDescription = "Four piano lanes. Tap tiles at the glowing line. Keep long tiles pressed. Keys 1 to 4 also play."; setLayerType(LAYER_TYPE_SOFTWARE, null) }
     private fun dp(n: Float) = n * resources.displayMetrics.density
     fun tileRect(note: PianoNote): RectF {
         val laneWidth = width / 4f

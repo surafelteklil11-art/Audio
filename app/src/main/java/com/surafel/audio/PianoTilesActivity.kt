@@ -196,7 +196,7 @@ class PianoTilesActivity : AppCompatActivity() {
             if (e.phase == PianoPhase.COMPLETE || e.phase == PianoPhase.FAILED) { audio.releaseFocus(); model.retry(); buildGame(); return@button }
             if (!acquireAudio()) return@button
             if (e.phase == PianoPhase.READY) e.start() else e.resume()
-            board?.wake(); renderPhase()
+            board?.apply { requestFocus(); wake() }; renderPhase()
         }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(18) })
         card.addView(button(if (model.sound) "♫ Sound on" else "Sound off") {
             model.setSound(!model.sound); if (!model.sound) audio.releaseFocus(); displayedPhase = null; renderPhase()
