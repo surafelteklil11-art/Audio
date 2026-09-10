@@ -26,7 +26,11 @@ import java.io.File
 @Config(sdk = [24, 33, 35], qualifiers = "w360dp-h800dp-xhdpi")
 @LooperMode(LooperMode.Mode.PAUSED)
 class PianoTilesActivityTest {
-    @Before fun clean() { RuntimeEnvironment.getApplication().getSharedPreferences("piano_tiles", 0).edit().clear().commit() }
+    @Before fun clean() {
+        org.robolectric.shadows.ShadowChoreographer.setPaused(true)
+        org.robolectric.shadows.ShadowChoreographer.setFrameDelay(java.time.Duration.ofMillis(16))
+        RuntimeEnvironment.getApplication().getSharedPreferences("piano_tiles", 0).edit().clear().commit()
+    }
     @Test fun rotationAndBackgroundPreserveAttemptAndRequireExplicitResume() {
         Robolectric.buildActivity(PianoTilesActivity::class.java).use { c ->
             var a = c.setup().visible().get(); var root = a.findViewById<ViewGroup>(android.R.id.content)
@@ -50,6 +54,7 @@ class PianoTilesActivityTest {
         Robolectric.buildActivity(PianoTilesActivity::class.java).use { c ->
             val a = c.setup().visible().get(); val root = a.findViewById<ViewGroup>(android.R.id.content)
             val pool = loadAudio(a)
+            if (descendants(root).filterIsInstance<TextView>().any { it.text.toString() == "Sound off" }) click(root, "Sound off")
             val manager = shadowOf(a.getSystemService(android.media.AudioManager::class.java))
             manager.setNextFocusRequestResponse(android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
             root.findViewWithTag<View>("piano-play-aurora").performClick(); click(root, "Start · ጀምር"); layout(root)
@@ -121,7 +126,10 @@ class PianoTilesActivityTest {
             click(root, "Start · ጀምር"); layout(root)
             val e = ViewModelProvider(a)[PianoModel::class.java].engine!!
             assertEquals(PianoPhase.RUNNING, e.phase)
-            e.advance(e.difficulty.travelMs - 120.0)
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(50))
+            assertTrue(e.elapsedMs > -e.difficulty.travelMs)
+            assertTrue(e.elapsedMs <= -e.difficulty.travelMs + 50)
+            e.advance(-120.0 - e.elapsedMs)
             val b = root.findViewWithTag<PianoBoardView>("piano-board")
             assertTrue(b.targetY > b.boardTop + 300); assertTrue(b.height > 900)
             snapshot(root, "playing")
@@ -157,7 +165,7 @@ class PianoTilesActivityTest {
         assertTrue(audio.ready); return pool
     }
     private fun silence(root: View) {
-        click(root, "♫ Sound on")
+        if (descendants(root).filterIsInstance<TextView>().any { it.text.toString() == "♫ Sound on" }) click(root, "♫ Sound on")
         assertTrue(descendants(root).filterIsInstance<TextView>().any { it.text.toString() == "Sound off" })
     }
     private fun click(root: View, title: String) { descendants(root).filterIsInstance<TextView>().first { it.text.toString() == title }.performClick() }
