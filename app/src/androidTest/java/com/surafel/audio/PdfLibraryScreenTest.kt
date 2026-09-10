@@ -1,9 +1,15 @@
 package com.surafel.audio
 
+import android.app.Activity
 import android.app.Application
 import android.content.ContentValues
 import android.graphics.Bitmap
 import android.provider.MediaStore
+import android.os.Handler
+import android.os.Looper
+import android.view.PixelCopy
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ScrollView
@@ -21,10 +27,22 @@ import org.junit.runner.RunWith
 import java.io.File
 
 object PdfTestScreenshots {
-    fun capture(name: String) {
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        instrumentation.waitForIdleSync()
-        val bitmap = instrumentation.uiAutomation.takeScreenshot()
+    fun <T : Activity> capture(name: String, scenario: ActivityScenario<T>) {
+        val ready = CountDownLatch(1)
+        lateinit var bitmap: Bitmap
+        var result = PixelCopy.ERROR_UNKNOWN
+        scenario.onActivity { activity ->
+            val view = activity.window.decorView
+            // Wait for committed frames after navigation/recreation. Capture only the app's
+            // surface, so unrelated emulator launcher dialogs do not replace its preview.
+            view.invalidate()
+            view.postOnAnimation { view.postOnAnimation {
+                bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+                PixelCopy.request(activity.window, bitmap, { code -> result = code; ready.countDown() }, Handler(Looper.getMainLooper()))
+            } }
+        }
+        assertTrue("Timed out waiting for the app frame", ready.await(20, TimeUnit.SECONDS))
+        assertEquals("Could not capture the app window", PixelCopy.SUCCESS, result)
         val context = ApplicationProvider.getApplicationContext<Application>()
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, "$name-api-${android.os.Build.VERSION.SDK_INT}.png")
@@ -59,7 +77,7 @@ class PdfLibraryScreenTest {
                 val row = books.parent.parent as View
                 assertEquals((row.parent as View).width - (row.parent as View).paddingLeft - (row.parent as View).paddingRight, row.width)
             }
-            PdfTestScreenshots.capture("home")
+            PdfTestScreenshots.capture("home", scenario)
             scenario.onActivity { activity -> descendants(activity.window.decorView).first { it.contentDescription == "Tools" }.performClick() }
             scenario.moveToState(Lifecycle.State.CREATED); scenario.moveToState(Lifecycle.State.RESUMED)
             waitUntil(scenario) { a -> ViewModelProvider(a)[PdfLibraryModel::class.java].busy.value == null }
@@ -68,12 +86,13 @@ class PdfLibraryScreenTest {
                 val background = root.background; BackgroundManager.apply(activity); assertSame(background, root.background)
                 assertTrue(descendants(root).any { it.contentDescription == "Merge PDF" })
             }
-            InstrumentationRegistry.getInstrumentation().waitForIdleSync(); PdfTestScreenshots.capture("tools")
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync(); PdfTestScreenshots.capture("tools", scenario)
             scenario.onActivity { activity ->
                 assertEquals("Tools", ViewModelProvider(activity)[PdfLibraryModel::class.java].tab)
                 descendants(activity.window.decorView).filterIsInstance<ScrollView>().first { it.isShown }.apply { scrollTo(0, getChildAt(0).height) }
             }
-            InstrumentationRegistry.getInstrumentation().waitForIdleSync(); PdfTestScreenshots.capture("tools-bottom")
+            waitUntil(scenario) { a -> descendants(a.window.decorView).filterIsInstance<ScrollView>().any { it.isShown && it.scrollY > 0 } }
+            PdfTestScreenshots.capture("tools-bottom", scenario)
             scenario.onActivity { activity -> descendants(activity.window.decorView).first { it.contentDescription == "Home" }.performClick() }
             waitUntil(scenario) { a -> descendants(a.window.decorView).any { it is TextView && it.text.toString() == "Books" } }
             scenario.onActivity { activity ->
@@ -83,7 +102,7 @@ class PdfLibraryScreenTest {
             app.getSharedPreferences("pdf_preferences", 0).edit().putBoolean("dark", false).commit()
             scenario.recreate()
             waitUntil(scenario) { a -> descendants(a.window.decorView).any { it is TextView && it.text.toString().contains("Books /") } }
-            PdfTestScreenshots.capture("light-folder")
+            PdfTestScreenshots.capture("light-folder", scenario)
         }
     }
     private fun waitUntil(scenario: ActivityScenario<PdfLibraryActivity>, check: (PdfLibraryActivity) -> Boolean) {

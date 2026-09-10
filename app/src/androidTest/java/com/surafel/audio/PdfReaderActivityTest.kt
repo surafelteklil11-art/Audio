@@ -54,7 +54,7 @@ class PdfReaderActivityTest {
                 assertSame(model, retained); assertEquals(1, retained.marks.size); assertEquals(1, retained.state.value!!.page)
                 descendants(activity.window.decorView).filterIsInstance<PdfPageView>().single().invalidate()
             }
-            screenshot("reader")
+            PdfTestScreenshots.capture("reader", scenario)
             scenario.onActivity { activity -> model.saveMarks(descendants(activity.window.decorView).filterIsInstance<PdfPageView>().single().overlay()) }
             waitUntil { library.all().size == 2 && !model.state.value!!.busy }
             assertArrayEquals(original, library.file(entry).readBytes())
@@ -77,5 +77,4 @@ class PdfReaderActivityTest {
         assertTrue(check())
     }
     private fun descendants(v: View): List<View> = listOf(v) + if (v is ViewGroup) (0 until v.childCount).flatMap { descendants(v.getChildAt(it)) } else emptyList()
-    private fun screenshot(name: String) { PdfTestScreenshots.capture(name) }
 }
