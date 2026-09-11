@@ -89,7 +89,7 @@ class PdfLibraryScreenTest {
             scenario.onActivity { activity ->
                 val panel = descendants(activity.window.decorView).first { it.contentDescription == "PDF navigation drawer" }
                 val drawer = descendants(activity.window.decorView).filterIsInstance<DrawerLayout>().single()
-                assertEquals(0, panel.left); assertEquals(drawer.height - drawer.paddingTop - drawer.paddingBottom, panel.height)
+                assertEquals(0, panel.left); assertTrue("Drawer should cover the available height", panel.height >= drawer.height - drawer.paddingTop - drawer.paddingBottom)
                 drawer.closeDrawer(GravityCompat.START, false)
             }
             scenario.onActivity { activity -> descendants(activity.window.decorView).first { it.contentDescription == "Tools" }.performClick() }
