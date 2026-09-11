@@ -16,6 +16,27 @@ import java.util.concurrent.Executors
 
 object PdfSharing {
     fun share(activity: Activity, file: File, name: String, mime: String = "application/pdf") {
+        val privateSource = file.canonicalPath.startsWith(activity.filesDir.canonicalPath + "/pdf_library/") || file.canonicalPath.startsWith(activity.cacheDir.canonicalPath + "/pdf_exports/")
+        if (!privateSource) {
+            android.widget.Toast.makeText(activity, "Preparing PDF for sharing…", android.widget.Toast.LENGTH_SHORT).show()
+            val worker = Executors.newSingleThreadExecutor()
+            worker.execute {
+                var output: File? = null
+                try {
+                    require(PdfDeviceFiles.isSharedPdf(activity.applicationContext, file)) { "Choose a PDF in shared storage" }
+                    val directory = File(activity.cacheDir, "pdf_exports").apply { mkdirs() }
+                    output = File.createTempFile("share-", ".pdf", directory)
+                    file.inputStream().use { input -> output!!.outputStream().use { PdfLibrary.copyBounded(input, it) } }
+                    val ready = output!!
+                    activity.runOnUiThread {
+                        if (!activity.isFinishing && !activity.isDestroyed) runCatching { share(activity, ready, name, mime) }.onFailure { android.widget.Toast.makeText(activity, "No sharing app available", android.widget.Toast.LENGTH_LONG).show() }
+                        else ready.delete()
+                    }
+                } catch (e: Exception) { output?.delete(); activity.runOnUiThread { if (!activity.isDestroyed) android.widget.Toast.makeText(activity, PdfLibraryModel.errorMessage(e), android.widget.Toast.LENGTH_LONG).show() } }
+                finally { worker.shutdown() }
+            }
+            return
+        }
         val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.pdf-files", file)
         val intent = Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, uri).putExtra(Intent.EXTRA_TITLE, name)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION).apply { clipData = ClipData.newRawUri(name, uri) }

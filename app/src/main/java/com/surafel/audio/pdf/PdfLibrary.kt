@@ -11,18 +11,36 @@ import java.io.InputStream
 import java.util.UUID
 
 /** All documents are private copies. Library actions never mutate the imported original. */
-class PdfLibrary(context: Context) {
+class PdfLibrary(private val context: Context) {
     private val directory = File(context.filesDir, "pdf_library").apply { mkdirs() }
     private val index = AtomicFile(File(directory, "index.json"))
     data class Entry(val id: String, val name: String, val folder: String = "", val isFolder: Boolean = false,
         val bytes: Long = 0, val pages: Int = 0, val favorite: Boolean = false, val opened: Long = 0,
-        val page: Int = 0, val trashed: Boolean = false, val created: Long = System.currentTimeMillis(), val trashGroup: String = "")
+        val page: Int = 0, val trashed: Boolean = false, val created: Long = System.currentTimeMillis(), val trashGroup: String = "", val sourcePath: String = "", val sourceModified: Long = 0)
 
     fun file(entry: Entry): File {
         require(entry.id.matches(Regex("[a-f0-9-]{36}")) && !entry.isFolder)
+        if (entry.sourcePath.isNotEmpty()) {
+            val source = File(entry.sourcePath)
+            require(PdfDeviceFiles.hasAccess(context) && PdfDeviceFiles.isSharedPdf(context, source) && source.isFile && source.canRead()) { "Device PDF is unavailable. Check file access or refresh the device list." }
+            return source
+        }
         return File(directory, "${entry.id}.pdf")
     }
-    fun all(): List<Entry> = synchronized(lock) { read() }
+    fun all(): List<Entry> = synchronized(lock) { val access = PdfDeviceFiles.hasAccess(context); read().filter { it.sourcePath.isEmpty() || (access && File(it.sourcePath).isFile) } }
+    fun syncDeviceFiles(scan: PdfDeviceFiles.Scan) = synchronized(lock) {
+        val list = read(); val old = list.filter { it.sourcePath.isNotEmpty() }.associateBy { it.sourcePath }
+        val found = scan.files.map { file ->
+            val path = file.canonicalPath; val prior = old[path]
+            (prior ?: Entry(UUID.nameUUIDFromBytes(path.toByteArray(Charsets.UTF_8)).toString(), file.name)).copy(
+                name = file.name, bytes = file.length(), pages = -1, sourcePath = path,
+                sourceModified = file.lastModified(), created = file.lastModified(), folder = "", trashed = false)
+        }
+        // Preserve metadata for temporarily unmounted volumes and limited scans, but hide
+        // missing references from the current result. No source bytes are ever copied.
+        val foundIds = found.mapTo(hashSetOf()) { it.id }
+        write(list.filter { it.sourcePath.isEmpty() } + found + old.values.filter { it.id !in foundIds })
+    }
     fun get(id: String): Entry = all().firstOrNull { it.id == id } ?: error("Document no longer exists")
     fun createFolder(name: String, parent: String = ""): Entry = synchronized(lock) {
         val list = read(); validateParent(list, parent)
@@ -45,7 +63,7 @@ class PdfLibrary(context: Context) {
             write(list + saved); saved
         } catch (e: Throwable) { target.delete(); throw e }
     }
-    fun rename(id: String, name: String) = change(id) { it.copy(name = validName(name).let { n -> if (it.isFolder || n.endsWith(".pdf", true)) n else "$n.pdf" }) }
+    fun rename(id: String, name: String) = change(id) { require(it.sourcePath.isEmpty()) { "Save a library copy before renaming" }; it.copy(name = validName(name).let { n -> if (it.isFolder || n.endsWith(".pdf", true)) n else "$n.pdf" }) }
     fun favorite(id: String) = change(id) { it.copy(favorite = !it.favorite) }
     fun opened(id: String, page: Int) = change(id) { it.copy(opened = System.currentTimeMillis(), page = page.coerceAtLeast(0)) }
     fun move(id: String, parent: String) = move(setOf(id), parent)
@@ -53,12 +71,12 @@ class PdfLibrary(context: Context) {
         val list = read(); validateParent(list, parent)
         ids.forEach { id ->
             require(parent != id && parent !in descendants(list, id)) { "A folder cannot be moved inside itself" }
-            require(list.any { it.id == id && !it.trashed })
+            require(list.any { it.id == id && !it.trashed && it.sourcePath.isEmpty() }) { "Device PDFs stay in their original folders. Save a library copy to organize it." }
         }
         write(list.map { if (it.id in ids) it.copy(folder = parent) else it })
     }
     fun trash(ids: Set<String>) = synchronized(lock) {
-        val list = read(); val affected = ids + ids.flatMap { descendants(list, it) }
+        val list = read(); require(list.none { it.id in ids && it.sourcePath.isNotEmpty() }) { "Device originals cannot be moved to the library Recycle bin" }; val affected = ids + ids.flatMap { descendants(list, it) }
         val group = UUID.randomUUID().toString()
         write(list.map { if (it.id in affected && !it.trashed) it.copy(trashed = true, trashGroup = group) else it })
     }
@@ -73,7 +91,7 @@ class PdfLibrary(context: Context) {
         val affected = descendants(list, id) + id
         // Commit removal first. A failed file delete leaves only an inaccessible private orphan.
         write(list.filterNot { it.id in affected })
-        list.filter { it.id in affected && !it.isFolder }.forEach { file(it).delete() }
+        list.filter { it.id in affected && !it.isFolder && it.sourcePath.isEmpty() }.forEach { file(it).delete() }
     }
     private fun change(id: String, update: (Entry) -> Entry) = synchronized(lock) {
         val list = read(); require(list.any { it.id == id }); write(list.map { if (it.id == id) update(it) else it })
@@ -92,14 +110,14 @@ class PdfLibrary(context: Context) {
         return (0 until array.length()).map { i -> array.getJSONObject(i).let { j ->
             Entry(j.getString("id"), j.getString("name"), j.optString("folder"), j.optBoolean("isFolder"),
                 j.optLong("bytes"), j.optInt("pages"), j.optBoolean("favorite"), j.optLong("opened"),
-                j.optInt("page"), j.optBoolean("trashed"), j.optLong("created"), j.optString("trashGroup"))
+                j.optInt("page"), j.optBoolean("trashed"), j.optLong("created"), j.optString("trashGroup"), j.optString("sourcePath"), j.optLong("sourceModified"))
         } }
     }
     private fun write(list: List<Entry>) {
         val array = JSONArray()
         list.forEach { e -> array.put(JSONObject().put("id", e.id).put("name", e.name).put("folder", e.folder)
             .put("isFolder", e.isFolder).put("bytes", e.bytes).put("pages", e.pages).put("favorite", e.favorite)
-            .put("opened", e.opened).put("page", e.page).put("trashed", e.trashed).put("created", e.created).put("trashGroup", e.trashGroup)) }
+            .put("opened", e.opened).put("page", e.page).put("trashed", e.trashed).put("created", e.created).put("trashGroup", e.trashGroup).put("sourcePath", e.sourcePath).put("sourceModified", e.sourceModified)) }
         val output = index.startWrite()
         try { output.write(array.toString().toByteArray()); index.finishWrite(output) }
         catch (e: Throwable) { index.failWrite(output); throw e }

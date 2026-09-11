@@ -14,6 +14,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.drawerlayout.widget.DrawerLayout
+import androidx.core.view.GravityCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
@@ -78,6 +80,18 @@ class PdfLibraryScreenTest {
                 assertEquals((row.parent as View).width - (row.parent as View).paddingLeft - (row.parent as View).paddingRight, row.width)
             }
             PdfTestScreenshots.capture("home", scenario)
+            scenario.onActivity { activity ->
+                assertFalse(descendants(activity.window.decorView).any { it is TextView && it.text.toString().contains("AUDIO  /  DOCUMENTS") })
+                descendants(activity.window.decorView).first { it.contentDescription == "PDF Reader settings" }.performClick()
+            }
+            waitUntil(scenario) { a -> descendants(a.window.decorView).filterIsInstance<DrawerLayout>().single().isDrawerOpen(GravityCompat.START) }
+            PdfTestScreenshots.capture("side-drawer", scenario)
+            scenario.onActivity { activity ->
+                val panel = descendants(activity.window.decorView).first { it.contentDescription == "PDF navigation drawer" }
+                val drawer = descendants(activity.window.decorView).filterIsInstance<DrawerLayout>().single()
+                assertEquals(0, panel.left); assertEquals(drawer.height - drawer.paddingTop - drawer.paddingBottom, panel.height)
+                drawer.closeDrawer(GravityCompat.START, false)
+            }
             scenario.onActivity { activity -> descendants(activity.window.decorView).first { it.contentDescription == "Tools" }.performClick() }
             scenario.moveToState(Lifecycle.State.CREATED); scenario.moveToState(Lifecycle.State.RESUMED)
             waitUntil(scenario) { a -> ViewModelProvider(a)[PdfLibraryModel::class.java].busy.value == null }
@@ -85,6 +99,9 @@ class PdfLibraryScreenTest {
                 val root = activity.findViewById<ViewGroup>(android.R.id.content).getChildAt(0)
                 val background = root.background; BackgroundManager.apply(activity); assertSame(background, root.background)
                 assertTrue(descendants(root).any { it.contentDescription == "Merge PDF" })
+                val first = descendants(root).filterIsInstance<PdfToolIcon>().take(4)
+                assertEquals(4, first.size)
+                assertEquals(1, first.map { (it.parent as View).parent }.distinct().size)
             }
             InstrumentationRegistry.getInstrumentation().waitForIdleSync(); PdfTestScreenshots.capture("tools", scenario)
             scenario.onActivity { activity ->

@@ -1,6 +1,6 @@
 # Audio PDF Reader
 
-Open **PDF Reader** immediately below **Checkers** in Audio's drawer. It works without Internet access and uses the Android document picker to import private copies of PDFs. Originals outside Audio are never renamed, edited or deleted by these tools.
+Open **PDF Reader** immediately below **Checkers** in Audio's drawer. It works without Internet access. After the user enables file access, it discovers PDF files in shared phone storage and mounted SD cards automatically and reads them in place. The + button still uses the Android document picker for optional private imports. Device originals are never renamed, edited or deleted by these tools.
 
 ## Library and reading
 
@@ -30,3 +30,13 @@ Document manipulation uses [PDFBox-Android 2.0.27.0](https://github.com/TomRoush
 Regression coverage includes immutable imports, invalid-file rollback, folder cycles, atomic bulk moves, trash/restore behavior, page ordering and rotation, merging/text preservation, password round trips, bounded native rendering, text/image/annotation outputs, PNG/ZIP exports, dark/light screens, background isolation, reader state across recreation and annotated-copy saving. CI also runs the existing Audio test suite and builds the APK. Physical-device camera/provider/printing integration remains a device validation step.
 
 PDF UI and document operations run as Android instrumentation tests on API 33 and 35, alongside the existing 101 JVM Audio regression tests. The PDF library navigation, background isolation, resume and recreation checks use the real Android runtime; Robolectric does not fully emulate the native PDF APIs or this worker-backed screen on modern SDKs. Device screenshots are retained as CI artifacts.
+
+## Device discovery and revised navigation
+
+The compact top app bar contains PDF Reader beside the menu button. The menu opens a left-side DrawerLayout with swipe/back dismissal. Tools use four equal columns and native vector-style line icons.
+
+On Android 11+, **Find PDFs on this phone** explains and opens Android’s **All files access** setting for Audio. On Android 7–10 it requests storage read permission. Scanning starts automatically on returning from permission settings and whenever the library resumes; **File access & refresh** repeats it. Permission denial/revocation retains manual importing and private-library reading. This uses [Android’s documented all-files access](https://developer.android.com/training/data-storage/manage-all-files); Google Play distribution would require its applicable all-files access review.
+
+The scanner indexes .pdf names case-insensitively on a worker, without copying or rendering every document. It scans shared storage, including Android/media, while excluding hidden folders, Android/data, Android/obb and symbolic links. App-private documents and cloud-only files are not discoverable. Scanning is bounded at 150,000 filesystem entries, 20,000 PDFs and 24 folder levels and reports when limited. Metadata/history survives rescans and temporarily unavailable volumes. Missing documents are hidden.
+
+Device entries show their folder and an On device label. They can be read, searched, favorited, shared, printed and used by PDF tools. **Save library copy** creates a separate copy for rename/move/recycle-bin operations. Sharing a device PDF creates a temporary export on a worker and grants only that exported file; broad storage roots are not exposed through FileProvider. Conversion and annotation results are new private library documents.

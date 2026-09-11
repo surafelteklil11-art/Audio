@@ -24,8 +24,17 @@ class PdfLibraryModel(app: Application) : AndroidViewModel(app) {
     val selection = linkedSetOf<String>()
     var cameraPath: String? = null
     private var jobFolder = ""
+    private var scanPending = false
     init { refresh() }
-    fun refresh() { if (busy.value == null) run("Loading documents") { Result() } }
+    fun refresh() {
+        if (busy.value != null) { scanPending = true; return }
+        run(if (PdfDeviceFiles.hasAccess(getApplication())) "Finding device PDFs" else "Loading documents") {
+            if (PdfDeviceFiles.hasAccess(getApplication())) {
+                val scan = PdfDeviceFiles.scan(getApplication()); library.syncDeviceFiles(scan)
+                Result(if (scan.limited) "Showing the first device PDFs found. Use Import files for any additional document." else "")
+            } else Result()
+        }
+    }
     fun run(label: String, task: (PdfTools) -> Result) {
         if (busy.value != null || closed) return
         busy.value = label
@@ -33,7 +42,7 @@ class PdfLibraryModel(app: Application) : AndroidViewModel(app) {
         worker.execute {
             val outcome = try { task(PdfTools(getApplication())) } catch (e: Exception) { Result(errorMessage(e)) }
             val list = try { library.all() } catch (e: Exception) { null }
-            main.post { if (!closed) { if (list != null) entries.value = list; busy.value = null; result.value = outcome } }
+            main.post { if (!closed) { if (list != null) entries.value = list; busy.value = null; result.value = outcome; if (scanPending) { scanPending = false; refresh() } } }
         }
     }
     fun import(uris: List<Uri>) {
