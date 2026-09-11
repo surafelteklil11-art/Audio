@@ -34,6 +34,7 @@ class CheckersActivity : AppCompatActivity() {
     private var hint: TextView? = null
     private var gameScreen = false
     private var renderedRevision = -1
+    private var renderedMatch: CheckersMatch? = null
     private var dialog: AlertDialog? = null
     private val handler = Handler(Looper.getMainLooper())
     private val brown = Color.rgb(66, 39, 23)
@@ -58,7 +59,7 @@ class CheckersActivity : AppCompatActivity() {
         renderHome()
     }
     override fun onStart() { super.onStart(); model.attach { render() }; handler.post(ticker) }
-    override fun onStop() { handler.removeCallbacks(ticker); model.detach(); super.onStop() }
+    override fun onStop() { handler.removeCallbacks(ticker); model.detach(); board?.stopMotion(); super.onStop() }
     override fun onDestroy() { dialog?.dismiss(); dialog = null; super.onDestroy() }
     private fun render() {
         if (model.match == null) { renderHome(); return }
@@ -66,16 +67,20 @@ class CheckersActivity : AppCompatActivity() {
         val game = model.match!!; val result = game.result
         val sameRevision = renderedRevision == model.revision
         val b = board!!
-        b.rules = game.rules; b.position = game.position; b.flipped = model.mode != PlayMode.TWO_PLAYERS && model.mySide == -1
+        b.flipped = model.mode != PlayMode.TWO_PLAYERS && model.mySide == -1
         b.design = model.design; b.tokenStyle = model.tokenStyle; b.showHints = model.hints
         b.inputEnabled = model.canMove; b.legal = CheckersEngine.legal(game.position, game.rules)
         b.hint = model.hintPath; b.last = model.lastMove?.path.orEmpty()
         if (!sameRevision) {
-            b.resetSelection()
-            if (renderedRevision >= 0 && model.lastMove != null && model.sound) b.playSoundEffect(SoundEffectConstants.CLICK)
+            val move = if (renderedMatch === game) model.lastMove else null
+            // Set before invoking the view, whose animation callbacks also render status.
+            renderedRevision = model.revision; renderedMatch = game
+            b.showPosition(game.rules, game.position, move)
         } else b.refresh()
         renderedRevision = model.revision
         status?.text = when {
+            b.isAnimating -> if (b.movingSide == 1) "White is moving… · ነጭ እየተንቀሳቀሰ ነው" else "Black is moving… · ጥቁር እየተንቀሳቀሰ ነው"
+            b.selected.size > 1 && model.canMove -> "Continue capturing · መብላቱን ቀጥል"
             result == 0 -> "Draw · አቻ"
             result != null -> if (result == 1) "White wins · ነጭ አሸነፈ" else "Black wins · ጥቁር አሸነፈ"
             model.network && !model.connected -> model.notice
@@ -94,12 +99,11 @@ class CheckersActivity : AppCompatActivity() {
             visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
         }
         undo?.apply { isEnabled = !model.network && result == null && game.history.size > (if (model.mode == PlayMode.SOLO && game.position.turn == model.human) 2 else 1); alpha = if (isEnabled) 1f else .45f }
-        hint?.apply { isEnabled = !model.network && model.canMove; alpha = if (isEnabled) 1f else .45f }
+        hint?.apply { isEnabled = !model.network && model.canMove && !b.isAnimating && b.selected.size < 2; alpha = if (isEnabled) 1f else .45f }
     }
     private fun renderHome() {
-        gameScreen = false; board = null; clock = null; renderedRevision = -1
+        gameScreen = false; board?.stopMotion(); board = null; clock = null; renderedRevision = -1; renderedMatch = null
         content.removeAllViews()
-        content.addView(button("‹  Audio") { finish() }, spaced())
         content.addView(CheckersLogoView(this), LinearLayout.LayoutParams(-1, -2))
         content.addView(label("Checkers", 38f, true).apply {
             gravity = Gravity.CENTER; setTextColor(0xFFA8E0EA.toInt()); typeface = Typeface.create("serif", Typeface.BOLD_ITALIC)
@@ -147,6 +151,10 @@ class CheckersActivity : AppCompatActivity() {
         board = CheckersBoardView(this).apply {
             tag = "checkers-board"; onMove = { model.play(it) }
             onStep = { status?.text = "Continue capturing · መብላቱን ቀጥል" }
+            onMotionChanged = {
+                if (model.sound && isAnimating) playSoundEffect(SoundEffectConstants.CLICK)
+                render()
+            }
         }
         content.addView(board, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
         val controls = LinearLayout(this)

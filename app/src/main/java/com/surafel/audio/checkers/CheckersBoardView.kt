@@ -1,11 +1,15 @@
 package com.surafel.audio.checkers
 
 import android.content.Context
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.graphics.*
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.LinearInterpolator
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
@@ -13,7 +17,7 @@ import kotlin.math.abs
 
 class CheckersBoardView(context: Context) : View(context) {
     var rules = Rules.presets[1]
-    var position = CheckersEngine.initial(rules)
+    var position = CheckersEngine.initial(rules); private set
     var flipped = false
     var design = 0
     var tokenStyle = 0
@@ -21,10 +25,20 @@ class CheckersBoardView(context: Context) : View(context) {
     var inputEnabled = true
     var onMove: ((Move) -> Unit)? = null
     var onStep: (() -> Unit)? = null
+    var onMotionChanged: (() -> Unit)? = null
     var legal: List<Move> = emptyList()
     var hint: List<Int> = emptyList()
     var last: List<Int> = emptyList()
     var selected: List<Int> = emptyList(); private set
+    private var visiblePieces = position.board
+    private val pending = java.util.ArrayDeque<CheckersMotion.Step>()
+    private var animator: ValueAnimator? = null
+    private var motion: CheckersMotion.Step? = null
+    private var fraction = 0f
+    val isAnimating get() = motion != null
+    val movingSide get() = motion?.let { if (it.before[it.from] > 0) 1 else -1 }
+    internal val visualFrame get() = motion?.frame(fraction)
+    private val acceptsInput get() = inputEnabled && !isAnimating
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var cursor = 0
     private var touchSquare = -1
@@ -36,20 +50,57 @@ class CheckersBoardView(context: Context) : View(context) {
         override fun onPopulateNodeForVirtualView(id: Int, node: AccessibilityNodeInfoCompat) {
             node.contentDescription = description(id)
             node.setBoundsInParent(bounds(id).let { Rect(it.left.toInt(), it.top.toInt(), it.right.toInt(), it.bottom.toInt()) })
-            node.isFocusable = true; node.isClickable = inputEnabled
+            node.isFocusable = true; node.isClickable = acceptsInput
             node.isSelected = id in selected
-            if (inputEnabled) node.addAction(AccessibilityNodeInfoCompat.ACTION_CLICK)
+            if (acceptsInput) node.addAction(AccessibilityNodeInfoCompat.ACTION_CLICK)
         }
         override fun onPerformActionForVirtualView(id: Int, action: Int, args: Bundle?): Boolean {
-            if (action != AccessibilityNodeInfoCompat.ACTION_CLICK || !inputEnabled) return false
+            if (action != AccessibilityNodeInfoCompat.ACTION_CLICK || !acceptsInput) return false
             pick(id); return true
         }
     }
     init { isFocusable = true; isClickable = true; ViewCompat.setAccessibilityDelegate(this, accessibility) }
-    fun resetSelection() { selected = emptyList(); refresh() }
+    fun showPosition(newRules: Rules, target: Position, move: Move? = null) {
+        val before = position
+        val forward = rules == newRules && target.ply == before.ply + 1 && move != null
+        if (!forward) stopMotion()
+        rules = newRules; position = target
+        if (forward) {
+            // A local player has already watched each chosen hop. AI/remote moves
+            // enter the same queue, so a quick reply cannot overwrite that animation.
+            if (selected != move!!.path) pending.addAll(CheckersMotion(before, rules, move).steps)
+            selected = emptyList()
+            if (!isAnimating) startNextStep()
+        } else { selected = emptyList(); visiblePieces = target.board }
+        refresh()
+    }
+    fun stopMotion() {
+        animator?.removeAllListeners(); animator?.cancel(); animator = null
+        pending.clear(); motion = null; fraction = 0f
+        selected = emptyList(); visiblePieces = position.board; refresh()
+    }
+    private fun startNextStep() {
+        val step = pending.pollFirst()
+        motion = step; fraction = 0f
+        if (step == null) { animator = null; refresh(); onMotionChanged?.invoke(); return }
+        visiblePieces = step.before
+        animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = step.durationMillis; interpolator = LinearInterpolator()
+            addUpdateListener { fraction = it.animatedValue as Float; invalidate() }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    visiblePieces = step.after
+                    startNextStep()
+                }
+            })
+            start()
+        }
+        refresh(); onMotionChanged?.invoke()
+    }
+    override fun onDetachedFromWindow() { stopMotion(); super.onDetachedFromWindow() }
     fun refresh() { invalidate(); accessibility.invalidateRoot() }
     private fun description(i: Int): String {
-        val piece = position.board[i]
+        val piece = visiblePieces[i]
         return "${('a'.code + i % rules.size).toChar()}${rules.size - i / rules.size}, " +
             (if (piece == 0) "empty" else (if (piece > 0) "White" else "Black") + if (abs(piece) == 2) " king" else " piece") +
             if (i in nextSquares()) ", available move" else ""
@@ -57,15 +108,17 @@ class CheckersBoardView(context: Context) : View(context) {
     private fun nextSquares() = if (selected.isEmpty()) legal.map { it.path.first() }.toSet()
         else legal.filter { it.path.take(selected.size) == selected }.mapNotNull { it.path.getOrNull(selected.size) }.toSet()
     private fun pick(i: Int) {
-        if (!inputEnabled || i !in position.board.indices) return
+        if (!acceptsInput || i !in position.board.indices) return
         cursor = i
         val next = selected + i
         val candidates = legal.filter { it.path.take(next.size) == next }
         if (selected.isNotEmpty() && candidates.isNotEmpty()) {
             selected = next
             val complete = candidates.firstOrNull { it.path.size == next.size }
-            if (complete != null) { selected = emptyList(); onMove?.invoke(complete) } else onStep?.invoke()
-        } else selected = if (legal.any { it.path.first() == i }) listOf(i) else emptyList()
+            pending.add(CheckersMotion(position, rules, complete ?: candidates.first()).steps[next.size - 2])
+            startNextStep()
+            if (complete != null) onMove?.invoke(complete) else onStep?.invoke()
+        } else if (selected.size < 2) selected = if (legal.any { it.path.first() == i }) listOf(i) else emptyList()
         refresh()
     }
     override fun onMeasure(w: Int, h: Int) {
@@ -105,9 +158,12 @@ class CheckersBoardView(context: Context) : View(context) {
     override fun onDraw(c: Canvas) {
         super.onDraw(c)
         val colors = palettes[design.coerceIn(palettes.indices)]
+        paint.color = Color.WHITE; paint.style = Paint.Style.FILL
         paint.shader = LinearGradient(0f, 0f, width.toFloat(), height.toFloat(), 0xFFE8C99B.toInt(), 0xFF58301D.toInt(), Shader.TileMode.CLAMP)
         c.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), inset * .7f, inset * .7f, paint); paint.shader = null
-        val next = if (inputEnabled && showHints) nextSquares() else emptySet()
+        val next = if (acceptsInput && showHints) nextSquares() else emptySet()
+        val frame = visualFrame
+        val pieces = frame?.board ?: visiblePieces
         for (i in position.board.indices) {
             val b = bounds(i)
             val dark = (i / rules.size + i % rules.size) % 2 == 1
@@ -120,13 +176,27 @@ class CheckersBoardView(context: Context) : View(context) {
                 paint.style = Paint.Style.STROKE; paint.color = 0xFF91E6A7.toInt(); paint.strokeWidth = cell * .05f
                 c.drawRect(b.left + 2, b.top + 2, b.right - 2, b.bottom - 2, paint); paint.style = Paint.Style.FILL
             }
-            val piece = position.board[i]
+            val piece = pieces[i]
             if (piece != 0) CheckersTokens.draw(c, paint, b.centerX(), b.centerY(), cell * .39f, piece, tokenStyle)
             else if (i in next && selected.isNotEmpty()) { paint.color = 0xCC1F6D43.toInt(); c.drawCircle(b.centerX(), b.centerY(), cell * .12f, paint) }
             if (isFocused && i == cursor) {
                 paint.style = Paint.Style.STROKE; paint.strokeWidth = 2f; paint.color = Color.WHITE
                 c.drawRect(b.left + 1, b.top + 1, b.right - 1, b.bottom - 1, paint); paint.style = Paint.Style.FILL
             }
+        }
+        if (frame != null) {
+            frame.captured?.let { at ->
+                if (frame.capturedAlpha > 0) {
+                    val b = bounds(at)
+                    val layer = c.saveLayerAlpha(b, frame.capturedAlpha)
+                    CheckersTokens.draw(c, paint, b.centerX(), b.centerY(), cell * .39f, frame.capturedPiece, tokenStyle)
+                    c.restoreToCount(layer)
+                }
+            }
+            val from = bounds(frame.from); val to = bounds(frame.to)
+            val x = from.centerX() + (to.centerX() - from.centerX()) * frame.progress
+            val y = from.centerY() + (to.centerY() - from.centerY()) * frame.progress - cell * frame.lift
+            CheckersTokens.draw(c, paint, x, y, cell * .39f, frame.piece, tokenStyle)
         }
         if (selected.size > 1) {
             paint.color = 0xFFF9DF72.toInt(); paint.strokeWidth = cell * .045f

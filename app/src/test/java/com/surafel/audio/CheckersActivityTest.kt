@@ -76,6 +76,7 @@ class CheckersActivityTest {
     fun renderHomeAndPlayableBoard() {
         Robolectric.buildActivity(CheckersActivity::class.java).use { c ->
             val root = c.setup().visible().get().findViewById<ViewGroup>(android.R.id.content)
+            assertFalse(descendants(root).filterIsInstance<TextView>().any { it.text.toString() == "‹  Audio" })
             layout(root); snapshot(root, "home")
             root.findViewWithTag<View>("checkers-local").performClick(); layout(root)
             val board = root.findViewWithTag<CheckersBoardView>("checkers-board")
