@@ -53,8 +53,8 @@ class PdfLibraryActivity : PdfUiActivity() {
     private val thumbnails = android.util.LruCache<String, Bitmap>(24)
     private val imageWorker = java.util.concurrent.ThreadPoolExecutor(1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,
         java.util.concurrent.ArrayBlockingQueue<Runnable>(24), java.util.concurrent.ThreadPoolExecutor.DiscardPolicy())
-    private val storagePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { model.refresh(); render() }
-    private val storageSettings = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { model.refresh(); render() }
+    private val storagePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { model.resume(); render() }
+    private val storageSettings = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { model.resume(); render() }
     private val importFiles = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { if (it.isNotEmpty()) model.import(it) }
     private val imageFiles = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { if (it.isNotEmpty()) convertImages(it) }
     private val export = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
@@ -145,14 +145,14 @@ class PdfLibraryActivity : PdfUiActivity() {
         ViewCompat.requestApplyInsets(drawer)
         render()
     }
-    override fun onResume() { super.onResume(); if (::model.isInitialized) model.refresh() }
+    override fun onResume() { super.onResume(); if (::model.isInitialized) model.resume() }
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); outState.putString("export", exportFile?.path); outState.putString("camera", model.cameraPath) }
     override fun onDestroy() { imageWorker.shutdownNow(); super.onDestroy() }
     private fun render() {
         if (!::location.isInitialized) return
         val entries = model.entries.value.orEmpty()
         val folder = entries.firstOrNull { it.id == model.folder }
-        if (model.folder.isNotEmpty() && (folder == null || folder.trashed)) model.folder = ""
+        if (model.loaded && model.folder.isNotEmpty() && (folder == null || folder.trashed)) model.folder = ""
         title.text = if (model.tab == "Home") "PDF Reader" else model.tab
         location.text = if (selecting) "${model.selection.size} selected" else (folder?.name?.take(18)?.plus(" / ") ?: "") + model.filter + " ▾"
         selectButton.text = if (selecting) "⋮" else "☑"
@@ -163,12 +163,12 @@ class PdfLibraryActivity : PdfUiActivity() {
         list.visibility = if (inTools) View.GONE else View.VISIBLE; add.visibility = if (inTools || model.tab == "Recycle bin") View.GONE else View.VISIBLE
         val filtered = entries.filter { e ->
             val section = when (model.tab) { "Recent" -> !e.trashed && !e.isFolder && e.opened > 0; "Favorite" -> !e.trashed && e.favorite; "Recycle bin" -> e.trashed; else -> !e.trashed && (model.query.isNotEmpty() || e.folder == model.folder) }
-            section && (model.filter == "All" || (model.filter == "Folder") == e.isFolder) && e.name.contains(model.query, true)
+            section && (model.filter != "Folder" || e.isFolder) && e.name.contains(model.query, true)
         }
         val sorted = when { model.tab == "Recent" -> filtered.sortedByDescending { it.opened }; model.sort == "Newest" -> filtered.sortedByDescending { it.created }; model.sort == "Size" -> filtered.sortedByDescending { it.bytes }; else -> filtered.sortedWith(compareBy<PdfLibrary.Entry> { !it.isFolder }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name }) }
         adapter.data = sorted; adapter.notifyDataSetChanged()
         empty.visibility = if (!inTools && sorted.isEmpty()) View.VISIBLE else View.GONE
-        empty.text = when (model.tab) { "Recent" -> "Your reading history will appear here."; "Favorite" -> "Star a PDF to find it here."; "Recycle bin" -> "Recycle bin is empty."; else -> if (model.query.isNotEmpty()) "No matching documents" else if (!PdfDeviceFiles.hasAccess(this)) "Your PDFs, all in one place\n\nTap Find PDFs on this phone to allow access.\nYour documents will appear automatically." else "No PDFs found here\n\nDevice PDFs appear automatically.\nUse the side menu to refresh, or + to open a file." }
+        empty.text = when (model.tab) { "Recent" -> "Your reading history will appear here."; "Favorite" -> "Star a PDF to find it here."; "Recycle bin" -> "Recycle bin is empty."; else -> if (model.query.isNotEmpty()) "No matching documents" else if (!PdfDeviceFiles.hasAccess(this)) "Your PDFs, all in one place\n\nTap Find PDFs on this phone to allow access.\nYour documents will appear automatically." else "No PDFs found here\n\nUse Refresh device PDFs in the side menu to find new files, or + to open a file." }
         navigation.removeAllViews()
         listOf("▤\nHome", "◷\nRecent", "☆\nFavorite", "⊞\nTools").forEach { value ->
             val tab = value.substringAfter('\n')
@@ -177,8 +177,14 @@ class PdfLibraryActivity : PdfUiActivity() {
         progress.text = model.busy.value?.plus("…") ?: if (model.query.isNotEmpty()) "Search: ${model.query} · Filter → Clear search" else ""
         progress.visibility = if (progress.text.isEmpty()) View.GONE else View.VISIBLE
     }
+    private fun fileForAction(entry: PdfLibrary.Entry): File? = try { model.library.file(entry) }
+        catch (e: Exception) { toast(PdfLibraryModel.errorMessage(e)); null }
     private fun open(id: String) { startActivity(Intent(this, PdfReaderActivity::class.java).putExtra("document_id", id)) }
-    private fun newFolder() { prompt("Create folder", "Folder name") { name -> model.run("Creating folder") { model.library.createFolder(name, model.folder); PdfLibraryModel.Result("Folder created") } } }
+    private fun newFolder() {
+        if (model.entries.value.orEmpty().any { it.id == model.folder && it.sourcePath.isNotEmpty() }) {
+            toast("Device folders keep their original layout. Go to Home to create a library folder."); return
+        }
+        prompt("Create folder", "Folder name") { name -> model.run("Creating folder") { model.library.createFolder(name, model.folder); PdfLibraryModel.Result("Folder created") } } }
     private fun selectionMenu() {
         if (model.selection.isEmpty()) { selecting = false; render(); return }
         val ids = model.selection.toSet()
@@ -189,7 +195,7 @@ class PdfLibraryActivity : PdfUiActivity() {
         }
     }
     private fun fileMenu(entry: PdfLibrary.Entry) {
-        val options = if (entry.sourcePath.isNotEmpty()) listOf("Read", "Share", "Print", if (entry.favorite) "Remove favorite" else "Favorite", "Save library copy", "Save to device", "PDF tools") else if (entry.trashed) listOf("Restore", "Delete permanently") else if (entry.isFolder) listOf("Open", "Rename", "Move", "Move to Recycle bin") else listOf("Read", "Rename", "Share", "Print", if (entry.favorite) "Remove favorite" else "Favorite", "Save to device", "Move", "PDF tools", "Move to Recycle bin")
+        val options = if (entry.isFolder && entry.sourcePath.isNotEmpty()) listOf("Open", "Folder location") else if (entry.sourcePath.isNotEmpty()) listOf("Read", "Share", "Print", if (entry.favorite) "Remove favorite" else "Favorite", "Save library copy", "Save to device", "PDF tools") else if (entry.trashed) listOf("Restore", "Delete permanently") else if (entry.isFolder) listOf("Open", "Rename", "Move", "Move to Recycle bin") else listOf("Read", "Rename", "Share", "Print", if (entry.favorite) "Remove favorite" else "Favorite", "Save to device", "Move", "PDF tools", "Move to Recycle bin")
         val sheet = BottomSheetDialog(this)
         val content = column().apply { setPadding(dp(20), dp(18), dp(20), dp(22)); background = shape(paper, 22) }
         content.addView(label(entry.name, 19f, ink, true).apply { setPadding(dp(8), dp(8), dp(8), dp(14)) })
@@ -197,6 +203,7 @@ class PdfLibraryActivity : PdfUiActivity() {
         options.forEach { option -> actions.addView(action(option) { sheet.dismiss()
             when (option) {
                 "Save library copy" -> model.run("Saving library copy") { val copy = model.library.import(entry.name) { model.library.file(entry).inputStream() }; PdfLibraryModel.Result("Saved ${copy.name} in your library") }
+                "Folder location" -> message(entry.name, entry.sourcePath)
                 "Open" -> { model.folder = entry.id; render() }; "Read" -> open(entry.id)
                 "Rename" -> prompt("Rename", "Name", entry.name) { name -> model.run("Renaming") { model.library.rename(entry.id, name); PdfLibraryModel.Result("Renamed") } }
                 "Move" -> chooseFolder { parent -> model.run("Moving") { model.library.move(entry.id, parent); PdfLibraryModel.Result("Moved") } }
@@ -204,16 +211,16 @@ class PdfLibraryActivity : PdfUiActivity() {
                 "Restore" -> model.run("Restoring") { model.library.restore(entry.id); PdfLibraryModel.Result("Restored") }
                 "Delete permanently" -> confirm("Delete permanently?", "This removes this library copy and its contents. This cannot be undone.") { model.run("Deleting") { model.library.deleteForever(entry.id); PdfLibraryModel.Result("Deleted") } }
                 "Favorite", "Remove favorite" -> model.run("Updating favorite") { model.library.favorite(entry.id); PdfLibraryModel.Result() }
-                "Share" -> runCatching { PdfSharing.share(this, model.library.file(entry), entry.name) }.onFailure { toast("No sharing app available") }
-                "Print" -> PdfSharing.print(this, model.library.file(entry), entry.name)
-                "Save to device" -> { exportFile = model.library.file(entry); export.launch(entry.name) }
+                "Share" -> fileForAction(entry)?.let { file -> runCatching { PdfSharing.share(this, file, entry.name) }.onFailure { toast("No sharing app available") } }
+                "Print" -> fileForAction(entry)?.let { PdfSharing.print(this, it, entry.name) }
+                "Save to device" -> fileForAction(entry)?.let { exportFile = it; export.launch(entry.name) }
                 "PDF tools" -> choices("Choose a tool", listOf("PDF to image", "PDF to long image", "Extract / edit text", "Split PDF", "Manage pages", "Compress", "Lock PDF", "Unlock PDF")) { applyTool(listOf("PDF to image", "PDF to long image", "Extract / edit text", "Split PDF", "Manage pages", "Compress", "Lock PDF", "Unlock PDF")[it], entry) }
             }
         }.apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), dp(4), dp(10), dp(4)) }) }
         content.addView(scroll, LinearLayout.LayoutParams(-1, -2)); sheet.setContentView(content); sheet.show()
     }
     private fun chooseFolder(task: (String) -> Unit) {
-        val folders = model.entries.value.orEmpty().filter { it.isFolder && !it.trashed }
+        val folders = model.entries.value.orEmpty().filter { it.isFolder && !it.trashed && it.sourcePath.isEmpty() }
         choices("Move to folder", listOf("Home") + folders.map { it.name }) { i -> task(if (i == 0) "" else folders[i - 1].id) }
     }
     private fun choosePdf(task: (PdfLibrary.Entry) -> Unit) {
@@ -265,7 +272,7 @@ class PdfLibraryActivity : PdfUiActivity() {
         }
     }
     private fun applyTool(name: String, entry: PdfLibrary.Entry) {
-        val file = model.library.file(entry)
+        val file = fileForAction(entry) ?: return
         val stem = entry.name.substringBeforeLast('.', entry.name)
         when (name) {
             "Add text", "Annotate", "Sign" -> { open(entry.id); toast("Choose Add text, Pen, Highlight or Signature in the reader toolbar") }
@@ -305,8 +312,8 @@ class PdfLibraryActivity : PdfUiActivity() {
             .setNegativeButton("Cancel", null).setPositiveButton("Merge", null).create()
         dialog.setOnShowListener { dialog.getButton(-1).setOnClickListener {
             if (selected.size < 2) { toast("Choose at least two PDFs"); return@setOnClickListener }
-            val inputs = selected.map { model.library.file(files[it]) }; dialog.dismiss()
-            model.run("Merging PDFs") { tools -> model.save(tools, "Merged.pdf") { tools.merge(inputs, it) } }
+            val selectedEntries = selected.map { files[it] }; dialog.dismiss()
+            model.run("Merging PDFs") { tools -> val inputs = selectedEntries.map { model.library.file(it) }; model.save(tools, "Merged.pdf") { tools.merge(inputs, it) } }
         } }; dialog.show()
     }
     private fun textPdf(text: String) { model.run("Creating PDF") { tools -> model.save(tools, "Text document.pdf") { tools.textPdf(text, it) } } }
@@ -338,20 +345,20 @@ class PdfLibraryActivity : PdfUiActivity() {
         heading.addView(action("×", "Close navigation drawer") { drawer.closeDrawer(GravityCompat.START) }); content.addView(heading)
         content.addView(label("Your documents, organized", 12f, muted).apply { setPadding(0, dp(6), 0, dp(22)) })
         fun item(text: String, task: () -> Unit) { content.addView(action(text) { drawer.closeDrawer(GravityCompat.START); task() }.apply { gravity = Gravity.START or Gravity.CENTER_VERTICAL; setPadding(dp(6), dp(8), dp(6), dp(8)) }, LinearLayout.LayoutParams(-1, dp(54))) }
-        item("Device PDFs") { model.tab = "Home"; model.folder = ""; model.filter = "All"; model.query = ""; model.refresh(); render() }
-        item("File access & refresh") { if (PdfDeviceFiles.hasAccess(this)) model.refresh() else requestDeviceAccess() }
+        item("Device PDFs") { model.tab = "Home"; model.folder = ""; model.filter = "All"; model.query = ""; model.resume(); render() }
+        item("Refresh device PDFs") { if (PdfDeviceFiles.hasAccess(this)) model.refresh() else requestDeviceAccess() }
         item("Import files") { importFiles.launch(arrayOf("application/pdf")) }
         content.addView(label("APPEARANCE", 11f, muted, true).apply { setPadding(dp(6), dp(26), 0, dp(8)) })
         content.addView(Switch(this).apply { text = "Dark mode"; setTextColor(ink); isChecked = dark; minHeight = dp(56); setOnCheckedChangeListener { _, enabled -> settings.edit().putBoolean("dark", enabled).apply(); drawer.closeDrawer(GravityCompat.START); recreate() } })
         content.addView(Switch(this).apply { text = "Keep screen on"; setTextColor(ink); isChecked = settings.getBoolean("keep_screen", false); minHeight = dp(56); setOnCheckedChangeListener { _, enabled -> settings.edit().putBoolean("keep_screen", enabled).apply(); if (enabled) window.addFlags(128) else window.clearFlags(128) } })
         item("Recycle bin") { model.tab = "Recycle bin"; render() }
-        item("Help & supported features") { message("Reading with PDF Reader", "Allow device file access to automatically find PDFs in shared phone storage and SD cards. Open the side menu to refresh. Device files are read where they are; use Save library copy to organize a separate copy.\n\nUse + for manually selected files. Recent remembers the last page and Favorite keeps starred documents close.\n\nPinch to zoom, use page arrows, and save annotations as a new PDF. A handwritten signature is not a digital certificate. Tools create new files. Passwords are not stored. OCR and Office formats are not included.\n\nPDF tools use PDFBox-Android 2.0.27.0 (Apache 2.0).") }
+        item("Help & supported features") { message("Reading with PDF Reader", "Allow device file access to automatically find PDFs in shared phone storage and SD cards. The saved list and original folder layout reopen without rescanning. Use Refresh device PDFs in the side menu to find new or moved files. Device files are read where they are; use Save library copy to organize a separate copy. Imports and edited copies from device folders are saved in Home. Folders that another app keeps only in its private database require that app to export them first.\n\nUse + for manually selected files. Recent remembers the last page and Favorite keeps starred documents close.\n\nPinch to zoom, use page arrows, and save annotations as a new PDF. A handwritten signature is not a digital certificate. Tools create new files. Passwords are not stored. OCR and Office formats are not included.\n\nPDF tools use PDFBox-Android 2.0.27.0 (Apache 2.0).") }
         drawerPanel.addView(content)
         val width = minOf(dp(320), resources.displayMetrics.widthPixels - dp(56))
         drawer.addView(drawerPanel, DrawerLayout.LayoutParams(width, -1, GravityCompat.START))
     }
     private fun requestDeviceAccess() {
-        if (PdfDeviceFiles.hasAccess(this)) { model.refresh(); return }
+        if (PdfDeviceFiles.hasAccess(this)) { model.resume(); return }
         if (Build.VERSION.SDK_INT >= 30) {
             messageAccess()
         } else storagePermission.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
@@ -384,7 +391,7 @@ class PdfLibraryActivity : PdfUiActivity() {
         override fun onBindViewHolder(holder: Holder, position: Int) {
             val entry = data[position]; holder.root.tag = entry.id
             holder.name.text = (if (entry.favorite) "★ " else "") + entry.name
-            holder.detail.text = if (entry.sourcePath.isNotEmpty()) "On device · ${File(entry.sourcePath).parentFile?.name}  ·  ${android.text.format.Formatter.formatShortFileSize(this@PdfLibraryActivity, entry.bytes)}" else if (entry.isFolder) "${model.entries.value.orEmpty().count { it.folder == entry.id && !it.trashed }} items" else "${DateFormat.getDateInstance(DateFormat.SHORT).format(Date(entry.created))}  ·  ${android.text.format.Formatter.formatShortFileSize(this@PdfLibraryActivity, entry.bytes)}"
+            holder.detail.text = if (entry.isFolder) (if (entry.sourcePath.isNotEmpty()) "On device · " else "") + "${model.entries.value.orEmpty().count { it.folder == entry.id && !it.trashed }} items" else if (entry.sourcePath.isNotEmpty()) "On device · ${File(entry.sourcePath).parentFile?.name}  ·  ${android.text.format.Formatter.formatShortFileSize(this@PdfLibraryActivity, entry.bytes)}" else "${DateFormat.getDateInstance(DateFormat.SHORT).format(Date(entry.created))}  ·  ${android.text.format.Formatter.formatShortFileSize(this@PdfLibraryActivity, entry.bytes)}"
             holder.menu.text = if (selecting) { if (entry.id in model.selection) "☑" else "□" } else "⋮"
             holder.root.background = if (entry.id in model.selection) shape(if (dark) 0xFF223958.toInt() else 0xFFDDEAFF.toInt()) else null
             holder.icon.folder = entry.isFolder; holder.icon.thumbnail = thumbnails.get(entry.id + ":" + entry.sourceModified); holder.icon.invalidate()

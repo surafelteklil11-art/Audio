@@ -20,20 +20,35 @@ class PdfLibraryModel(app: Application) : AndroidViewModel(app) {
     private val worker = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
     @Volatile private var closed = false
-    var folder = ""; var tab = "Home"; var filter = "All"; var query = ""; var sort = "Name"
+    private val preferences = app.getSharedPreferences("pdf_preferences", 0)
+    var loaded = false; private set
+    var folder = preferences.getString("browse_folder", "").orEmpty()
+        set(value) { field = value; preferences.edit().putString("browse_folder", value).apply() }
+    var tab = "Home"; var filter = "All"; var query = ""; var sort = "Name"
     val selection = linkedSetOf<String>()
     var cameraPath: String? = null
     private var jobFolder = ""
     private var scanPending = false
-    init { refresh() }
+    private var reloadPending = false
+    private var lastAccess = PdfDeviceFiles.hasAccess(app)
+    init { resume() }
+    /** Resume reads the persisted index. Only the first permitted visit scans storage. */
+    fun resume() {
+        val access = PdfDeviceFiles.hasAccess(getApplication())
+        val changed = access != lastAccess; lastAccess = access
+        if (busy.value != null) { if (changed) reloadPending = true; return }
+        run("Loading documents") {
+            if (PdfDeviceFiles.hasAccess(getApplication()) && !library.hasDeviceIndex()) scanResult() else Result()
+        }
+    }
+    /** Explicit refresh is the only rescan after the initial index has been saved. */
     fun refresh() {
         if (busy.value != null) { scanPending = true; return }
-        run(if (PdfDeviceFiles.hasAccess(getApplication())) "Finding device PDFs" else "Loading documents") {
-            if (PdfDeviceFiles.hasAccess(getApplication())) {
-                val scan = PdfDeviceFiles.scan(getApplication()); library.syncDeviceFiles(scan)
-                Result(if (scan.limited) "Showing the first device PDFs found. Use Import files for any additional document." else "")
-            } else Result()
-        }
+        run("Finding device PDFs") { if (PdfDeviceFiles.hasAccess(getApplication())) scanResult() else Result() }
+    }
+    private fun scanResult(): Result {
+        val scan = PdfDeviceFiles.scan(getApplication()); library.syncDeviceFiles(scan)
+        return Result(if (scan.limited) "Showing the first device PDFs found. Use Import files for any additional document." else "")
     }
     fun run(label: String, task: (PdfTools) -> Result) {
         if (busy.value != null || closed) return
@@ -42,7 +57,7 @@ class PdfLibraryModel(app: Application) : AndroidViewModel(app) {
         worker.execute {
             val outcome = try { task(PdfTools(getApplication())) } catch (e: Exception) { Result(errorMessage(e)) }
             val list = try { library.all() } catch (e: Exception) { null }
-            main.post { if (!closed) { if (list != null) entries.value = list; busy.value = null; result.value = outcome; if (scanPending) { scanPending = false; refresh() } } }
+            main.post { if (!closed) { if (list != null) { loaded = true; entries.value = list }; busy.value = null; result.value = outcome; if (scanPending) { scanPending = false; reloadPending = false; refresh() } else if (reloadPending) { reloadPending = false; resume() } } }
         }
     }
     fun import(uris: List<Uri>) {
