@@ -1,48 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-<defs>
-  <radialGradient id="bg" cx="50%" cy="45%" r="72%"><stop offset="0" stop-color="#071528"/><stop offset="0.55" stop-color="#020811"/><stop offset="1" stop-color="#000207"/></radialGradient>
-  <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#72d9ff"/><stop offset="0.35" stop-color="#00cfff"/><stop offset="0.72" stop-color="#1478ff"/><stop offset="1" stop-color="#7c5cff"/></linearGradient>
-  <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#344762"/><stop offset="0.28" stop-color="#0e1828"/><stop offset="0.7" stop-color="#050a14"/><stop offset="1" stop-color="#26384f"/></linearGradient>
-  <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="10" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-  <filter id="soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3"/></filter>
-</defs>
-<rect width="1024" height="1024" fill="url(#bg)"/>
-<g fill="none" transform="translate(512 512)">
-  <circle r="466" stroke="#0d1b2c" stroke-width="28"/>
-  <circle r="450" stroke="url(#blue)" stroke-width="5" filter="url(#glow)"/>
-  <circle r="425" stroke="#24415f" stroke-width="3"/>
-  <circle r="398" stroke="#0b2840" stroke-width="12"/>
-  <circle r="372" stroke="url(#blue)" stroke-width="3" stroke-dasharray="92 24 8 20" opacity=".9"/>
-</g>
-<g fill="#53dfff" filter="url(#soft)" opacity=".95">
-  <rect x="500" y="58" width="24" height="7" rx="3"/><rect x="500" y="959" width="24" height="7" rx="3"/>
-  <rect x="58" y="500" width="7" height="24" rx="3"/><rect x="959" y="500" width="7" height="24" rx="3"/>
-  <circle cx="184" cy="184" r="7"/><circle cx="840" cy="184" r="7"/><circle cx="184" cy="840" r="7"/><circle cx="840" cy="840" r="7"/>
-</g>
-<path d="M276 520 A236 236 0 0 1 748 520" fill="none" stroke="#01040a" stroke-width="92" stroke-linecap="round"/>
-<path d="M276 520 A236 236 0 0 1 748 520" fill="none" stroke="url(#blue)" stroke-width="13" stroke-linecap="round" filter="url(#glow)"/>
-<path d="M285 510 A227 227 0 0 1 739 510" fill="none" stroke="#a4eaff" stroke-opacity=".5" stroke-width="3"/>
-<g>
-  <rect x="238" y="480" width="138" height="294" rx="58" fill="#02060d" stroke="#00d8ff" stroke-width="8" filter="url(#glow)"/>
-  <rect x="648" y="480" width="138" height="294" rx="58" fill="#02060d" stroke="#00d8ff" stroke-width="8" filter="url(#glow)"/>
-  <rect x="261" y="505" width="92" height="244" rx="42" fill="url(#metal)" stroke="#55718f" stroke-width="4"/>
-  <rect x="671" y="505" width="92" height="244" rx="42" fill="url(#metal)" stroke="#55718f" stroke-width="4"/>
-  <path d="M270 548v158" stroke="#21cfff" stroke-width="8" stroke-linecap="round" opacity=".8"/>
-  <path d="M754 548v158" stroke="#21cfff" stroke-width="8" stroke-linecap="round" opacity=".8"/>
-</g>
-<g fill="url(#blue)" filter="url(#glow)">
-  <rect x="328" y="584" width="12" height="54" rx="6"/><rect x="350" y="550" width="12" height="122" rx="6"/>
-  <rect x="372" y="514" width="12" height="194" rx="6"/><rect x="394" y="466" width="12" height="290" rx="6"/>
-  <rect x="416" y="402" width="12" height="418" rx="6"/><rect x="438" y="454" width="12" height="314" rx="6"/>
-  <rect x="460" y="352" width="12" height="520" rx="6"/><rect x="482" y="300" width="12" height="624" rx="6"/>
-  <rect x="504" y="430" width="12" height="364" rx="6"/><rect x="526" y="300" width="12" height="624" rx="6"/>
-  <rect x="548" y="352" width="12" height="520" rx="6"/><rect x="570" y="454" width="12" height="314" rx="6"/>
-  <rect x="592" y="402" width="12" height="418" rx="6"/><rect x="614" y="466" width="12" height="290" rx="6"/>
-  <rect x="636" y="514" width="12" height="194" rx="6"/><rect x="658" y="550" width="12" height="122" rx="6"/><rect x="680" y="584" width="12" height="54" rx="6"/>
-</g>
-<path d="M110 620 H318 M706 620 H914" stroke="#31ddff" stroke-width="5" opacity=".9" filter="url(#glow)"/>
-<g fill="#9cf4ff"><circle cx="118" cy="620" r="4"/><circle cx="906" cy="620" r="4"/></g>
-<text x="512" y="900" text-anchor="middle" font-family="sans-serif" font-size="72" font-weight="800" letter-spacing="18" fill="#55e7ff" filter="url(#glow)">AUDIO</text>
-<text x="512" y="900" text-anchor="middle" font-family="sans-serif" font-size="72" font-weight="800" letter-spacing="18" fill="#d7fbff" fill-opacity=".9">AUDIO</text>
-<circle cx="512" cy="512" r="490" fill="none" stroke="#00101d" stroke-width="18" opacity=".75"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">
+  <title>Audio — headphones and sound</title>
+  <defs>
+    <linearGradient id="background" gradientUnits="userSpaceOnUse" x1="18" y1="18" x2="90" y2="98">
+      <stop offset="0" stop-color="#5364EF"/>
+      <stop offset="0.48" stop-color="#304AC8"/>
+      <stop offset="1" stop-color="#14235F"/>
+    </linearGradient>
+  </defs>
+  <path id="background-shape" d="M0 0H108V108H0Z" fill="url(#background)"/>
+  <g id="mark">
+    <path d="M34 57V51A20 20 0 0 1 74 51V57" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+    <path d="M34.5 53A5 5 0 0 1 39.5 58V70A5 5 0 0 1 29.5 70V58A5 5 0 0 1 34.5 53Z" fill="#FFFFFF"/>
+    <path d="M73.5 53A5 5 0 0 1 78.5 58V70A5 5 0 0 1 68.5 70V58A5 5 0 0 1 73.5 53Z" fill="#FFFFFF"/>
+    <path d="M47 54A2.5 2.5 0 0 1 49.5 56.5V64.5A2.5 2.5 0 0 1 44.5 64.5V56.5A2.5 2.5 0 0 1 47 54Z" fill="#71F5D2"/>
+    <path d="M54 47A2.5 2.5 0 0 1 56.5 49.5V68.5A2.5 2.5 0 0 1 51.5 68.5V49.5A2.5 2.5 0 0 1 54 47Z" fill="#71F5D2"/>
+    <path d="M61 51A2.5 2.5 0 0 1 63.5 53.5V66.5A2.5 2.5 0 0 1 58.5 66.5V53.5A2.5 2.5 0 0 1 61 51Z" fill="#71F5D2"/>
+  </g>
 </svg>
