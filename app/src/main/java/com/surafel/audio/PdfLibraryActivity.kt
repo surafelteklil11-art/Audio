@@ -77,7 +77,7 @@ class PdfLibraryActivity : PdfUiActivity() {
         model.cameraPath = model.cameraPath ?: savedInstanceState?.getString("camera")
         adapter = DocumentAdapter()
         drawer = DrawerLayout(this).apply { fitsSystemWindows = true; setBackgroundColor(paper) }
-        val root = column().apply { setBackgroundColor(paper) }
+        val root = column().apply { fitsSystemWindows = true; setBackgroundColor(paper) }
         drawer.addView(root, DrawerLayout.LayoutParams(-1, -1)); setContentView(drawer)
         val header = column().apply {
             setPadding(dp(8), dp(4), dp(8), dp(4))
@@ -318,7 +318,7 @@ class PdfLibraryActivity : PdfUiActivity() {
     }
     private fun settingsMenu() { drawer.openDrawer(GravityCompat.START) }
     private fun buildDrawer() {
-        drawerPanel = ScrollView(this).apply { setBackgroundColor(paper); contentDescription = "PDF navigation drawer" }
+        drawerPanel = ScrollView(this).apply { fitsSystemWindows = true; setBackgroundColor(paper); contentDescription = "PDF navigation drawer" }
         val content = column().apply { setPadding(dp(20), dp(24), dp(20), dp(24)) }
         val heading = row()
         heading.addView(label("PDF Reader", 25f, ink, true), LinearLayout.LayoutParams(0, -2, 1f))

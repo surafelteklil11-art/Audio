@@ -82,6 +82,10 @@ class PdfLibraryScreenTest {
             PdfTestScreenshots.capture("home", scenario)
             scenario.onActivity { activity ->
                 assertFalse(descendants(activity.window.decorView).any { it is TextView && it.text.toString().contains("AUDIO  /  DOCUMENTS") })
+                val title = descendants(activity.window.decorView).filterIsInstance<TextView>().first { it.text.toString() == "PDF Reader" && it.isShown }
+                val position = IntArray(2); title.getLocationOnScreen(position)
+                val topInset = androidx.core.view.ViewCompat.getRootWindowInsets(title)?.getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars())?.top ?: 0
+                assertTrue("Header must stay below the status bar", position[1] >= topInset)
                 descendants(activity.window.decorView).first { it.contentDescription == "PDF Reader settings" }.performClick()
             }
             waitUntil(scenario) { a -> descendants(a.window.decorView).filterIsInstance<DrawerLayout>().single().isDrawerOpen(GravityCompat.START) }
