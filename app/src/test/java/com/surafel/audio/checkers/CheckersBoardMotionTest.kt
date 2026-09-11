@@ -6,6 +6,7 @@ import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -14,6 +15,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.annotation.LooperMode
+import org.robolectric.shadows.ShadowChoreographer
 import java.io.File
 import java.time.Duration
 
@@ -21,6 +23,12 @@ import java.time.Duration
 @Config(sdk = [24, 33, 35])
 @LooperMode(LooperMode.Mode.PAUSED)
 class CheckersBoardMotionTest {
+    @Before fun useControlledFrames() {
+        // PAUSED Looper alone still lets Robolectric auto-advance vsync to the end.
+        // Drive a 16 ms display clock to inspect real intermediate animation frames.
+        ShadowChoreographer.setPaused(true)
+        ShadowChoreographer.setFrameDelay(Duration.ofMillis(16))
+    }
     @Test fun partialCaptureMovesVisiblyLocksContinuationAndCommitsOnlyAtTheEnd() {
         val rules = Rules.presets[1]
         val before = Position(List(64) { when (it) { 42 -> 1; 35, 21 -> -1; else -> 0 } })
@@ -89,7 +97,14 @@ class CheckersBoardMotionTest {
         measure(View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY))
         layout(0, 0, 720, 720)
     }
-    private fun advance(ms: Long) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(ms)) }
+    private fun advance(ms: Long) {
+        var remaining = ms
+        while (remaining > 0) {
+            val step = minOf(16L, remaining)
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(step))
+            remaining -= step
+        }
+    }
     private fun tap(board: CheckersBoardView, square: Int) {
         val i = if (board.flipped) board.position.board.lastIndex - square else square
         val inset = board.width * .025f; val cell = (board.width - 2 * inset) / board.rules.size

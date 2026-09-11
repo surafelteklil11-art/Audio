@@ -170,7 +170,8 @@ class CheckersBoardView(context: Context) : View(context) {
             paint.color = colors[if (dark) 1 else 0]; c.drawRect(b, paint)
             paint.color = 0x08000000
             for (k in 1..4) c.drawLine(b.left + cell * k / 5, b.top, b.left + cell * k / 5 + 2, b.bottom, paint)
-            if (i in last) { paint.color = 0x33FFCF57; c.drawRect(b, paint) }
+            val inTrail = if (frame == null) i in last else i == frame.from || i == frame.to
+            if (inTrail) { paint.color = 0x33FFCF57; c.drawRect(b, paint) }
             if (i in selected || i in hint) { paint.color = 0x885DBD92.toInt(); c.drawRect(b, paint) }
             if (i in next) {
                 paint.style = Paint.Style.STROKE; paint.color = 0xFF91E6A7.toInt(); paint.strokeWidth = cell * .05f
