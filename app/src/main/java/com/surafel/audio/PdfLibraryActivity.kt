@@ -38,6 +38,13 @@ class PdfLibraryActivity : PdfUiActivity() {
     private lateinit var drawerPanel: ScrollView
     private lateinit var access: TextView
     private lateinit var title: TextView
+    private lateinit var headerPanel: LinearLayout
+    private lateinit var breadcrumbScroll: HorizontalScrollView
+    private lateinit var breadcrumbs: LinearLayout
+    private lateinit var folderBack: TextView
+    private lateinit var folderSearch: TextView
+    private lateinit var folderMore: TextView
+    private lateinit var toolbarSpacer: View
     private lateinit var location: TextView
     private lateinit var toolbar: LinearLayout
     private lateinit var progress: TextView
@@ -83,7 +90,7 @@ class PdfLibraryActivity : PdfUiActivity() {
         drawer = DrawerLayout(this).apply { setBackgroundColor(paper) }
         val root = column().apply { setBackgroundColor(paper) }
         drawer.addView(root, DrawerLayout.LayoutParams(-1, -1)); setContentView(drawer)
-        val header = column().apply {
+        headerPanel = column().apply {
             setPadding(dp(8), dp(4), dp(8), dp(4))
             background = GradientDrawable(GradientDrawable.Orientation.TL_BR, if (dark) intArrayOf(0xFF151323.toInt(), 0xFF102443.toInt()) else intArrayOf(0xFFECE7FF.toInt(), 0xFFDDEFFF.toInt()))
         }
@@ -92,17 +99,27 @@ class PdfLibraryActivity : PdfUiActivity() {
         title = label("PDF Reader", 23f, ink, true).apply { gravity = Gravity.CENTER_VERTICAL; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
         top.addView(title, LinearLayout.LayoutParams(0, dp(56), 1f))
         top.addView(action("⌕", "Search documents") { prompt("Search documents", "File or folder name", model.query) { model.query = it; render() } })
-        top.addView(action("×", "Close PDF Reader") { finish() }); header.addView(top)
-        root.addView(header)
+        top.addView(action("×", "Close PDF Reader") { finish() }); headerPanel.addView(top)
+        root.addView(headerPanel)
         toolbar = row().apply { setPadding(dp(12), dp(4), dp(12), 0) }
+        folderBack = action("‹", "Back to parent folder") { parentFolder() }
+        toolbar.addView(folderBack)
         location = action("All ▾", "Filter documents") { choices("Show", listOf("All", "PDF", "Folder", "Clear search")) { i ->
             if (i == 3) model.query = "" else model.filter = listOf("All", "PDF", "Folder")[i]; render()
         } }
         location.gravity = Gravity.CENTER_VERTICAL; toolbar.addView(location, LinearLayout.LayoutParams(0, dp(48), 1f))
+        toolbarSpacer = View(this); toolbar.addView(toolbarSpacer, LinearLayout.LayoutParams(0, 1, 1f))
+        folderSearch = action("⌕", "Search this library") { prompt("Search documents", "File or folder name", model.query) { model.query = it; render() } }
+        toolbar.addView(folderSearch)
         toolbar.addView(action("⊞", "Create folder") { newFolder() })
         toolbar.addView(action("↓≡", "Sort documents") { choices("Sort by", listOf("Name", "Newest", "Size")) { model.sort = listOf("Name", "Newest", "Size")[it]; render() } })
         selectButton = action("☑", "Select documents") { if (selecting) selectionMenu() else { selecting = true; model.selection.clear(); render() } }
-        toolbar.addView(selectButton); root.addView(toolbar)
+        toolbar.addView(selectButton)
+        folderMore = action("⋮", "Current folder options") { model.entries.value.orEmpty().firstOrNull { it.id == model.folder }?.let { fileMenu(it) } }
+        toolbar.addView(folderMore); root.addView(toolbar)
+        breadcrumbs = row().apply { setPadding(dp(20), dp(4), dp(20), dp(8)) }
+        breadcrumbScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(breadcrumbs) }
+        root.addView(breadcrumbScroll, LinearLayout.LayoutParams(-1, -2))
         progress = label("", 12f, blue).apply { setPadding(dp(20), dp(4), dp(20), dp(4)) }; root.addView(progress)
         access = action("Find PDFs on this phone  ›", "Allow device PDF access") { requestDeviceAccess() }.apply {
             gravity = Gravity.CENTER_VERTICAL; setTextColor(blue); setPadding(dp(20), dp(10), dp(20), dp(10)); background = shape(card, 0)
@@ -131,7 +148,7 @@ class PdfLibraryActivity : PdfUiActivity() {
             outcome.openId?.let { open(it) }
         } }
         onBackPressedDispatcher.addCallback(this) {
-            when { drawer.isDrawerOpen(GravityCompat.START) -> drawer.closeDrawer(GravityCompat.START); selecting -> { selecting = false; model.selection.clear(); render() }; model.query.isNotBlank() -> { model.query = ""; render() }; model.folder.isNotEmpty() && model.tab == "Home" -> { model.folder = model.entries.value.orEmpty().firstOrNull { it.id == model.folder }?.folder ?: ""; render() }; model.tab != "Home" -> { model.tab = "Home"; render() }; else -> finish() }
+            when { drawer.isDrawerOpen(GravityCompat.START) -> drawer.closeDrawer(GravityCompat.START); selecting -> { selecting = false; model.selection.clear(); render() }; model.query.isNotBlank() -> { model.query = ""; render() }; model.folder.isNotEmpty() && model.folder != model.homeFolder && model.tab == "Home" -> parentFolder(); model.tab != "Home" -> { model.tab = "Home"; render() }; else -> finish() }
         }
         buildDrawer()
         // DrawerLayout lays out full-window children. Apply safe areas explicitly
@@ -154,37 +171,69 @@ class PdfLibraryActivity : PdfUiActivity() {
         val folder = entries.firstOrNull { it.id == model.folder }
         if (model.loaded && model.folder.isNotEmpty() && (folder == null || folder.trashed)) model.folder = ""
         title.text = if (model.tab == "Home") "PDF Reader" else model.tab
-        location.text = if (selecting) "${model.selection.size} selected" else (folder?.name?.take(18)?.plus(" / ") ?: "") + model.filter + " ▾"
+        location.text = if (selecting) "${model.selection.size} selected" else model.filter + " ▾"
         selectButton.text = if (selecting) "⋮" else "☑"
         val inTools = model.tab == "Tools"
+        val inFolder = model.tab == "Home" && model.folder.isNotEmpty() && model.folder != model.homeFolder
+        headerPanel.visibility = if (inFolder) View.GONE else View.VISIBLE
+        folderBack.visibility = if (inFolder) View.VISIBLE else View.GONE
+        folderSearch.visibility = if (inFolder) View.VISIBLE else View.GONE
+        folderMore.visibility = if (inFolder) View.VISIBLE else View.GONE
+        toolbarSpacer.visibility = if (inFolder) View.VISIBLE else View.GONE
+        location.visibility = if (inFolder) View.GONE else View.VISIBLE
+        navigation.visibility = if (inFolder) View.GONE else View.VISIBLE
+        showBreadcrumbs(entries, inFolder)
         access.visibility = if (!PdfDeviceFiles.hasAccess(this) && model.tab == "Home") View.VISIBLE else View.GONE
         toolbar.visibility = if (inTools) View.GONE else View.VISIBLE
         toolsScroll.visibility = if (inTools) View.VISIBLE else View.GONE
         list.visibility = if (inTools) View.GONE else View.VISIBLE; add.visibility = if (inTools || model.tab == "Recycle bin") View.GONE else View.VISIBLE
         val filtered = entries.filter { e ->
-            val section = when (model.tab) { "Recent" -> !e.trashed && !e.isFolder && e.opened > 0; "Favorite" -> !e.trashed && e.favorite; "Recycle bin" -> e.trashed; else -> !e.trashed && (model.query.isNotEmpty() || e.folder == model.folder) }
+            val section = when (model.tab) { "Recent" -> !e.trashed && !e.isFolder && e.opened > 0; "Favorite" -> !e.trashed && e.favorite; "Recycle bin" -> e.trashed; else -> !e.trashed && (model.query.isNotEmpty() || e.folder == model.folder || (model.folder == model.homeFolder && model.homeFolder.isNotEmpty() && e.folder.isEmpty() && e.sourcePath.isEmpty())) }
             section && (model.filter != "Folder" || e.isFolder) && e.name.contains(model.query, true)
         }
-        val sorted = when { model.tab == "Recent" -> filtered.sortedByDescending { it.opened }; model.sort == "Newest" -> filtered.sortedByDescending { it.created }; model.sort == "Size" -> filtered.sortedByDescending { it.bytes }; else -> filtered.sortedWith(compareBy<PdfLibrary.Entry> { !it.isFolder }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name }) }
+        val sorted = when { model.tab == "Recent" -> filtered.sortedByDescending { it.opened }; model.sort == "Newest" -> filtered.sortedByDescending { it.created }; model.sort == "Size" -> filtered.sortedByDescending { model.folderSummaries[it.id]?.bytes ?: it.bytes }; else -> filtered.sortedWith(compareBy<PdfLibrary.Entry> { !it.isFolder }.thenBy(PdfFolderLayout.names) { it.name }) }
         adapter.data = sorted; adapter.notifyDataSetChanged()
         empty.visibility = if (!inTools && sorted.isEmpty()) View.VISIBLE else View.GONE
         empty.text = when (model.tab) { "Recent" -> "Your reading history will appear here."; "Favorite" -> "Star a PDF to find it here."; "Recycle bin" -> "Recycle bin is empty."; else -> if (model.query.isNotEmpty()) "No matching documents" else if (!PdfDeviceFiles.hasAccess(this)) "Your PDFs, all in one place\n\nTap Find PDFs on this phone to allow access.\nYour documents will appear automatically." else "No PDFs found here\n\nUse Refresh device PDFs in the side menu to find new files, or + to open a file." }
         navigation.removeAllViews()
         listOf("▤\nHome", "◷\nRecent", "☆\nFavorite", "⊞\nTools").forEach { value ->
             val tab = value.substringAfter('\n')
-            navigation.addView(action(value, tab) { model.tab = tab; selecting = false; model.selection.clear(); model.filter = "All"; model.query = ""; render() }.apply { setTextColor(if (model.tab == tab) blue else ink); textSize = 13f }, LinearLayout.LayoutParams(0, dp(56), 1f))
+            navigation.addView(action(value, tab) { model.tab = tab; selecting = false; model.selection.clear(); model.filter = "All"; model.query = ""; if (tab == "Home") model.folder = availableHome(); render() }.apply { setTextColor(if (model.tab == tab) blue else ink); textSize = 13f }, LinearLayout.LayoutParams(0, dp(56), 1f))
         }
         progress.text = model.busy.value?.plus("…") ?: if (model.query.isNotEmpty()) "Search: ${model.query} · Filter → Clear search" else ""
         progress.visibility = if (progress.text.isEmpty()) View.GONE else View.VISIBLE
+    }
+    private fun availableHome(): String = model.homeFolder.takeIf { home -> model.entries.value.orEmpty().any { it.id == home && it.isFolder && !it.trashed } }.orEmpty()
+    private fun parentFolder() {
+        model.folder = model.entries.value.orEmpty().firstOrNull { it.id == model.folder }?.folder ?: availableHome()
+        model.query = ""; model.filter = "All"; render()
+    }
+    private fun showBreadcrumbs(entries: List<PdfLibrary.Entry>, visible: Boolean) {
+        breadcrumbScroll.visibility = if (visible) View.VISIBLE else View.GONE
+        breadcrumbs.removeAllViews()
+        if (!visible) return
+        val root = if (PdfFolderLayout.contains(model.folder, model.homeFolder, entries)) model.homeFolder else ""
+        fun chip(name: String, id: String, description: String) {
+            breadcrumbs.addView(action(name, description) { model.folder = id; model.query = ""; model.filter = "All"; render() }.apply {
+                textSize = 13f; minWidth = dp(44); setPadding(dp(12), 0, dp(12), 0)
+                background = shape(card, 8); setTextColor(if (id == model.folder) ink else muted)
+            }, LinearLayout.LayoutParams(-2, dp(44)))
+        }
+        chip(if (root.isEmpty() && model.homeFolder.isNotEmpty()) "All folders" else "Home", root, "Breadcrumb Home")
+        for (entry in PdfFolderLayout.trail(model.folder, model.homeFolder, entries)) {
+            breadcrumbs.addView(label("›", 22f, muted).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(26), dp(44)))
+            chip(entry.name, entry.id, "Folder breadcrumb: ${entry.name}")
+        }
+        breadcrumbScroll.post { breadcrumbScroll.fullScroll(View.FOCUS_RIGHT) }
     }
     private fun fileForAction(entry: PdfLibrary.Entry): File? = try { model.library.file(entry) }
         catch (e: Exception) { toast(PdfLibraryModel.errorMessage(e)); null }
     private fun open(id: String) { startActivity(Intent(this, PdfReaderActivity::class.java).putExtra("document_id", id)) }
     private fun newFolder() {
-        if (model.entries.value.orEmpty().any { it.id == model.folder && it.sourcePath.isNotEmpty() }) {
+        if (model.entries.value.orEmpty().any { it.id == model.folder && it.sourcePath.isNotEmpty() } && model.folder != model.homeFolder) {
             toast("Device folders keep their original layout. Go to Home to create a library folder."); return
         }
-        prompt("Create folder", "Folder name") { name -> model.run("Creating folder") { model.library.createFolder(name, model.folder); PdfLibraryModel.Result("Folder created") } } }
+        prompt("Create folder", "Folder name") { name -> model.run("Creating folder") { model.library.createFolder(name, if (model.folder == model.homeFolder) "" else model.folder); PdfLibraryModel.Result("Folder created") } } }
     private fun selectionMenu() {
         if (model.selection.isEmpty()) { selecting = false; render(); return }
         val ids = model.selection.toSet()
@@ -195,7 +244,7 @@ class PdfLibraryActivity : PdfUiActivity() {
         }
     }
     private fun fileMenu(entry: PdfLibrary.Entry) {
-        val options = if (entry.isFolder && entry.sourcePath.isNotEmpty()) listOf("Open", "Folder location") else if (entry.sourcePath.isNotEmpty()) listOf("Read", "Share", "Print", if (entry.favorite) "Remove favorite" else "Favorite", "Save library copy", "Save to device", "PDF tools") else if (entry.trashed) listOf("Restore", "Delete permanently") else if (entry.isFolder) listOf("Open", "Rename", "Move", "Move to Recycle bin") else listOf("Read", "Rename", "Share", "Print", if (entry.favorite) "Remove favorite" else "Favorite", "Save to device", "Move", "PDF tools", "Move to Recycle bin")
+        val options = if (entry.isFolder && entry.sourcePath.isNotEmpty()) listOf("Open", "Use as Home", "Folder location") else if (entry.sourcePath.isNotEmpty()) listOf("Read", "Share", "Print", if (entry.favorite) "Remove favorite" else "Favorite", "Save library copy", "Save to device", "PDF tools") else if (entry.trashed) listOf("Restore", "Delete permanently") else if (entry.isFolder) listOf("Open", "Rename", "Move", "Move to Recycle bin") else listOf("Read", "Rename", "Share", "Print", if (entry.favorite) "Remove favorite" else "Favorite", "Save to device", "Move", "PDF tools", "Move to Recycle bin")
         val sheet = BottomSheetDialog(this)
         val content = column().apply { setPadding(dp(20), dp(18), dp(20), dp(22)); background = shape(paper, 22) }
         content.addView(label(entry.name, 19f, ink, true).apply { setPadding(dp(8), dp(8), dp(8), dp(14)) })
@@ -203,6 +252,7 @@ class PdfLibraryActivity : PdfUiActivity() {
         options.forEach { option -> actions.addView(action(option) { sheet.dismiss()
             when (option) {
                 "Save library copy" -> model.run("Saving library copy") { val copy = model.library.import(entry.name) { model.library.file(entry).inputStream() }; PdfLibraryModel.Result("Saved ${copy.name} in your library") }
+                "Use as Home" -> { model.useFolderAsHome(entry.id); render() }
                 "Folder location" -> message(entry.name, entry.sourcePath)
                 "Open" -> { model.folder = entry.id; render() }; "Read" -> open(entry.id)
                 "Rename" -> prompt("Rename", "Name", entry.name) { name -> model.run("Renaming") { model.library.rename(entry.id, name); PdfLibraryModel.Result("Renamed") } }
@@ -345,14 +395,15 @@ class PdfLibraryActivity : PdfUiActivity() {
         heading.addView(action("×", "Close navigation drawer") { drawer.closeDrawer(GravityCompat.START) }); content.addView(heading)
         content.addView(label("Your documents, organized", 12f, muted).apply { setPadding(0, dp(6), 0, dp(22)) })
         fun item(text: String, task: () -> Unit) { content.addView(action(text) { drawer.closeDrawer(GravityCompat.START); task() }.apply { gravity = Gravity.START or Gravity.CENTER_VERTICAL; setPadding(dp(6), dp(8), dp(6), dp(8)) }, LinearLayout.LayoutParams(-1, dp(54))) }
-        item("Device PDFs") { model.tab = "Home"; model.folder = ""; model.filter = "All"; model.query = ""; model.resume(); render() }
+        item("Device PDFs") { model.tab = "Home"; model.folder = availableHome(); model.filter = "All"; model.query = ""; model.resume(); render() }
+        item("All folders") { model.tab = "Home"; model.folder = ""; model.filter = "All"; model.query = ""; render() }
         item("Refresh device PDFs") { if (PdfDeviceFiles.hasAccess(this)) model.refresh() else requestDeviceAccess() }
         item("Import files") { importFiles.launch(arrayOf("application/pdf")) }
         content.addView(label("APPEARANCE", 11f, muted, true).apply { setPadding(dp(6), dp(26), 0, dp(8)) })
         content.addView(Switch(this).apply { text = "Dark mode"; setTextColor(ink); isChecked = dark; minHeight = dp(56); setOnCheckedChangeListener { _, enabled -> settings.edit().putBoolean("dark", enabled).apply(); drawer.closeDrawer(GravityCompat.START); recreate() } })
         content.addView(Switch(this).apply { text = "Keep screen on"; setTextColor(ink); isChecked = settings.getBoolean("keep_screen", false); minHeight = dp(56); setOnCheckedChangeListener { _, enabled -> settings.edit().putBoolean("keep_screen", enabled).apply(); if (enabled) window.addFlags(128) else window.clearFlags(128) } })
         item("Recycle bin") { model.tab = "Recycle bin"; render() }
-        item("Help & supported features") { message("Reading with PDF Reader", "Allow device file access to automatically find PDFs in shared phone storage and SD cards. The saved list and original folder layout reopen without rescanning. Use Refresh device PDFs in the side menu to find new or moved files. Device files are read where they are; use Save library copy to organize a separate copy. Imports and edited copies from device folders are saved in Home. Folders that another app keeps only in its private database require that app to export them first.\n\nUse + for manually selected files. Recent remembers the last page and Favorite keeps starred documents close.\n\nPinch to zoom, use page arrows, and save annotations as a new PDF. A handwritten signature is not a digital certificate. Tools create new files. Passwords are not stored. OCR and Office formats are not included.\n\nPDF tools use PDFBox-Android 2.0.27.0 (Apache 2.0).") }
+        item("Help & supported features") { message("Reading with PDF Reader", "Allow device file access to automatically find PDFs in shared phone storage and SD cards. The saved list and original folder layout reopen without rescanning. PDF Reader collections appear directly on Home. Use a folder’s menu → Use as Home to choose another collection, or All folders in this menu to browse storage. Breadcrumbs jump to parent folders. Use Refresh device PDFs in the side menu to find new or moved files. Device files are read where they are; use Save library copy to organize a separate copy. Imports and edited copies from device folders are saved in Home. Folders that another app keeps only in its private database require that app to export them first.\n\nUse + for manually selected files. Recent remembers the last page and Favorite keeps starred documents close.\n\nPinch to zoom, use page arrows, and save annotations as a new PDF. A handwritten signature is not a digital certificate. Tools create new files. Passwords are not stored. OCR and Office formats are not included.\n\nPDF tools use PDFBox-Android 2.0.27.0 (Apache 2.0).") }
         drawerPanel.addView(content)
         val width = minOf(dp(320), resources.displayMetrics.widthPixels - dp(56))
         drawer.addView(drawerPanel, DrawerLayout.LayoutParams(width, -1, GravityCompat.START))
@@ -377,11 +428,11 @@ class PdfLibraryActivity : PdfUiActivity() {
         override fun onCreateViewHolder(parent: ViewGroup, type: Int): Holder {
             val root = row().apply {
                 layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                setPadding(dp(8), dp(8), dp(2), dp(8)); minimumHeight = dp(88)
+                setPadding(dp(8), dp(8), dp(2), dp(8)); minimumHeight = dp(78)
             }
             val icon = PdfFileIcon(this@PdfLibraryActivity); root.addView(icon, LinearLayout.LayoutParams(dp(48), dp(58)))
             val names = column().apply { setPadding(dp(18), dp(2), dp(4), dp(2)) }
-            val name = label("", 16f, ink, true).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END }
+            val name = label("", 16f, ink, true).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
             val detail = label("", 12f, muted).apply { setPadding(0, dp(8), 0, 0) }
             names.addView(name); names.addView(detail); root.addView(names, LinearLayout.LayoutParams(0, -2, 1f))
             val menu = action("⋮", "Document options") {}; menu.setTextColor(muted); root.addView(menu)
@@ -391,7 +442,10 @@ class PdfLibraryActivity : PdfUiActivity() {
         override fun onBindViewHolder(holder: Holder, position: Int) {
             val entry = data[position]; holder.root.tag = entry.id
             holder.name.text = (if (entry.favorite) "★ " else "") + entry.name
-            holder.detail.text = if (entry.isFolder) (if (entry.sourcePath.isNotEmpty()) "On device · " else "") + "${model.entries.value.orEmpty().count { it.folder == entry.id && !it.trashed }} items" else if (entry.sourcePath.isNotEmpty()) "On device · ${File(entry.sourcePath).parentFile?.name}  ·  ${android.text.format.Formatter.formatShortFileSize(this@PdfLibraryActivity, entry.bytes)}" else "${DateFormat.getDateInstance(DateFormat.SHORT).format(Date(entry.created))}  ·  ${android.text.format.Formatter.formatShortFileSize(this@PdfLibraryActivity, entry.bytes)}"
+            holder.detail.text = if (entry.isFolder) {
+                val summary = model.folderSummaries[entry.id] ?: PdfFolderLayout.Summary(0, 0)
+                "${summary.children} · ${android.text.format.Formatter.formatShortFileSize(this@PdfLibraryActivity, summary.bytes)}"
+            } else "${DateFormat.getDateInstance(DateFormat.SHORT).format(Date(entry.created))} · ${android.text.format.Formatter.formatShortFileSize(this@PdfLibraryActivity, entry.bytes)}"
             holder.menu.text = if (selecting) { if (entry.id in model.selection) "☑" else "□" } else "⋮"
             holder.root.background = if (entry.id in model.selection) shape(if (dark) 0xFF223958.toInt() else 0xFFDDEAFF.toInt()) else null
             holder.icon.folder = entry.isFolder; holder.icon.thumbnail = thumbnails.get(entry.id + ":" + entry.sourceModified); holder.icon.invalidate()

@@ -28,9 +28,12 @@ object PdfDeviceFiles {
     fun isSharedPdf(context: Context, file: File): Boolean {
         val path = runCatching { file.canonicalPath }.getOrNull() ?: return false
         return file.extension.equals("pdf", true) && roots(context).any { root ->
-            path.startsWith(root.path + "/") && path.removePrefix(root.path + "/").let { relative -> !relative.split('/').any { it.startsWith('.') } && (!relative.startsWith("Android/", true) || relative.startsWith("Android/media/", true)) }
+            path.startsWith(root.path + "/") && path.removePrefix(root.path + "/").let { relative -> !relative.split('/').any { hidden(it) } && (!relative.startsWith("Android/", true) || relative.startsWith("Android/media/", true)) }
         }
     }
+    // A literal "..." is an intentional collection folder in the reference app.
+    // Keep real hidden names excluded; canonical-path checks still reject symlinks.
+    private fun hidden(name: String) = name.startsWith('.') && !(name.length >= 3 && name.all { it == '.' })
     data class Scan(val files: List<File>, val limited: Boolean)
     fun scan(context: Context): Scan {
         if (!hasAccess(context)) return Scan(emptyList(), false)
@@ -47,7 +50,7 @@ object PdfDeviceFiles {
             val children = directory.listFiles() ?: continue
             for (file in children) {
                 if (++visited > 150000 || result.size >= 20000) { limited = true; break }
-                if (file.name.startsWith('.')) continue
+                if (hidden(file.name)) continue
                 if (file.name.equals("Android", true)) {
                     val media = File(file, "media")
                     if (media.isDirectory && media.canonicalPath == media.absolutePath) pending.add(media to depth + 1)

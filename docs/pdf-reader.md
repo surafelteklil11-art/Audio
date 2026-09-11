@@ -50,3 +50,11 @@ The prior flat JSON index is upgraded locally into this folder tree without a ne
 Folders physically stored by another PDF app in shared storage retain that hierarchy. Virtual collections stored only in another app's private database cannot be read by Audio; that app must first export its files/folders into shared storage.
 
 Native regression coverage exercises folder navigation, identical filenames in different folders, background/resume, recreation and a fresh ViewModel without rescanning, explicit refresh, migration of the previous index, empty-index persistence, last-folder restoration, original preservation and safe private-copy destinations.
+
+## Collection Home and folder presentation
+
+A single indexed `pdfreader/folder` collection is automatically presented as Home, exposing its existing categories directly instead of the surrounding storage directories. Multiple matching collections require an explicit choice. Any device folder offers **Use as Home**; the selection persists and never moves files. **All folders** in the drawer retains access to other device directories and private library copies.
+
+Folder pages show clickable **Home › parent › current** breadcrumbs, a compact navigation toolbar, and folder rows with direct-child counts and the combined size of all descendant PDFs. Grade names sort naturally (7, 9, 10, 11, 12). The main tabs and large header yield their space to the folder list while navigating inside a folder.
+
+Literal dot-only collection names such as `...` are included, while hidden names such as `.cache`, private Android folders and symbolic links remain excluded. Users upgrading an existing cached index should run **Refresh device PDFs** once to discover folders previously excluded by the hidden-folder filter. Normal reopening still does not rescan.

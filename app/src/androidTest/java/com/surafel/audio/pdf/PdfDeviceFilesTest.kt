@@ -138,6 +138,67 @@ class PdfDeviceFilesTest {
         }
     }
 
+    @Test fun collectionHomeMatchesReferenceWithBreadcrumbsCountsAndNaturalOrder() = withStorage { app, root ->
+        val collection = File(root, "pdfreader/folder")
+        val template = File(root, "template.pdf")
+        PdfTools(app).textPdf("An existing organized document", template)
+        val grades = listOf("Grade 7&8 books", "Grade 9 books", "Grade 10 books", "Grade 11 books", "Grade 12 books")
+        val paths = listOf(".../G 9 Plan/Plan.pdf", "certificate/Learning.pdf", "Short Note/Gemini Note/Note.pdf", "Short Note/Studley note/Note.pdf",
+            "Question/The hardest Questions G 7&8/Questions.pdf", "Question/Ministry Questions/Questions.pdf", "Question/Model Question/Questions.pdf", "Question/school model/Questions.pdf", "Question/Gemini Questions/Questions.pdf") + grades.map { "Books/$it/Book.pdf" }
+        paths.forEach { relative -> File(collection, relative).apply { parentFile!!.mkdirs(); template.copyTo(this) } }
+        val scan = PdfDeviceFiles.scanRoots(listOf(root))
+        assertEquals(paths.size + 1, scan.files.size)
+        val library = PdfLibrary(app); library.syncDeviceFiles(scan)
+        val dots = library.all().single { it.sourcePath == File(collection, ".../G 9 Plan/Plan.pdf").canonicalPath }
+        assertTrue(PdfDeviceFiles.isSharedPdf(app, library.file(dots)))
+        NativePdf(library.file(dots)).use { assertEquals(1, it.count) }
+        val collectionId = library.all().single { it.sourcePath == collection.canonicalPath }.id
+        val books = library.all().single { it.sourcePath == File(collection, "Books").canonicalPath }
+        val templateBytes = template.length()
+        ActivityScenario.launch(PdfLibraryActivity::class.java).use { scenario ->
+            ready(scenario)
+            scenario.onActivity { a ->
+                val model = ViewModelProvider(a)[PdfLibraryModel::class.java]
+                assertEquals(collectionId, model.homeFolder); assertEquals(collectionId, model.folder)
+                assertEquals(5, model.folderSummaries[books.id]!!.children)
+                assertEquals(templateBytes * 5, model.folderSummaries[books.id]!!.bytes)
+                val rootNames = model.entries.value.orEmpty().filter { it.folder == collectionId }.map { it.name }.sortedWith(PdfFolderLayout.names)
+                assertEquals(listOf("...", "Books", "certificate", "Question", "Short Note"), rootNames)
+            }
+            PdfTestScreenshots.capture("collection-home", scenario)
+            clickFolder(scenario, "Books")
+            waitUntil(scenario) { a -> descendants(a.window.decorView).filterIsInstance<TextView>().filter { it.isShown }.map { it.text.toString() }.filter { it in grades } == grades }
+            scenario.onActivity { a ->
+                val displayed = descendants(a.window.decorView).filterIsInstance<TextView>().filter { it.isShown }.map { it.text.toString() }.filter { it in grades }
+                assertEquals(grades, displayed)
+                assertTrue(descendants(a.window.decorView).any { it.contentDescription == "Folder breadcrumb: Books" && it.isShown })
+            }
+            PdfTestScreenshots.capture("collection-books", scenario)
+            clickFolder(scenario, "Grade 9 books")
+            scenario.onActivity { a -> descendants(a.window.decorView).first { it.contentDescription == "Folder breadcrumb: Books" }.performClick() }
+            waitUntil(scenario) { a -> ViewModelProvider(a)[PdfLibraryModel::class.java].folder == books.id }
+            scenario.onActivity { a -> descendants(a.window.decorView).first { it.contentDescription == "Breadcrumb Home" }.performClick() }
+            clickFolder(scenario, "..."); clickFolder(scenario, "G 9 Plan")
+            PdfTestScreenshots.capture("collection-plan", scenario)
+            scenario.onActivity { a -> descendants(a.window.decorView).first { it.contentDescription == "Breadcrumb Home" }.performClick() }
+            clickFolder(scenario, "Question"); PdfTestScreenshots.capture("collection-questions", scenario)
+            scenario.onActivity { a -> descendants(a.window.decorView).first { it.contentDescription == "Breadcrumb Home" }.performClick() }
+            clickFolder(scenario, "Short Note"); PdfTestScreenshots.capture("collection-notes", scenario)
+            // Choosing a different Home is a persistent view preference, not a file move.
+            scenario.onActivity { a -> ViewModelProvider(a)[PdfLibraryModel::class.java].useFolderAsHome(books.id) }
+        }
+        ActivityScenario.launch(PdfLibraryActivity::class.java).use { scenario ->
+            ready(scenario)
+            scenario.onActivity { a ->
+                val model = ViewModelProvider(a)[PdfLibraryModel::class.java]
+                assertEquals(books.id, model.homeFolder); assertEquals(books.id, model.folder)
+                assertTrue(model.entries.value.orEmpty().any { it.sourcePath == template.canonicalPath })
+            }
+            assertEquals(collectionId, library.get(books.id).folder)
+            assertEquals(templateBytes, File(collection, ".../G 9 Plan/Plan.pdf").length())
+        }
+    }
+
     private fun withStorage(test: (Application, File) -> Unit) {
         val app = ApplicationProvider.getApplicationContext<Application>()
         InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("appops set --uid ${app.packageName} MANAGE_EXTERNAL_STORAGE allow").use { descriptor ->

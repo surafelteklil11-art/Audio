@@ -24,6 +24,22 @@ class PdfLibraryModel(app: Application) : AndroidViewModel(app) {
     var loaded = false; private set
     var folder = preferences.getString("browse_folder", "").orEmpty()
         set(value) { field = value; preferences.edit().putString("browse_folder", value).apply() }
+    var homeFolder = preferences.getString("home_folder", "").orEmpty(); private set
+    var folderSummaries = emptyMap<String, PdfFolderLayout.Summary>(); private set
+    fun useFolderAsHome(id: String) {
+        homeFolder = id; preferences.edit().putString("home_folder", id).apply()
+        folder = id; tab = "Home"; query = ""; filter = "All"
+    }
+    private fun prepareFolders(list: List<PdfLibrary.Entry>) {
+        folderSummaries = PdfFolderLayout.summaries(list)
+        if (!preferences.contains("home_folder")) {
+            PdfFolderLayout.suggestedHome(list)?.let { suggested ->
+                val previous = folder
+                useFolderAsHome(suggested)
+                if (previous.isNotEmpty() && PdfFolderLayout.contains(previous, suggested, list)) folder = previous
+            }
+        }
+    }
     var tab = "Home"; var filter = "All"; var query = ""; var sort = "Name"
     val selection = linkedSetOf<String>()
     var cameraPath: String? = null
@@ -57,7 +73,7 @@ class PdfLibraryModel(app: Application) : AndroidViewModel(app) {
         worker.execute {
             val outcome = try { task(PdfTools(getApplication())) } catch (e: Exception) { Result(errorMessage(e)) }
             val list = try { library.all() } catch (e: Exception) { null }
-            main.post { if (!closed) { if (list != null) { loaded = true; entries.value = list }; busy.value = null; result.value = outcome; if (scanPending) { scanPending = false; reloadPending = false; refresh() } else if (reloadPending) { reloadPending = false; resume() } } }
+            main.post { if (!closed) { if (list != null) { prepareFolders(list); loaded = true; entries.value = list }; busy.value = null; result.value = outcome; if (scanPending) { scanPending = false; reloadPending = false; refresh() } else if (reloadPending) { reloadPending = false; resume() } } }
         }
     }
     fun import(uris: List<Uri>) {

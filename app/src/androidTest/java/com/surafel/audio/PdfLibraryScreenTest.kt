@@ -122,7 +122,7 @@ class PdfLibraryScreenTest {
             }
             app.getSharedPreferences("pdf_preferences", 0).edit().putBoolean("dark", false).commit()
             scenario.recreate()
-            waitUntil(scenario) { a -> descendants(a.window.decorView).any { it is TextView && it.text.toString().contains("Books /") } }
+            waitUntil(scenario) { a -> descendants(a.window.decorView).any { it.contentDescription == "Folder breadcrumb: Books" } }
             PdfTestScreenshots.capture("light-folder", scenario)
         }
     }
