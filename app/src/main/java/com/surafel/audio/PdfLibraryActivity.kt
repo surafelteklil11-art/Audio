@@ -5,6 +5,9 @@ import android.os.Build
 import android.provider.Settings
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.core.view.GravityCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.GradientDrawable
@@ -76,8 +79,9 @@ class PdfLibraryActivity : PdfUiActivity() {
         savedInstanceState?.getString("export")?.let { path -> File(path).takeIf { it.canonicalPath.startsWith(filesDir.canonicalPath + "/pdf_library/") || it.canonicalPath.startsWith(cacheDir.canonicalPath + "/pdf_exports/") || PdfDeviceFiles.isSharedPdf(this, it) }?.let { exportFile = it } }
         model.cameraPath = model.cameraPath ?: savedInstanceState?.getString("camera")
         adapter = DocumentAdapter()
-        drawer = DrawerLayout(this).apply { fitsSystemWindows = true; setBackgroundColor(paper) }
-        val root = column().apply { fitsSystemWindows = true; setBackgroundColor(paper) }
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        drawer = DrawerLayout(this).apply { setBackgroundColor(paper) }
+        val root = column().apply { setBackgroundColor(paper) }
         drawer.addView(root, DrawerLayout.LayoutParams(-1, -1)); setContentView(drawer)
         val header = column().apply {
             setPadding(dp(8), dp(4), dp(8), dp(4))
@@ -130,6 +134,15 @@ class PdfLibraryActivity : PdfUiActivity() {
             when { drawer.isDrawerOpen(GravityCompat.START) -> drawer.closeDrawer(GravityCompat.START); selecting -> { selecting = false; model.selection.clear(); render() }; model.query.isNotBlank() -> { model.query = ""; render() }; model.folder.isNotEmpty() && model.tab == "Home" -> { model.folder = model.entries.value.orEmpty().firstOrNull { it.id == model.folder }?.folder ?: ""; render() }; model.tab != "Home" -> { model.tab = "Home"; render() }; else -> finish() }
         }
         buildDrawer()
+        // DrawerLayout lays out full-window children. Apply safe areas explicitly
+        // so both panels keep controls clear of system bars and display cutouts.
+        ViewCompat.setOnApplyWindowInsetsListener(drawer) { _, insets ->
+            val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            root.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+            drawerPanel.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
+        ViewCompat.requestApplyInsets(drawer)
         render()
     }
     override fun onResume() { super.onResume(); if (::model.isInitialized) model.refresh() }
@@ -318,7 +331,7 @@ class PdfLibraryActivity : PdfUiActivity() {
     }
     private fun settingsMenu() { drawer.openDrawer(GravityCompat.START) }
     private fun buildDrawer() {
-        drawerPanel = ScrollView(this).apply { fitsSystemWindows = true; setBackgroundColor(paper); contentDescription = "PDF navigation drawer" }
+        drawerPanel = ScrollView(this).apply { setBackgroundColor(paper); contentDescription = "PDF navigation drawer" }
         val content = column().apply { setPadding(dp(20), dp(24), dp(20), dp(24)) }
         val heading = row()
         heading.addView(label("PDF Reader", 25f, ink, true), LinearLayout.LayoutParams(0, -2, 1f))
