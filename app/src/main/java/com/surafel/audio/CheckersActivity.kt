@@ -137,7 +137,12 @@ class CheckersActivity : AppCompatActivity() {
             if (model.network) { model.home(); nearby() } else model.start(model.mode)
         } }, weight())
         content.addView(header, spaced())
-        status = cardText("").apply { tag = "checkers-status"; gravity = Gravity.CENTER; textSize = 18f; typeface = Typeface.DEFAULT_BOLD }
+        status = cardText("").apply {
+            tag = "checkers-status"; gravity = Gravity.CENTER; textSize = 18f; typeface = Typeface.DEFAULT_BOLD
+            // Turn, moving and capture messages wrap differently. Reserve the same
+            // space for each so changing status never shifts the board mid-move.
+            setLines(2); ellipsize = android.text.TextUtils.TruncateAt.END
+        }
         content.addView(status, spaced())
         info = cardText("").apply { tag = "checkers-game-info"; textSize = 12f; gravity = Gravity.CENTER }
         content.addView(info, spaced())

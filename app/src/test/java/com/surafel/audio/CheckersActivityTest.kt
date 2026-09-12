@@ -28,6 +28,28 @@ import java.io.File
 @LooperMode(LooperMode.Mode.PAUSED)
 class CheckersActivityTest {
     @Before fun clean() { RuntimeEnvironment.getApplication().getSharedPreferences("checkers", 0).edit().clear().commit() }
+    @Test fun boardStaysInPlaceWhenMoveStatusWraps() {
+        org.robolectric.shadows.ShadowChoreographer.setPaused(true)
+        org.robolectric.shadows.ShadowChoreographer.setFrameDelay(java.time.Duration.ofMillis(16))
+        Robolectric.buildActivity(CheckersActivity::class.java).use { c ->
+            val root = c.setup().visible().get().findViewById<ViewGroup>(android.R.id.content)
+            root.findViewWithTag<View>("checkers-local").performClick(); layout(root)
+            val board = root.findViewWithTag<CheckersBoardView>("checkers-board")
+            fun geometry(): List<Int> {
+                val xy = IntArray(2); board.getLocationOnScreen(xy)
+                return listOf(xy[0], xy[1], board.width, board.height)
+            }
+            val before = geometry()
+            board.legal.first().path.forEach { tap(board, it) }
+            assertTrue(board.isAnimating)
+            layout(root)
+            assertEquals("Moving status must not shift the board", before, geometry())
+            repeat(60) { shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(16)) }
+            assertFalse(board.isAnimating)
+            layout(root)
+            assertEquals("Next turn must not shift the board", before, geometry())
+        }
+    }
     @Test fun twoPlayersMoveByTouchRotateAndUndoWithoutLosingState() {
         Robolectric.buildActivity(CheckersActivity::class.java).use { c ->
             val a = c.setup().visible().get(); var root = a.findViewById<ViewGroup>(android.R.id.content)
