@@ -109,7 +109,7 @@ class PdfLibraryModel(app: Application) : AndroidViewModel(app) {
 
 class PdfReaderModel(app: Application) : AndroidViewModel(app) {
     data class State(val bitmap: Bitmap? = null, val page: Int = 0, val count: Int = 0, val busy: Boolean = false,
-        val error: String? = null, val passwordRequired: Boolean = false)
+        val error: String? = null, val passwordRequired: Boolean = false, val bitmapPage: Int = page)
     val state = MutableLiveData(State())
     val notice = MutableLiveData<String?>(null)
     val marks = mutableListOf<PdfMark>()
@@ -141,6 +141,31 @@ class PdfReaderModel(app: Application) : AndroidViewModel(app) {
                 publish(State(error = if (required) "Enter the PDF password" else PdfLibraryModel.errorMessage(e), passwordRequired = required))
             }
         }
+    }
+    class PageRequest {
+        @Volatile var cancelled = false; private set
+        fun cancel() { cancelled = true }
+    }
+    fun renderForScroll(index: Int, callback: (Bitmap?, String?) -> Unit): PageRequest {
+        val request = PageRequest()
+        if (closed) { request.cancel(); return request }
+        worker.execute {
+            if (closed || request.cancelled) return@execute
+            var bitmap: Bitmap? = null
+            var failure: String? = null
+            try { bitmap = pdf?.render(index, 1200) ?: error("Document is unavailable") }
+            catch (e: Exception) { failure = PdfLibraryModel.errorMessage(e) }
+            main.post {
+                if (closed || request.cancelled) bitmap?.recycle() else callback(bitmap, failure)
+            }
+        }
+        return request
+    }
+    fun rememberScrolledPage(page: Int) {
+        val current = state.value!!
+        if (closed || current.busy || marks.isNotEmpty() || page !in 0 until current.count || current.page == page) return
+        state.value = current.copy(page = page)
+        worker.execute { runCatching { library.opened(id, page) } }
     }
     fun go(page: Int) {
         val current = state.value!!

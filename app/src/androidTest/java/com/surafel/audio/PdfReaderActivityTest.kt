@@ -26,10 +26,10 @@ import java.io.File
 class PdfReaderActivityTest {
     private val app get() = ApplicationProvider.getApplicationContext<Application>()
     @Before fun reset() { File(app.filesDir, "pdf_library").deleteRecursively(); app.getSharedPreferences("pdf_preferences", 0).edit().clear().commit() }
-    private fun entry(locked: Boolean = false): PdfLibrary.Entry {
+    private fun entry(locked: Boolean = false, pages: Int = 2): PdfLibrary.Entry {
         val tools = PdfTools(app); val file = tools.temp()
         PDDocument().use { doc ->
-            repeat(2) { i -> val page = PDPage(); doc.addPage(page)
+            repeat(pages) { i -> val page = PDPage(); doc.addPage(page)
                 PDPageContentStream(doc, page).use { stream ->
                     stream.beginText(); stream.setFont(PDType1Font.HELVETICA_BOLD, 28f); stream.newLineAtOffset(42f, 710f); stream.showText("Reading with Audio"); stream.endText()
                     stream.beginText(); stream.setFont(PDType1Font.HELVETICA, 14f); stream.newLineAtOffset(42f, 666f); stream.showText("Page ${i + 1} - Your documents, always at hand."); stream.endText()
@@ -58,6 +58,48 @@ class PdfReaderActivityTest {
             scenario.onActivity { activity -> model.saveMarks(descendants(activity.window.decorView).filterIsInstance<PdfPageView>().single().overlay()) }
             waitUntil { library.all().size == 2 && !model.state.value!!.busy }
             assertArrayEquals(original, library.file(entry).readBytes())
+        }
+    }
+    @Test fun pagesScrollVerticallyWithoutLoadingTheWholeDocumentAndResumeAfterRotation() {
+        val entry = entry(pages = 12)
+        ActivityScenario.launch<PdfReaderActivity>(Intent(app, PdfReaderActivity::class.java).putExtra("document_id", entry.id)).use { scenario ->
+            lateinit var model: PdfReaderModel
+            lateinit var pages: PdfScrollView
+            scenario.onActivity {
+                model = ViewModelProvider(it)[PdfReaderModel::class.java]
+                pages = descendants(it.window.decorView).filterIsInstance<PdfScrollView>().single()
+            }
+            waitUntil { model.state.value!!.count == 12 && !model.state.value!!.busy && 0 in pages.loadedPages }
+            scenario.onActivity {
+                assertTrue(pages.isShown)
+                assertFalse(pages.canScrollHorizontally(1))
+                val time = android.os.SystemClock.uptimeMillis()
+                val x = pages.width / 2f
+                for (step in 0..10) {
+                    val action = when (step) { 0 -> android.view.MotionEvent.ACTION_DOWN; 10 -> android.view.MotionEvent.ACTION_UP; else -> android.view.MotionEvent.ACTION_MOVE }
+                    val y = pages.height * (.85f - step * .065f)
+                    val event = android.view.MotionEvent.obtain(time, time + step * 35L, action, x, y, 0)
+                    pages.dispatchTouchEvent(event); event.recycle()
+                }
+                pages.stopScroll()
+                assertTrue("An upward swipe must scroll the document", pages.computeVerticalScrollOffset() > 0)
+                val layout = pages.layoutManager as androidx.recyclerview.widget.LinearLayoutManager
+                assertTrue("Consecutive pages share the viewport", layout.findLastVisibleItemPosition() > layout.findFirstVisibleItemPosition())
+            }
+            waitUntil { 1 in pages.loadedPages }
+            PdfTestScreenshots.capture("reader-vertical-scroll", scenario)
+            scenario.onActivity {
+                assertTrue("Only nearby pages should own bitmaps", pages.loadedPages.size < 6)
+                pages.scrollToPage(7)
+            }
+            waitUntil { model.state.value!!.page == 7 && 7 in pages.loadedPages }
+            scenario.recreate()
+            scenario.onActivity { pages = descendants(it.window.decorView).filterIsInstance<PdfScrollView>().single() }
+            waitUntil { pages.currentPage == 7 && 7 in pages.loadedPages }
+            scenario.onActivity {
+                val view = descendants(it.window.decorView).filterIsInstance<PdfScrollView>().single()
+                assertTrue(view.isShown); assertEquals(7, model.state.value!!.page)
+            }
         }
     }
     @Test fun protectedDocumentAcceptsPasswordAfterWrongAttempt() {

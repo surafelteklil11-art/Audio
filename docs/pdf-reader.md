@@ -7,7 +7,8 @@ Open **PDF Reader** immediately below **Checkers** in Audio's drawer. It works w
 - Home with folders, PDF/folder filters, name search, sorting and multiple selection. Move, rename, favorite, export, share and print documents.
 - Recent remembers the last page; Favorite lists starred documents. Recycle bin supports restoration and separately confirmed permanent deletion of library copies.
 - Dark/light library appearance and optional keep-screen-on. The document screens own their palette so the Audio music background cannot overwrite it.
-- Native PDF rendering runs on a worker, with bounded bitmap sizes. Page arrows, page-number jump, pinch zoom, drag pan and double-tap zoom. Page night mode is separate from library appearance.
+- Reading uses continuous vertical scrolling: pages appear one below another at the document width. Only attached pages are rendered on a worker, with bounded bitmap sizes and cancelled recycled-page requests. Swipe up/down, pinch zoom, pan sideways while zoomed, double-tap zoom/reset, or use page-number jump and up/down buttons. The last visible page is remembered across reopening and rotation. Page night mode is separate from library appearance.
+- Annotation tools open the selected page in a focused editing view. Unsaved marks stay on that page until saved or explicitly discarded; Read returns to continuous scrolling when there are no unsaved marks.
 - Search selectable text; password prompts for protected files. Passwords remain in memory only. Decrypted display copies are private temporary files and are removed when the reader session closes.
 - Add text, draw ink/highlights or a handwritten signature; save a separate annotated PDF. Marks and the current page survive rotation while the process lives. Unfinished marks are not persisted after process termination. A drawn signature is not a cryptographic digital signature.
 
