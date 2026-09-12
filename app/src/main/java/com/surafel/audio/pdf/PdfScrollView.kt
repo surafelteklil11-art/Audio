@@ -7,7 +7,6 @@ import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewConfiguration
-import android.widget.FrameLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlin.math.abs
@@ -43,12 +42,12 @@ class PdfScrollView(context: Context, private val model: PdfReaderModel) : Recyc
             val sheet = holder.sheet
             sheet.clear(); sheet.index = index
             sheet.contentDescription = "PDF page ${index + 1}"
-            sheet.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, pageHeight(index))
+            sheet.resize()
             sheet.request = model.renderForScroll(index) { bitmap, error ->
                 if (sheet.index != index) { bitmap?.recycle(); return@renderForScroll }
                 sheet.image = bitmap; sheet.error = error
                 if (bitmap != null) ratios[index] = bitmap.height.toFloat() / bitmap.width
-                sheet.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, pageHeight(index))
+                sheet.resize()
                 sheet.invalidate()
             }
         }
@@ -64,6 +63,12 @@ class PdfScrollView(context: Context, private val model: PdfReaderModel) : Recyc
         fun clear() {
             request?.cancel(); request = null
             image?.recycle(); image = null; index = -1; error = null
+        }
+        fun resize() {
+            // Keep RecyclerView's LayoutParams: they contain this row's ViewHolder.
+            val params = layoutParams ?: LayoutParams(LayoutParams.MATCH_PARENT, pageHeight(index))
+            params.height = pageHeight(index)
+            layoutParams = params
         }
         override fun onDraw(canvas: Canvas) {
             canvas.drawColor(if (night) Color.rgb(16, 18, 24) else Color.rgb(52, 57, 67))
@@ -131,7 +136,7 @@ class PdfScrollView(context: Context, private val model: PdfReaderModel) : Recyc
         pan = pan.coerceIn(-width * (zoom - 1f) / 2, width * (zoom - 1f) / 2)
         for (i in 0 until childCount) {
             val sheet = getChildAt(i) as Sheet
-            sheet.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, pageHeight(sheet.index))
+            sheet.resize()
             sheet.invalidate()
         }
         if (first != NO_POSITION) manager.scrollToPositionWithOffset(first, -(fraction * pageHeight(first)).toInt())
