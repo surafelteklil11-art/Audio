@@ -34,10 +34,14 @@ class CheckersActivityTest {
         Robolectric.buildActivity(CheckersActivity::class.java).use { c ->
             val root = c.setup().visible().get().findViewById<ViewGroup>(android.R.id.content)
             root.findViewWithTag<View>("checkers-local").performClick(); layout(root)
+            // Let the paused test display attach/layout the game before measuring it.
+            repeat(4) { shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(16)) }
+            layout(root)
             val board = root.findViewWithTag<CheckersBoardView>("checkers-board")
             fun geometry(): List<Int> {
-                val xy = IntArray(2); board.getLocationOnScreen(xy)
-                return listOf(xy[0], xy[1], board.width, board.height)
+                val bounds = android.graphics.Rect(0, 0, board.width, board.height)
+                root.offsetDescendantRectToMyCoords(board, bounds)
+                return listOf(bounds.left, bounds.top, bounds.width(), bounds.height())
             }
             val before = geometry()
             board.legal.first().path.forEach { tap(board, it) }
