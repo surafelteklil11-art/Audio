@@ -4,18 +4,16 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.LayerDrawable
-import android.view.Gravity
+import android.graphics.drawable.Drawable
+import android.util.AtomicFile
 import android.view.View
 import java.io.File
+import java.io.InputStream
 
+/** Stable IDs and a single renderer for gallery, preview and the real player. */
 object ThemeCatalog {
     const val CUSTOM_ID = -1
-    private const val CUSTOM_FILE_NAME = "custom_theme.img"
-    private const val ATLAS_COLUMNS = 3
-    private const val ATLAS_ROWS = 11
+    private const val MAX_IMPORT_BYTES = 20L * 1024 * 1024
 
     data class ThemeOption(
         val id: Int,
@@ -23,137 +21,111 @@ object ThemeCatalog {
         val description: String,
         val colors: IntArray,
         val pictureIndex: Int? = null,
-        val tags: Set<String> = emptySet()
+        val tags: Set<String> = emptySet(),
+        val motif: Int = -1
     )
 
+    private fun colors(vararg values: String) = values.map(Color::parseColor).toIntArray()
+    private val palettes = listOf(
+        colors("#29114D", "#7946B8", "#20366E"),
+        colors("#092B59", "#1879BD", "#14365D"),
+        colors("#101B35", "#36496C", "#172238"),
+        colors("#103F59", "#3698AD", "#19556B"),
+        colors("#683B51", "#C8766F", "#794C70"),
+        colors("#123E4C", "#298A85", "#185160"),
+        colors("#4D205D", "#B54C94", "#4F336E"),
+        colors("#222F3C", "#536578", "#253643"),
+        colors("#63412B", "#C69857", "#745748"),
+        colors("#173E3C", "#438D66", "#214C47"),
+        colors("#39355E", "#817CB2", "#48416E")
+    )
     private val gradients = listOf(
-        ThemeOption(0, "Nebula Violet", "Deep violet space with electric blue accents", intArrayOf(Color.rgb(10, 9, 29), Color.rgb(31, 11, 58))),
-        ThemeOption(1, "Cyber Blue", "Cold blue command-deck interface", intArrayOf(Color.rgb(5, 18, 40), Color.rgb(9, 42, 72))),
-        ThemeOption(2, "Midnight Space", "Near-black space with subtle purple depth", intArrayOf(Color.rgb(6, 9, 20), Color.rgb(20, 12, 31))),
-        ThemeOption(3, "Arctic Signal", "Clean cyan-white futuristic glass", intArrayOf(Color.rgb(7, 24, 48), Color.rgb(16, 77, 103))),
-        ThemeOption(4, "Solar Mist", "Warm peach energy over a dark core", intArrayOf(Color.rgb(34, 14, 24), Color.rgb(91, 44, 35))),
-        ThemeOption(5, "Ocean Circuit", "Deep teal with electric blue depth", intArrayOf(Color.rgb(3, 24, 37), Color.rgb(8, 63, 78))),
-        ThemeOption(6, "Violet Pulse", "Purple neon command interface", intArrayOf(Color.rgb(20, 6, 42), Color.rgb(71, 16, 92))),
-        ThemeOption(7, "Graphite", "Minimal black graphite control deck", intArrayOf(Color.rgb(8, 10, 15), Color.rgb(28, 30, 34)))
-    )
+        "Amethyst" to "Violet light, indigo depth",
+        "Cobalt" to "Clear blue, electric energy",
+        "Midnight" to "Quiet slate, soft moonlight",
+        "Glacier" to "Cool cyan, open horizons",
+        "Rose Quartz" to "Warm peach, muted rose",
+        "Lagoon" to "Ocean teal, a calmer rhythm",
+        "Orchid" to "Rich berry, a violet glow",
+        "Graphite" to "Refined charcoal, silver light"
+    ).mapIndexed { id, (name, description) -> ThemeOption(id, name, description, palettes[id]) }
 
-    private val pictureNames = listOf(
-        "Neon Muse", "Crimson King", "Starry Lake", "Moonlit", "Golden Retriever", "Violet Lake", "Future Drive", "Lavender Bloom",
-        "Lunar Explorer", "Cyber Runner", "Mountain Night", "Sunset Forest", "Purple Mist", "Meteor Night", "Galaxy Drift", "Midnight Cat",
-        "Red Velocity", "Blue Earth", "Orange GT", "Aurora", "Football Field", "Tropical Escape", "Skyward", "Sunset Silence",
-        "Paris Signal", "Moon Horizon", "Sunset Yoga", "Goal Line", "Winter Lighthouse", "Coastal Beacon", "Court Pulse", "Golden Gate", "Street Skater"
+    private val artworkNames = listOf(
+        "Aurora Fjord", "Rose Dunes", "Alpine Dawn", "Lunar Tide", "Coral Coast", "Violet Valley",
+        "Cobalt Flow", "Lavender Hills", "Orbit", "Prism", "Alpine Blue", "Ember Horizon",
+        "Lilac Drift", "Meteor", "Deep Cosmos", "Emerald Ridge", "Crimson Current", "Blue Planet",
+        "Amber Waves", "Northern Lights", "Mint Terrace", "Tropical Tide", "Skyline", "Quiet Sunset",
+        "Rose Arch", "Moonrise", "Desert Bloom", "Jade Flow", "Winter Peaks", "Coastal Dawn",
+        "Indigo Rhythm", "Golden Hour", "Pink Horizon"
     )
-
-    private val pictureTags = listOf(
-        "People", "Others", "Starry", "Starry", "Nature", "Nature", "Others", "Nature",
-        "Others", "People", "Nature", "Starry", "Nature", "Starry", "Starry", "Nature",
-        "Others", "Others", "Others", "Starry", "Others", "Nature", "People", "Nature",
-        "Others", "Starry", "People", "Others", "Nature", "Nature", "Others", "Others", "People"
-    )
-
-    val all: List<ThemeOption> = gradients + pictureNames.mapIndexed { index, name ->
-        val id = gradients.size + index
-        ThemeOption(id, name, "Picture theme", intArrayOf(Color.rgb(5, 12, 28), Color.rgb(15, 25, 50)), index, setOf(pictureTags[index], "Others"))
+    private val motifs = intArrayOf(0, 2, 0, 1, 2, 0, 3, 0, 1, 3, 0, 2, 3, 1, 1, 0, 3, 1, 2, 0, 3, 2, 3, 2, 3, 1, 2, 3, 0, 2, 3, 2, 3)
+    private val paletteIds = intArrayOf(5, 4, 3, 1, 4, 0, 1, 10, 0, 6, 1, 8, 10, 6, 2, 9, 6, 1, 8, 9, 3, 5, 3, 4, 6, 2, 6, 9, 3, 1, 0, 8, 6)
+    val all: List<ThemeOption> = gradients + artworkNames.mapIndexed { index, name ->
+        val category = when (motifs[index]) { 0, 2 -> "Nature"; 1 -> "Space"; else -> "Abstract" }
+        ThemeOption(8 + index, name, "$category · original illustration", palettes[paletteIds[index]], index, setOf(category), motifs[index])
     }
 
-    @Volatile
-    private var atlas: Bitmap? = null
-    private val pictureCache = HashMap<Int, Bitmap>()
+    fun option(id: Int): ThemeOption = all.firstOrNull { it.id == id } ?: all.first()
+    fun selectedId(context: Context): Int = context.getSharedPreferences("audio_profile", 0).getInt("theme", 0)
 
-    fun hasCustom(context: Context): Boolean = customFile(context).isFile && customFile(context).length() > 0L
-
-    fun customBitmap(context: Context): Bitmap? {
-        val file = customFile(context)
-        if (!file.isFile || file.length() <= 0L) return null
-        return decodeScaled(file)
+    fun select(context: Context, id: Int) {
+        require(id == CUSTOM_ID || all.any { it.id == id })
+        // A prior Settings wallpaper must not silently override this choice.
+        context.getSharedPreferences("audio_profile", 0).edit().putInt("theme", id)
+            .putString("background_mode", "default").apply()
     }
 
-    fun customFile(context: Context): File = File(context.filesDir, CUSTOM_FILE_NAME)
+    fun drawable(context: Context, id: Int): Drawable {
+        if (id == CUSTOM_ID) customBitmap(context)?.let { return ThemeImageDrawable(it) }
+        return ThemeArtworkDrawable(option(id))
+    }
 
-    private fun decodeScaled(file: File): Bitmap? {
+    fun apply(context: Context, root: View, id: Int) { root.background = drawable(context, id) }
+    fun customFile(context: Context) = File(context.filesDir, "custom_theme.img")
+    fun hasCustom(context: Context): Boolean = customFile(context).isFile && customFile(context).length() > 0
+    fun customBitmap(context: Context): Bitmap? = decodeImage(customFile(context))
+
+    fun decodeImage(file: File): Bitmap? {
+        if (!file.isFile) return null
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        BitmapFactory.decodeFile(file.path, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-
         var sample = 1
-        val maxDimension = maxOf(bounds.outWidth, bounds.outHeight)
-        while (maxDimension / sample > 2048) sample *= 2
-
-        val options = BitmapFactory.Options().apply {
+        while (maxOf(bounds.outWidth, bounds.outHeight) / sample > 1600) sample *= 2
+        return BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply {
             inSampleSize = sample
             inPreferredConfig = Bitmap.Config.ARGB_8888
-        }
-        return BitmapFactory.decodeFile(file.absolutePath, options)
+        })
     }
 
-    private fun atlas(context: Context): Bitmap? {
-        atlas?.let { return it }
-        synchronized(this) {
-            atlas?.let { return it }
-            val decoded = BitmapFactory.decodeResource(context.resources, R.drawable.theme_atlas)
-            if (decoded == null || decoded.width < ATLAS_COLUMNS || decoded.height < ATLAS_ROWS) return null
-            atlas = decoded
-            return decoded
-        }
-    }
-
-    fun bitmap(context: Context, option: ThemeOption): Bitmap? {
-        val index = option.pictureIndex ?: return null
-        if (index !in 0 until pictureNames.size) return null
-
-        synchronized(pictureCache) {
-            pictureCache[index]?.let { return it }
-        }
-
-        val source = atlas(context) ?: return null
-        val cellWidth = source.width / ATLAS_COLUMNS
-        val cellHeight = source.height / ATLAS_ROWS
-        if (cellWidth <= 0 || cellHeight <= 0) return null
-
-        val x = (index % ATLAS_COLUMNS) * cellWidth
-        val y = (index / ATLAS_COLUMNS) * cellHeight
-        if (x + cellWidth > source.width || y + cellHeight > source.height) return null
-
-        // The supplied atlas is already the clean 33-image gallery. Keep every cell
-        // pixel-for-pixel instead of applying destructive marker-removal processing.
-        val picture = Bitmap.createBitmap(source, x, y, cellWidth, cellHeight)
-        synchronized(pictureCache) {
-            pictureCache[index] = picture
-        }
-        return picture
-    }
-
-    fun apply(context: Context, root: View, id: Int) {
-        if (id == CUSTOM_ID) {
-            val custom = customBitmap(context)
-            if (custom != null) {
-                val image = BitmapDrawable(context.resources, custom).apply {
-                    gravity = Gravity.FILL
-                    alpha = 88
+    /** Validate first; AtomicFile preserves the previous photo on every failed write. */
+    @Synchronized
+    fun importCustom(context: Context, input: InputStream) {
+        val staging = File.createTempFile("theme-import-", ".tmp", context.cacheDir)
+        try {
+            staging.outputStream().use { output ->
+                val buffer = ByteArray(8192)
+                var total = 0L
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    total += count
+                    require(total <= MAX_IMPORT_BYTES) { "Choose an image smaller than 20 MB" }
+                    output.write(buffer, 0, count)
                 }
-                val overlay = GradientDrawable(
-                    GradientDrawable.Orientation.TL_BR,
-                    intArrayOf(Color.argb(190, 2, 7, 22), Color.argb(165, 6, 12, 34), Color.argb(205, 11, 3, 30))
-                )
-                root.background = LayerDrawable(arrayOf(image, overlay))
-                return
             }
-        }
-
-        val option = all.getOrNull(id) ?: gradients.first()
-        val picture = bitmap(context, option)
-        if (picture == null) {
-            root.background = GradientDrawable(GradientDrawable.Orientation.TL_BR, option.colors)
-            return
-        }
-        val image = BitmapDrawable(context.resources, picture).apply {
-            gravity = Gravity.FILL
-            alpha = 72
-        }
-        val overlay = GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            intArrayOf(Color.argb(220, 2, 7, 22), Color.argb(195, 6, 12, 34), Color.argb(225, 11, 3, 30))
-        )
-        root.background = LayerDrawable(arrayOf(image, overlay))
+            val bitmap = decodeImage(staging) ?: throw IllegalArgumentException("This file is not a supported image")
+            val target = AtomicFile(customFile(context))
+            try {
+                val output = target.startWrite()
+                try {
+                    check(bitmap.compress(Bitmap.CompressFormat.JPEG, 92, output))
+                    target.finishWrite(output)
+                } catch (error: Exception) {
+                    target.failWrite(output)
+                    throw error
+                }
+            } finally { bitmap.recycle() }
+        } finally { staging.delete() }
     }
 }

@@ -10,6 +10,7 @@ android {
     defaultConfig {
         applicationId = "com.surafel.audio"
         minSdk = 24
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         targetSdk = 35
         versionCode = 319
         versionName = "1.0.319"
@@ -23,10 +24,21 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:core:1.6.1")
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
     implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.drawerlayout:drawerlayout:1.2.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.activity:activity-ktx:1.10.0")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
