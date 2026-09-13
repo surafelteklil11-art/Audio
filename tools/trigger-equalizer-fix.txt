@@ -1,1 +1,0 @@
-equalizer audio-session crash fix — bind insert effects to the active Media3 session and retry safely

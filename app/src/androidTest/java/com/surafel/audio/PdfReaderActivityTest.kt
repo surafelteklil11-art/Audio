@@ -138,6 +138,11 @@ class PdfReaderActivityTest {
                 pages.stopScroll()
                 assertFalse(top.isShown); assertFalse(bottom.isShown)
                 assertTrue(badge.isShown); assertTrue(fast.isShown)
+            }
+            // GONE overlays receive their first dimensions on the next display layout.
+            waitUntil { fast.width > 0 && fast.height > 0 }
+            scenario.onActivity {
+                val time = android.os.SystemClock.uptimeMillis()
                 // Hold the thumb while layout finishes and screenshots are collected.
                 val down = android.view.MotionEvent.obtain(time + 400, time + 400, android.view.MotionEvent.ACTION_DOWN, fast.width / 2f, fast.height * .9f, 0)
                 fast.dispatchTouchEvent(down); down.recycle()
