@@ -11,15 +11,15 @@ class CheckersWood : Drawable() {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     override fun draw(c: Canvas) {
         val w = bounds.width().toFloat(); val h = bounds.height().toFloat()
-        p.style = Paint.Style.FILL; p.shader = LinearGradient(0f,0f,w,h,intArrayOf(0xFF5B3827.toInt(),0xFF9B6749.toInt(),0xFF573522.toInt()),null,Shader.TileMode.CLAMP)
+        p.color = Color.WHITE; p.style = Paint.Style.FILL; p.shader = LinearGradient(0f,0f,w,h,intArrayOf(0xFF5B3827.toInt(),0xFF9B6749.toInt(),0xFF573522.toInt()),null,Shader.TileMode.CLAMP)
         c.drawRect(bounds,p); p.shader = null
         for (i in 0..360) {
             val x = w * i / 360; val wave = sin(i * 2.37).toFloat()
-            p.color = if (i % 3 == 0) 0x180C0704 else 0x14EFD8B2; p.strokeWidth = max(1f,w/850)
-            val path = Path().apply { moveTo(x,0f); cubicTo(x+wave*w*.02f,h*.3f,x-wave*w*.016f,h*.7f,x,h) }
+            p.color = if (i % 3 == 0) 0x070C0704 else 0x06EFD8B2; p.strokeWidth = max(1f,w/850)
+            val path = Path().apply { moveTo(x,0f); cubicTo(x+wave*w*.006f,h*.3f,x-wave*w*.005f,h*.7f,x,h) }
             p.style = Paint.Style.STROKE; c.drawPath(path,p)
         }
-        p.style = Paint.Style.FILL; p.shader = RadialGradient(w*.5f,h*.45f,max(w,h)*.8f,intArrayOf(Color.TRANSPARENT,0x99000000.toInt()),null,Shader.TileMode.CLAMP)
+        p.color = Color.WHITE; p.style = Paint.Style.FILL; p.shader = RadialGradient(w*.5f,h*.45f,max(w,h)*.8f,intArrayOf(Color.TRANSPARENT,0x99000000.toInt()),null,Shader.TileMode.CLAMP)
         c.drawRect(bounds,p); p.shader = null
     }
     override fun setAlpha(alpha: Int) { p.alpha = alpha }
@@ -31,7 +31,7 @@ class CheckersPaper : Drawable() {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     override fun draw(canvas: Canvas) {
         val rect = RectF(bounds); val radius = bounds.width() * .012f
-        paint.style = Paint.Style.FILL
+        paint.color = Color.WHITE; paint.style = Paint.Style.FILL
         paint.shader = LinearGradient(rect.left, rect.top, rect.right, rect.bottom, intArrayOf(0xFFE7DCBE.toInt(), 0xFFD8CAA7.toInt(), 0xFFE7DCBE.toInt()), null, Shader.TileMode.CLAMP)
         canvas.drawRoundRect(rect, radius, radius, paint); paint.shader = null
         val points = FloatArray(2400)

@@ -85,6 +85,16 @@ class PdfReaderActivityTest {
             val extracted = library.all().single { it.name.contains("extracted") }
             assertEquals(1, PdfTools(app).pageCount(library.file(extracted)))
             assertArrayEquals(original, library.file(source).readBytes())
+            val zip = PdfTools(app).temp(".zip"); PdfTools(app).split(library.file(source), zip, 2)
+            java.util.zip.ZipInputStream(zip.inputStream()).use { input ->
+                val counts = mutableListOf<Int>()
+                while (input.nextEntry != null) {
+                    val part = PdfTools(app).temp()
+                    try { part.outputStream().use { input.copyTo(it) }; counts.add(PdfTools(app).pageCount(part)) } finally { part.delete() }
+                    input.closeEntry()
+                }
+                assertEquals(listOf(2, 1), counts)
+            }; zip.delete()
             PdfTestScreenshots.capture("reader-manage-pages", scenario)
         }
     }

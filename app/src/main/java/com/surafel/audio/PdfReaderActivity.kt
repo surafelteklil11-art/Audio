@@ -58,7 +58,7 @@ class PdfReaderActivity : PdfUiActivity() {
             when (option) {
                 0 -> runCatching { PdfSharing.share(this, model.library.file(entry), entry.name) }.onFailure { toast("No sharing app available") }
                 1 -> PdfSharing.print(this, model.library.file(entry), entry.name)
-                2 -> { page.night = !page.night; pages.night = page.night; settings.edit().putBoolean("night_page", page.night).apply(); page.invalidate() }
+                2 -> { page.night = !page.night; pages.night = page.night; page.readingStyle = if (page.night) "Invert" else "Original"; pages.readingStyle = page.readingStyle; settings.edit().putBoolean("night_page", page.night).putString("reading_style", page.readingStyle).apply(); page.invalidate() }
                 3 -> { val enabled = !settings.getBoolean("keep_screen", false); settings.edit().putBoolean("keep_screen", enabled).apply(); if (enabled) window.addFlags(128) else window.clearFlags(128); toast(if (enabled) "Screen stays on while reading" else "Screen timeout restored") }
             }
         } })
@@ -240,7 +240,12 @@ class PdfReaderActivity : PdfUiActivity() {
             "PDF to image" -> model.transform("Pages.zip", ".zip", { tools, source, output -> tools.toImages(source, output, false) }) { output -> PdfSharing.share(this, output, "Pages.zip", "application/zip") }
             "Compress" -> confirm("Compress PDF", "Save a smaller image-based copy. Text selection will not be retained in the copy.") { model.transform("Compressed.pdf", operation = { tools, source, output -> tools.compress(source, output) }) }
             "Merge PDF" -> mergePdf.launch(arrayOf("application/pdf"))
-            "Split PDF", "Extract pages" -> prompt("Extract pages", "Pages, e.g. 1,3-5") { value -> model.transform("Extracted pages.pdf", operation = { tools, source, output -> tools.pages(source, output, PdfTools.parsePages(value, tools.pageCount(source))) }) }
+            "Split PDF" -> prompt("Split PDF", "Pages per file", "1") { value ->
+                val perFile = value.toIntOrNull()
+                if (perFile == null || perFile < 1) toast("Enter a positive number")
+                else model.transform("Split pages.zip", ".zip", { tools, source, output -> tools.split(source, output, perFile) }) { output -> PdfSharing.share(this, output, "Split pages.zip", "application/zip") }
+            }
+            "Extract pages" -> prompt("Extract pages", "Pages, e.g. 1,3-5") { value -> model.transform("Extracted pages.pdf", operation = { tools, source, output -> tools.pages(source, output, PdfTools.parsePages(value, tools.pageCount(source))) }) }
             else -> managePages()
         }
     }

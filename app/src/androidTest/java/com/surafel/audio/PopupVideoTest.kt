@@ -77,6 +77,12 @@ class PopupVideoTest {
         val second = mainValue { VideoSessions.get(ids[1])!! }
         val panel = mainValue { PopupVideoService.instance!!.windows[first.id]!!.panel }
         main { click(panel, "Pause video"); click(panel, "Playback speed"); click(panel, "Mute video") }
+        // Media3 acknowledges pause/speed changes asynchronously. Synchronize with its
+        // playback queue before taking the exact frozen-position baseline.
+        val paused = java.util.concurrent.CountDownLatch(1)
+        main { first.player.createMessage { _, _ -> paused.countDown() }.setLooper(android.os.Looper.getMainLooper()).send() }
+        assertTrue("Playback queue did not acknowledge pause", paused.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        instrumentation.waitForIdleSync()
         val position = mainValue { first.player.currentPosition }
         val otherPosition = mainValue { second.player.currentPosition }
         waitUntil { second.player.currentPosition != otherPosition }

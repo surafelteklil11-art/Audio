@@ -35,7 +35,7 @@ class PdfManagePagesModel(app: Application) : AndroidViewModel(app) {
         if (id.isNotEmpty()) return
         id = value; busy = true
         worker.execute {
-            try { val file = library.file(library.get(id)); val count = PdfTools(getApplication()).pageCount(file)
+            try { val file = library.file(library.get(id)); val count = PdfTools(getApplication()).load(file).use { require(it.currentAccessPermission.canAssembleDocument()) { "This PDF does not allow page changes" }; it.numberOfPages }
                 main.post { if (!closed) { repeat(count) { pages.add(Page(++serial, file, it)) }; busy = false; state.value = "" } }
             } catch (e: Exception) { fail(e) }
         }
@@ -70,7 +70,10 @@ class PdfManagePagesModel(app: Application) : AndroidViewModel(app) {
             try {
                 PDDocument().use { doc ->
                     order.forEach { page ->
-                        val imported = if (page.file == null) PDPage().also { doc.addPage(it) } else doc.importPage(inputs.getOrPut(page.file) { PdfTools(getApplication()).load(page.file) }.getPage(page.index))
+                        val imported = if (page.file == null) PDPage().also { doc.addPage(it) } else {
+                            val source = inputs.getOrPut(page.file) { PdfTools(getApplication()).load(page.file).also { require(it.currentAccessPermission.canAssembleDocument()) { "This PDF does not allow page changes" } } }.getPage(page.index)
+                            doc.importPage(source).also { it.resources = source.resources }
+                        }
                         imported.rotation = (imported.rotation + page.rotation) % 360
                     }; doc.save(output)
                 }

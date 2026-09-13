@@ -153,7 +153,7 @@ class PdfScrollView(context: Context, private val model: PdfReaderModel) : Recyc
         if (abs(next - zoom) < .001f) return
         val first = manager.findFirstVisibleItemPosition()
         val view = manager.findViewByPosition(first)
-        val fraction = if (view != null && view.height > 0) -view.top.toFloat() / view.height else 0f
+        val fraction = if (view != null && view.height > 0 && view.width > 0) { if (horizontal) -view.left.toFloat() / view.width else -view.top.toFloat() / view.height } else 0f
         zoom = next
         pan = pan.coerceIn(-width * (zoom - 1f) / 2, width * (zoom - 1f) / 2)
         for (i in 0 until childCount) {
@@ -161,7 +161,7 @@ class PdfScrollView(context: Context, private val model: PdfReaderModel) : Recyc
             sheet.resize()
             sheet.invalidate()
         }
-        if (first != NO_POSITION) manager.scrollToPositionWithOffset(first, -(fraction * pageHeight(first)).toInt())
+        if (first != NO_POSITION) manager.scrollToPositionWithOffset(first, -(fraction * (if (horizontal) width else if (pageByPage) height else pageHeight(first))).toInt())
     }
     private fun cancelScrollTouch(event: MotionEvent) {
         stopScroll()

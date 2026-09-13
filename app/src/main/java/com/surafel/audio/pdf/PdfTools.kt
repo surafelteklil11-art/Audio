@@ -36,8 +36,17 @@ class PdfTools(private val context: Context) {
         require(doc.currentAccessPermission.canExtractContent()) { "This PDF does not allow text extraction" }
         val stripper = PDFTextStripper()
         if (query == null) {
-            require(doc.numberOfPages <= 300) { "Extract text from a smaller PDF (up to 300 pages)" }
-            stripper.getText(doc).also { require(it.length <= 300000) { "Too much text; split the PDF first" } }
+            require(doc.numberOfPages <= 2000) { "Extract text from a smaller PDF (up to 2,000 pages)" }
+            val text = StringBuilder()
+            val writer = object : java.io.Writer() {
+                override fun write(buffer: CharArray, offset: Int, length: Int) {
+                    require(text.length.toLong() + length <= 1_000_000) { "Too much text; split the PDF first" }
+                    text.append(buffer, offset, length)
+                }
+                override fun flush() = Unit
+                override fun close() = Unit
+            }
+            stripper.writeText(doc, writer); text.toString()
         } else buildString {
             for (page in 1..doc.numberOfPages) {
                 check(!Thread.currentThread().isInterrupted)
@@ -58,6 +67,25 @@ class PdfTools(private val context: Context) {
                     if (rotate) page.rotation = (page.rotation + 90) % 360
                 } }
                 target.save(output)
+            }
+        }
+    }
+    fun split(file: File, output: File, pagesPerFile: Int) {
+        require(pagesPerFile > 0) { "Enter a positive number" }
+        load(file).use { source ->
+            require(source.currentAccessPermission.canAssembleDocument()) { "This PDF does not allow splitting" }
+            ZipOutputStream(output.outputStream()).use { zip ->
+                for (start in 0 until source.numberOfPages step pagesPerFile) {
+                    val end = minOf(start.toLong() + pagesPerFile, source.numberOfPages.toLong()).toInt()
+                    val part = temp()
+                    try {
+                        PDDocument(memory()).use { target ->
+                            for (index in start until end) { val page = source.getPage(index); target.importPage(page).resources = page.resources }
+                            target.save(part)
+                        }
+                        zip.putNextEntry(ZipEntry("pages-${start + 1}-$end.pdf")); part.inputStream().use { it.copyTo(zip) }; zip.closeEntry()
+                    } finally { part.delete() }
+                }
             }
         }
     }

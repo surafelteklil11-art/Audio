@@ -162,7 +162,7 @@ class CheckersBoardView(context: Context) : View(context) {
         val colors = palettes[design.coerceIn(palettes.indices)]
         paint.color = Color.WHITE; paint.style = Paint.Style.FILL
         paint.shader = LinearGradient(0f, 0f, width.toFloat(), height.toFloat(), 0xFFE8C99B.toInt(), 0xFF58301D.toInt(), Shader.TileMode.CLAMP)
-        c.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), inset * .7f, inset * .7f, paint); paint.shader = null
+        c.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), 2f, 2f, paint); paint.shader = null
         val next = if (acceptsInput && showHints) nextSquares() else emptySet()
         val frame = visualFrame
         val pieces = frame?.board ?: visiblePieces
@@ -180,7 +180,7 @@ class CheckersBoardView(context: Context) : View(context) {
                 c.drawRect(b.left + 2, b.top + 2, b.right - 2, b.bottom - 2, paint); paint.style = Paint.Style.FILL
             }
             val piece = pieces[i]
-            if (piece != 0) CheckersTokens.draw(c, paint, b.centerX(), b.centerY(), cell * .39f, piece, tokenStyle)
+            if (piece != 0) CheckersTokens.draw(c, paint, b.centerX(), b.centerY(), cell * .43f, piece, tokenStyle)
             else if (i in next && selected.isNotEmpty()) { paint.color = 0xCC1F6D43.toInt(); c.drawCircle(b.centerX(), b.centerY(), cell * .12f, paint) }
             if (isFocused && i == cursor) {
                 paint.style = Paint.Style.STROKE; paint.strokeWidth = 2f; paint.color = Color.WHITE
@@ -228,7 +228,14 @@ internal object CheckersTokens {
         paint.style = Paint.Style.STROKE; paint.strokeWidth = radius * .04f
         paint.color = if (white) 0xFF996027.toInt() else 0xFF121613.toInt()
         val rings = when (tokenStyle) { 1 -> 4; 2 -> 1; 3, 4, 5, 6, 7 -> 0; else -> 2 }
-        repeat(rings) { c.drawCircle(x, y - radius * .06f, radius * (.82f - it * .13f), paint) }
+        repeat(rings) {
+            val ring = radius * (.84f - it * .13f)
+            paint.color = if (white) 0xFF8F602C.toInt() else 0xFF171914.toInt()
+            paint.strokeWidth = radius * .05f; c.drawCircle(x, y - radius * .035f, ring, paint)
+            paint.color = if (white) 0xFFFFEDB7.toInt() else 0xFF96917D.toInt()
+            paint.strokeWidth = radius * .022f; c.drawCircle(x, y - radius * .08f, ring, paint)
+        }
+        paint.color = if (white) 0xFF996027.toInt() else 0xFF121613.toInt(); paint.strokeWidth = radius * .04f
         if (tokenStyle == 3) {
             val p = Path(); for (k in 0..8) {
                 val angle = Math.PI * k / 4; val px = x + kotlin.math.cos(angle).toFloat() * radius * .75f
