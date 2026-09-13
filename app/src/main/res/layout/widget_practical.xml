@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widgetPracticalRoot" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="10dp" android:background="@drawable/widget_bg_practical">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical">
+        <ImageView android:id="@+id/practicalArtwork" android:layout_width="72dp" android:layout_height="72dp" android:src="@drawable/bg_reference_sunset" android:scaleType="centerCrop" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="10dp">
+            <TextView android:id="@+id/practicalTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Music Player" android:textColor="#FFFFFF" android:textSize="14sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+            <TextView android:id="@+id/practicalArtist" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Enjoy Listening" android:textColor="#E2DCE7" android:textSize="10sp" android:maxLines="1" android:ellipsize="end" />
+        </LinearLayout>
+        <TextView android:id="@+id/practicalHeart" android:layout_width="32dp" android:layout_height="44dp" android:gravity="center" android:text="♡" android:textColor="#FFFFFF" android:textSize="18sp" />
+    </LinearLayout>
+    <ProgressBar android:id="@+id/practicalProgress" android:layout_width="match_parent" android:layout_height="3dp" android:max="100" android:progress="52" style="?android:attr/progressBarStyleHorizontal" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:paddingTop="4dp">
+        <TextView android:id="@+id/practicalShuffle" android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1" android:gravity="center" android:text="↻" android:textColor="#FFFFFF" android:textSize="16sp" />
+        <TextView android:id="@+id/practicalPrev" android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1" android:gravity="center" android:text="◀" android:textColor="#FFFFFF" android:textSize="16sp" />
+        <TextView android:id="@+id/practicalPlay" android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1" android:gravity="center" android:text="▶" android:textColor="#FFFFFF" android:textSize="19sp" />
+        <TextView android:id="@+id/practicalNext" android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1" android:gravity="center" android:text="▶" android:textColor="#FFFFFF" android:textSize="16sp" />
+    </LinearLayout>
+</LinearLayout>
