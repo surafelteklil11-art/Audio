@@ -26,7 +26,6 @@ class CheckersActivity : AppCompatActivity() {
     private lateinit var model: CheckersModel
     private lateinit var content: LinearLayout
     private var board: CheckersBoardView? = null
-    private var status: TextView? = null
     private var clock: TextView? = null
     private var info: TextView? = null
     private var room: TextView? = null
@@ -78,8 +77,7 @@ class CheckersActivity : AppCompatActivity() {
             b.showPosition(game.rules, game.position, move)
         } else b.refresh()
         renderedRevision = model.revision
-        status?.text = when {
-            b.isAnimating -> if (b.movingSide == 1) "White is moving… · ነጭ እየተንቀሳቀሰ ነው" else "Black is moving… · ጥቁር እየተንቀሳቀሰ ነው"
+        val turnText = when {
             b.selected.size > 1 && model.canMove -> "Continue capturing · መብላቱን ቀጥል"
             result == 0 -> "Draw · አቻ"
             result != null -> if (result == 1) "White wins · ነጭ አሸነፈ" else "Black wins · ጥቁር አሸነፈ"
@@ -89,11 +87,12 @@ class CheckersActivity : AppCompatActivity() {
             else -> (if (game.position.turn == 1) "White's turn · የነጭ ተራ" else "Black's turn · የጥቁር ተራ") +
                 if (model.network) (if (model.canMove) " · Your move" else " · Your friend's move") else ""
         }
-        info?.text = "${game.rules.name} · ${game.rules.size}×${game.rules.size} · " + when (model.mode) {
+        val gameInfo = "${game.rules.name} · ${game.rules.size}×${game.rules.size} · " + when (model.mode) {
             PlayMode.SOLO -> "${model.difficulty.label} · You: ${if (model.human == 1) "White" else "Black"}"
             PlayMode.TWO_PLAYERS -> "2 players · One phone"
             else -> "Nearby · ${if (model.mySide == 1) "You: White" else "You: Black"}"
         }
+        info?.text = "$gameInfo\n$turnText"
         room?.apply {
             text = if (model.roomCode.isNotEmpty() && !model.connected) "Room code · ኮዱን ንካና copy አድርግ\n${model.roomCode}" else ""
             visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
@@ -137,14 +136,12 @@ class CheckersActivity : AppCompatActivity() {
             if (model.network) { model.home(); nearby() } else model.start(model.mode)
         } }, weight())
         content.addView(header, spaced())
-        status = cardText("").apply {
-            tag = "checkers-status"; gravity = Gravity.CENTER; textSize = 18f; typeface = Typeface.DEFAULT_BOLD
-            // Turn, moving and capture messages wrap differently. Reserve the same
-            // space for each so changing status never shifts the board mid-move.
+        info = cardText("").apply {
+            tag = "checkers-game-info"; textSize = 14f; gravity = Gravity.CENTER
+            typeface = Typeface.DEFAULT_BOLD; setTextColor(brown)
+            background = GradientDrawable().apply { setColor(cream); cornerRadius = dp(12).toFloat() }
             setLines(2); ellipsize = android.text.TextUtils.TruncateAt.END
         }
-        content.addView(status, spaced())
-        info = cardText("").apply { tag = "checkers-game-info"; textSize = 12f; gravity = Gravity.CENTER }
         content.addView(info, spaced())
         room = cardText("").apply { tag = "checkers-room-code"; isClickable = true; isFocusable = true; setOnClickListener {
             if (model.roomCode.isNotEmpty()) {
@@ -155,7 +152,7 @@ class CheckersActivity : AppCompatActivity() {
         content.addView(room, spaced())
         board = CheckersBoardView(this).apply {
             tag = "checkers-board"; onMove = { model.play(it) }
-            onStep = { status?.text = "Continue capturing · መብላቱን ቀጥል" }
+            onStep = { render() }
             onMotionChanged = {
                 if (model.sound && isAnimating) playSoundEffect(SoundEffectConstants.CLICK)
                 render()

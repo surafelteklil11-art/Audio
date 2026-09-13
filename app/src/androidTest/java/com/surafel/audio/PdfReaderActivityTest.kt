@@ -102,6 +102,64 @@ class PdfReaderActivityTest {
             }
         }
     }
+    @Test fun tapHidesChromeScrollingShowsHintsAndFastDragSeeksThenFades() {
+        val entry = entry(pages = 12)
+        ActivityScenario.launch<PdfReaderActivity>(Intent(app, PdfReaderActivity::class.java).putExtra("document_id", entry.id)).use { scenario ->
+            lateinit var pages: PdfScrollView
+            lateinit var model: PdfReaderModel
+            lateinit var top: View; lateinit var bottom: View; lateinit var badge: View
+            lateinit var fast: PdfFastScrollView
+            scenario.onActivity { activity ->
+                val root = activity.window.decorView
+                pages = descendants(root).filterIsInstance<PdfScrollView>().single()
+                model = ViewModelProvider(activity)[PdfReaderModel::class.java]
+                top = root.findViewWithTag("pdf-top-bar"); bottom = root.findViewWithTag("pdf-bottom-bar")
+                badge = root.findViewWithTag("pdf-page-badge"); fast = root.findViewWithTag("pdf-fast-scroll")
+            }
+            waitUntil { 0 in pages.loadedPages && !model.state.value!!.busy }
+            fun tap() = scenario.onActivity {
+                val time = android.os.SystemClock.uptimeMillis()
+                for (action in listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP)) {
+                    val event = android.view.MotionEvent.obtain(time, time + 30, action, pages.width / 2f, pages.height / 2f, 0)
+                    pages.dispatchTouchEvent(event); event.recycle()
+                }
+            }
+            // Start from visible controls even on a slow emulator where idle hiding already ran.
+            if (!top.isShown) { tap(); waitUntil { top.isShown } }
+            tap(); waitUntil { !top.isShown && !bottom.isShown && !badge.isShown && !fast.isShown }
+            PdfTestScreenshots.capture("reader-clean-fullscreen", scenario)
+            scenario.onActivity {
+                val time = android.os.SystemClock.uptimeMillis()
+                for (step in 0..10) {
+                    val action = when (step) { 0 -> android.view.MotionEvent.ACTION_DOWN; 10 -> android.view.MotionEvent.ACTION_UP; else -> android.view.MotionEvent.ACTION_MOVE }
+                    val event = android.view.MotionEvent.obtain(time, time + step * 35L, action, pages.width / 2f, pages.height * (.8f - step * .055f), 0)
+                    pages.dispatchTouchEvent(event); event.recycle()
+                }
+                pages.stopScroll()
+                assertFalse(top.isShown); assertFalse(bottom.isShown)
+                assertTrue(badge.isShown); assertTrue(fast.isShown)
+                // Hold the thumb while layout finishes and screenshots are collected.
+                val down = android.view.MotionEvent.obtain(time + 400, time + 400, android.view.MotionEvent.ACTION_DOWN, fast.width / 2f, fast.height * .9f, 0)
+                fast.dispatchTouchEvent(down); down.recycle()
+            }
+            waitUntil { model.state.value!!.page >= 9 }
+            PdfTestScreenshots.capture("reader-scroll-indicators", scenario)
+            scenario.onActivity {
+                val time = android.os.SystemClock.uptimeMillis()
+                val event = android.view.MotionEvent.obtain(time, time, android.view.MotionEvent.ACTION_UP, fast.width / 2f, fast.height * .9f, 0)
+                fast.dispatchTouchEvent(event); event.recycle()
+            }
+            waitUntil { !badge.isShown && !fast.isShown }
+            assertFalse(top.isShown); assertFalse(bottom.isShown)
+            tap(); waitUntil { top.isShown && bottom.isShown }
+            scenario.onActivity { model.marks.add(PdfMark(mutableListOf(PointF(.2f, .3f), PointF(.7f, .3f)), highlight = true)) }
+            scenario.recreate()
+            scenario.onActivity { activity ->
+                assertTrue(activity.window.decorView.findViewWithTag<View>("pdf-bottom-bar").isShown)
+                assertTrue(descendants(activity.window.decorView).filterIsInstance<PdfPageView>().single().isShown)
+            }
+        }
+    }
     @Test fun protectedDocumentAcceptsPasswordAfterWrongAttempt() {
         val entry = entry(true)
         ActivityScenario.launch<PdfReaderActivity>(Intent(app, PdfReaderActivity::class.java).putExtra("document_id", entry.id)).use { scenario ->

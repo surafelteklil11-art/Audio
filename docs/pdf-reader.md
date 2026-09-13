@@ -59,3 +59,9 @@ A single indexed `pdfreader/folder` collection is automatically presented as Hom
 Folder pages show clickable **Home › parent › current** breadcrumbs, a compact navigation toolbar, and folder rows with direct-child counts and the combined size of all descendant PDFs. Grade names sort naturally (7, 9, 10, 11, 12). The main tabs and large header yield their space to the folder list while navigating inside a folder.
 
 Literal dot-only collection names such as `...` are included, while hidden names such as `.cache`, private Android folders and symbolic links remain excluded. Users upgrading an existing cached index should run **Refresh device PDFs** once to discover folders previously excluded by the hidden-folder filter. Normal reopening still does not rescan.
+
+## Distraction-free reading
+
+Single-tap a reading page to hide or restore the reader bars and Android system bars. Reading controls hide after a short idle delay. While scrolling, only the page counter at the upper left and a draggable page thumb on the right remain; both disappear shortly after scrolling stops. Drag the thumb to seek across the entire PDF. Double-tap and pinch zoom remain separate from single-tap controls. Annotation, loading and error states retain their controls. TalkBack users retain controls without an idle timeout, and the thumb supports accessible page selection.
+
+Native API 33/35 regressions cover tap toggling, scroll indicators, thumb seeking, idle hiding, and annotation controls after recreation.

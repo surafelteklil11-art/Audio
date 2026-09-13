@@ -46,6 +46,8 @@ class CheckersActivityTest {
             val before = geometry()
             board.legal.first().path.forEach { tap(board, it) }
             assertTrue(board.isAnimating)
+            assertFalse(descendants(root).filterIsInstance<TextView>().any { it.text.contains("is moving") })
+            assertNull(root.findViewWithTag<View>("checkers-status"))
             layout(root)
             assertEquals("Moving status must not shift the board", before, geometry())
             repeat(60) { shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(16)) }
@@ -107,6 +109,9 @@ class CheckersActivityTest {
             root.findViewWithTag<View>("checkers-local").performClick(); layout(root)
             val board = root.findViewWithTag<CheckersBoardView>("checkers-board")
             assertEquals(board.width, board.height); assertTrue(board.width in 600..720)
+            val info = root.findViewWithTag<TextView>("checkers-game-info")
+            assertTrue(info.isShown)
+            assertTrue(androidx.core.graphics.ColorUtils.calculateContrast(info.currentTextColor, android.graphics.Color.rgb(250, 235, 198)) >= 7)
             val rect = android.graphics.Rect(); assertTrue(board.getGlobalVisibleRect(rect))
             assertEquals(board.height, rect.height()); snapshot(root, "board")
         }
