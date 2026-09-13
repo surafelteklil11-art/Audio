@@ -77,7 +77,18 @@ class MainActivity : AppCompatActivity() {
         restoreVolumeBooster()
         adapter = SongAdapter(items) { playFrom(it) }
         findViewById<RecyclerView>(R.id.list).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = this@MainActivity.adapter }
-        videoAdapter = VideoAdapter(videos) { playVideo(it) }
+        videoAdapter = VideoAdapter(videos, { playVideo(it) }, { entry, anchor ->
+            android.widget.PopupMenu(this, anchor).apply {
+                menu.add("Play"); menu.add("Play in popup"); menu.add("Play next")
+                setOnMenuItemClickListener { item ->
+                    when (item.title.toString()) {
+                        "Play" -> playVideo(entry)
+                        "Play in popup" -> playVideo(entry, popup = true)
+                        "Play next" -> { VideoQueue.setNext(this@MainActivity, entry); Toast.makeText(this@MainActivity, "Queued next: ${entry.title}", Toast.LENGTH_SHORT).show() }
+                    }; true
+                }; show()
+            }
+        })
         findViewById<RecyclerView>(R.id.videoList).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = this@MainActivity.videoAdapter }
         findViewById<ImageButton>(R.id.play).setOnClickListener { if (!::player.isInitialized) return@setOnClickListener; if (player.isPlaying) player.pause() else if (player.mediaItemCount > 0) player.play(); updateNowPlaying() }
         findViewById<TextView>(R.id.playAll).setOnClickListener { if (items.isNotEmpty()) playFrom(0) }
@@ -348,7 +359,7 @@ class MainActivity : AppCompatActivity() {
         val options = arrayOf("Recently added", "Title A–Z", "Largest first", "Longest first")
         AlertDialog.Builder(this).setTitle("Sort Video by").setSingleChoiceItems(options, videoSortMode) { dialog, which -> videoSortMode = which; dialog.dismiss(); loadVideos() }.setNegativeButton("Cancel", null).show()
     }
-    private fun playVideo(entry: VideoEntry) { if (!hasVideoPermission()) return; startActivity(Intent(this, FullscreenVideoActivity::class.java).apply { putExtra(FullscreenVideoActivity.EXTRA_VIDEO_URI, entry.uri.toString()); putExtra(FullscreenVideoActivity.EXTRA_VIDEO_TITLE, entry.title) }) }
+    private fun playVideo(entry: VideoEntry, popup: Boolean = false) { if (!hasVideoPermission()) return; startActivity(Intent(this, FullscreenVideoActivity::class.java).apply { putExtra(FullscreenVideoActivity.EXTRA_VIDEO_URI, entry.uri.toString()); putExtra(FullscreenVideoActivity.EXTRA_VIDEO_TITLE, entry.title); putExtra(FullscreenVideoActivity.EXTRA_START_POPUP, popup) }) }
     private fun replaceItems(found: List<MediaItem>) { items.clear(); items.addAll(found); adapter.notifyDataSetChanged(); findViewById<TextView>(R.id.playAll).text = "▶  Play (${items.size})" }
     private fun mediaItem(uri: Uri, title: String?, artist: String?) = MediaItem.Builder().setUri(uri).setMediaMetadata(MediaMetadata.Builder().setTitle(title ?: "Unknown").setArtist(artist ?: "Unknown artist").build()).build()
     private fun updateNowPlaying() { if (!::player.isInitialized) return; val item = player.currentMediaItem; findViewById<TextView>(R.id.title).text = item?.mediaMetadata?.title ?: "Nothing playing"; findViewById<TextView>(R.id.artist).text = item?.mediaMetadata?.artist ?: "Choose a song"; findViewById<ImageButton>(R.id.play).setImageResource(if (player.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play) }
@@ -701,9 +712,9 @@ private class SongAdapter(private val items: List<MediaItem>, private val onClic
     class Holder(view: View) : RecyclerView.ViewHolder(view) { val title: TextView = view.findViewById(R.id.songTitle); val artist: TextView = view.findViewById(R.id.songArtist) }
 }
 
-private class VideoAdapter(private val items: List<VideoEntry>, private val onClick: (VideoEntry) -> Unit) : RecyclerView.Adapter<VideoAdapter.Holder>() {
+private class VideoAdapter(private val items: List<VideoEntry>, private val onClick: (VideoEntry) -> Unit, private val onLongClick: (VideoEntry, View) -> Unit) : RecyclerView.Adapter<VideoAdapter.Holder>() {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = Holder(LayoutInflater.from(parent.context).inflate(R.layout.item_video, parent, false))
-    override fun onBindViewHolder(holder: Holder, position: Int) { val item = items[position]; holder.title.text = item.title; holder.meta.text = "${formatSize(item.size)} • ${formatDuration(item.duration)}"; holder.thumb.setVideoUri(item.uri); holder.itemView.setOnClickListener { onClick(item) } }
+    override fun onBindViewHolder(holder: Holder, position: Int) { val item = items[position]; holder.title.text = item.title; holder.meta.text = "${formatSize(item.size)} • ${formatDuration(item.duration)}"; holder.thumb.setVideoUri(item.uri); holder.itemView.setOnClickListener { onClick(item) }; holder.itemView.setOnLongClickListener { onLongClick(item, it); true } }
     override fun getItemCount() = items.size
     class Holder(view: View) : RecyclerView.ViewHolder(view) { val title: TextView = view.findViewById(R.id.videoTitle); val meta: TextView = view.findViewById(R.id.videoMeta); val thumb: VideoThumbnailView = view.findViewById(R.id.videoThumbnail) }
 }
