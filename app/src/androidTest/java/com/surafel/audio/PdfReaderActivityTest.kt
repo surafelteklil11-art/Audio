@@ -174,7 +174,7 @@ class PdfReaderActivityTest {
         val collection = android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         fun screenshots(): Set<Long> {
             val ids = mutableSetOf<Long>()
-            app.contentResolver.query(collection, arrayOf("_id"), "_display_name LIKE ?", arrayOf("AudioPDF_%"), null)?.use { cursor ->
+            app.contentResolver.query(collection, arrayOf("_id"), "_display_name LIKE ? AND is_pending = 0", arrayOf("AudioPDF_%"), null)?.use { cursor ->
                 while (cursor.moveToNext()) ids.add(cursor.getLong(0))
             }
             return ids
