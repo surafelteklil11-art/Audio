@@ -85,37 +85,43 @@ class PdfLibraryActivity : PdfUiActivity() {
         model = ViewModelProvider(this)[PdfLibraryModel::class.java]
         savedInstanceState?.getString("export")?.let { path -> File(path).takeIf { it.canonicalPath.startsWith(filesDir.canonicalPath + "/pdf_library/") || it.canonicalPath.startsWith(cacheDir.canonicalPath + "/pdf_exports/") || PdfDeviceFiles.isSharedPdf(this, it) }?.let { exportFile = it } }
         model.cameraPath = model.cameraPath ?: savedInstanceState?.getString("camera")
+        if (savedInstanceState == null && intent.getStringExtra("open_tab") == "Tools") model.tab = "Tools"
         adapter = DocumentAdapter()
         WindowCompat.setDecorFitsSystemWindows(window, false)
         drawer = DrawerLayout(this).apply { setBackgroundColor(paper) }
-        val root = column().apply { setBackgroundColor(paper) }
+        val root = column().apply { setBackgroundColor(if (dark) 0xFF141626.toInt() else paper) }
         drawer.addView(root, DrawerLayout.LayoutParams(-1, -1)); setContentView(drawer)
         headerPanel = column().apply {
             setPadding(dp(8), dp(4), dp(8), dp(4))
-            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, if (dark) intArrayOf(0xFF151323.toInt(), 0xFF102443.toInt()) else intArrayOf(0xFFECE7FF.toInt(), 0xFFDDEFFF.toInt()))
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, if (dark) intArrayOf(0xFF171A2C.toInt(), 0xFF0D0E18.toInt()) else intArrayOf(0xFFECE7FF.toInt(), 0xFFDDEFFF.toInt()))
         }
         val top = row()
-        top.addView(action("☰", "PDF Reader settings") { settingsMenu() })
-        title = label("PDF Reader", 23f, ink, true).apply { gravity = Gravity.CENTER_VERTICAL; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
-        top.addView(title, LinearLayout.LayoutParams(0, dp(56), 1f))
-        top.addView(action("⌕", "Search documents") { prompt("Search documents", "File or folder name", model.query) { model.query = it; render() } })
-        top.addView(action("×", "Close PDF Reader") { finish() }); headerPanel.addView(top)
+        top.addView(iconAction("menu", "PDF Reader settings") { settingsMenu() }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        top.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        top.addView(iconAction("diamond", "Included PDF features") { message("PDF tools", "Read, annotate, organize, convert and share PDFs offline. All included tools are available without a subscription.") }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        top.addView(iconAction("search", "Search documents") { prompt("Search documents", "File or folder name", model.query) { model.query = it; render() } }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        headerPanel.addView(top)
+        title = label("Hi Read", 28f, ink, true).apply {
+            tag = "pdf-library-title"; gravity = Gravity.CENTER_VERTICAL; maxLines = 1
+            setPadding(dp(12), 0, dp(12), dp(3)); ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+        headerPanel.addView(title, LinearLayout.LayoutParams(-1, dp(56)))
         root.addView(headerPanel)
-        toolbar = row().apply { setPadding(dp(12), dp(4), dp(12), 0) }
-        folderBack = action("‹", "Back to parent folder") { parentFolder() }
+        toolbar = row().apply { setBackgroundColor(paper); setPadding(dp(12), dp(4), dp(8), dp(4)) }
+        folderBack = iconAction("back", "Back to parent folder") { parentFolder() }
         toolbar.addView(folderBack)
         location = action("All ▾", "Filter documents") { choices("Show", listOf("All", "PDF", "Folder", "Clear search")) { i ->
             if (i == 3) model.query = "" else model.filter = listOf("All", "PDF", "Folder")[i]; render()
         } }
         location.gravity = Gravity.CENTER_VERTICAL; toolbar.addView(location, LinearLayout.LayoutParams(0, dp(48), 1f))
         toolbarSpacer = View(this); toolbar.addView(toolbarSpacer, LinearLayout.LayoutParams(0, 1, 1f))
-        folderSearch = action("⌕", "Search this library") { prompt("Search documents", "File or folder name", model.query) { model.query = it; render() } }
+        folderSearch = iconAction("search", "Search this library") { prompt("Search documents", "File or folder name", model.query) { model.query = it; render() } }
         toolbar.addView(folderSearch)
-        toolbar.addView(action("⊞", "Create folder") { newFolder() })
-        toolbar.addView(action("↓≡", "Sort documents") { choices("Sort by", listOf("Name", "Newest", "Size")) { model.sort = listOf("Name", "Newest", "Size")[it]; render() } })
-        selectButton = action("☑", "Select documents") { if (selecting) selectionMenu() else { selecting = true; model.selection.clear(); render() } }
+        toolbar.addView(iconAction("folder-add", "Create folder") { newFolder() })
+        toolbar.addView(iconAction("sort", "Sort documents") { choices("Sort by", listOf("Name", "Newest", "Size")) { model.sort = listOf("Name", "Newest", "Size")[it]; render() } })
+        selectButton = iconAction("select", "Select documents") { if (selecting) selectionMenu() else { selecting = true; model.selection.clear(); render() } }
         toolbar.addView(selectButton)
-        folderMore = action("⋮", "Current folder options") { model.entries.value.orEmpty().firstOrNull { it.id == model.folder }?.let { fileMenu(it) } }
+        folderMore = iconAction("more", "Current folder options") { model.entries.value.orEmpty().firstOrNull { it.id == model.folder }?.let { fileMenu(it) } }
         toolbar.addView(folderMore); root.addView(toolbar)
         breadcrumbs = row().apply { setPadding(dp(20), dp(4), dp(20), dp(8)) }
         breadcrumbScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(breadcrumbs) }
@@ -124,20 +130,23 @@ class PdfLibraryActivity : PdfUiActivity() {
         access = action("Find PDFs on this phone  ›", "Allow device PDF access") { requestDeviceAccess() }.apply {
             gravity = Gravity.CENTER_VERTICAL; setTextColor(blue); setPadding(dp(20), dp(10), dp(20), dp(10)); background = shape(card, 0)
         }; root.addView(access, LinearLayout.LayoutParams(-1, -2))
-        val frame = FrameLayout(this)
+        val frame = FrameLayout(this).apply { setBackgroundColor(paper) }
         list = RecyclerView(this).apply { layoutManager = LinearLayoutManager(this@PdfLibraryActivity); adapter = this@PdfLibraryActivity.adapter; clipToPadding = false; setPadding(dp(12), 0, dp(12), dp(86)) }
         frame.addView(list, FrameLayout.LayoutParams(-1, -1))
         empty = label("", 16f, muted).apply { gravity = Gravity.CENTER; setPadding(dp(30), dp(30), dp(30), dp(80)) }
         frame.addView(empty, FrameLayout.LayoutParams(-1, -1))
         toolsScroll = ScrollView(this).apply { isFillViewport = true }; toolsScroll.addView(buildTools()); frame.addView(toolsScroll, FrameLayout.LayoutParams(-1, -1))
-        add = action("＋", "Import PDF files") { importFiles.launch(arrayOf("application/pdf")) }.apply {
-            textSize = 36f; setTextColor(android.graphics.Color.WHITE)
-            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF49C5FF.toInt(), blue, 0xFF1454D1.toInt())).apply { cornerRadius = dp(40).toFloat() }
-            elevation = dp(6).toFloat()
+        add = iconAction("plus", "Import PDF files") { importFiles.launch(arrayOf("application/pdf")) }.apply {
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            setCompoundDrawables(chromeIcon("plus", android.graphics.Color.WHITE, 30), null, null, null)
+            background = GradientDrawable(GradientDrawable.Orientation.BL_TR, intArrayOf(0xFF25C8E9.toInt(), 0xFF087CFF.toInt(), 0xFF0053DD.toInt())).apply {
+                cornerRadius = dp(25).toFloat(); setStroke(dp(1), 0xFF5FADF7.toInt())
+            }
+            elevation = dp(3).toFloat()
         }
-        frame.addView(add, FrameLayout.LayoutParams(dp(64), dp(64), Gravity.BOTTOM or Gravity.END).apply { rightMargin = dp(22); bottomMargin = dp(20) })
+        frame.addView(add, FrameLayout.LayoutParams(dp(50), dp(50), Gravity.BOTTOM or Gravity.END).apply { rightMargin = dp(16); bottomMargin = dp(16) })
         root.addView(frame, LinearLayout.LayoutParams(-1, 0, 1f))
-        navigation = row().apply { setPadding(dp(8), dp(6), dp(8), dp(6)) }; root.addView(navigation)
+        navigation = row().apply { setBackgroundColor(paper); setPadding(dp(8), dp(6), dp(8), dp(6)) }; root.addView(navigation)
         model.entries.observe(this) { render() }
         model.busy.observe(this) { add.isEnabled = it == null; render() }
         model.result.observe(this) { outcome -> if (outcome != null) {
@@ -170,9 +179,9 @@ class PdfLibraryActivity : PdfUiActivity() {
         val entries = model.entries.value.orEmpty()
         val folder = entries.firstOrNull { it.id == model.folder }
         if (model.loaded && model.folder.isNotEmpty() && (folder == null || folder.trashed)) model.folder = ""
-        title.text = if (model.tab == "Home") "PDF Reader" else model.tab
+        title.text = if (model.tab == "Home") "Hi Read" else model.tab
         location.text = if (selecting) "${model.selection.size} selected" else model.filter + " ▾"
-        selectButton.text = if (selecting) "⋮" else "☑"
+        selectButton.setCompoundDrawables(chromeIcon(if (selecting) "more" else "select"), null, null, null)
         val inTools = model.tab == "Tools"
         val inFolder = model.tab == "Home" && model.folder.isNotEmpty() && model.folder != model.homeFolder
         headerPanel.visibility = if (inFolder) View.GONE else View.VISIBLE
@@ -196,9 +205,11 @@ class PdfLibraryActivity : PdfUiActivity() {
         empty.visibility = if (!inTools && sorted.isEmpty()) View.VISIBLE else View.GONE
         empty.text = when (model.tab) { "Recent" -> "Your reading history will appear here."; "Favorite" -> "Star a PDF to find it here."; "Recycle bin" -> "Recycle bin is empty."; else -> if (model.query.isNotEmpty()) "No matching documents" else if (!PdfDeviceFiles.hasAccess(this)) "Your PDFs, all in one place\n\nTap Find PDFs on this phone to allow access.\nYour documents will appear automatically." else "No PDFs found here\n\nUse Refresh device PDFs in the side menu to find new files, or + to open a file." }
         navigation.removeAllViews()
-        listOf("▤\nHome", "◷\nRecent", "☆\nFavorite", "⊞\nTools").forEach { value ->
-            val tab = value.substringAfter('\n')
-            navigation.addView(action(value, tab) { model.tab = tab; selecting = false; model.selection.clear(); model.filter = "All"; model.query = ""; if (tab == "Home") model.folder = availableHome(); render() }.apply { setTextColor(if (model.tab == tab) blue else ink); textSize = 13f }, LinearLayout.LayoutParams(0, dp(56), 1f))
+        listOf("Home", "Recent", "Favorite", "Tools").forEach { tab ->
+            navigation.addView(tabAction(tab, model.tab == tab, 13f) {
+                model.tab = tab; selecting = false; model.selection.clear(); model.filter = "All"; model.query = ""
+                if (tab == "Home") model.folder = availableHome(); render()
+            }, LinearLayout.LayoutParams(0, dp(56), 1f))
         }
         progress.text = model.busy.value?.plus("…") ?: if (model.query.isNotEmpty()) "Search: ${model.query} · Filter → Clear search" else ""
         progress.visibility = if (progress.text.isEmpty()) View.GONE else View.VISIBLE
@@ -428,14 +439,14 @@ class PdfLibraryActivity : PdfUiActivity() {
         override fun onCreateViewHolder(parent: ViewGroup, type: Int): Holder {
             val root = row().apply {
                 layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                setPadding(dp(8), dp(8), dp(2), dp(8)); minimumHeight = dp(78)
+                setPadding(dp(8), dp(8), dp(2), dp(8)); minimumHeight = dp(72)
             }
-            val icon = PdfFileIcon(this@PdfLibraryActivity); root.addView(icon, LinearLayout.LayoutParams(dp(48), dp(58)))
+            val icon = PdfFileIcon(this@PdfLibraryActivity); root.addView(icon, LinearLayout.LayoutParams(dp(44), dp(48)))
             val names = column().apply { setPadding(dp(18), dp(2), dp(4), dp(2)) }
-            val name = label("", 16f, ink, true).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
+            val name = label("", 15f, ink, true).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
             val detail = label("", 12f, muted).apply { setPadding(0, dp(8), 0, 0) }
             names.addView(name); names.addView(detail); root.addView(names, LinearLayout.LayoutParams(0, -2, 1f))
-            val menu = action("⋮", "Document options") {}; menu.setTextColor(muted); root.addView(menu)
+            val menu = iconAction("more", "Document options") {}; menu.setTextColor(muted); root.addView(menu)
             return Holder(root, icon, name, detail, menu)
         }
         override fun getItemCount() = data.size
@@ -446,7 +457,9 @@ class PdfLibraryActivity : PdfUiActivity() {
                 val summary = model.folderSummaries[entry.id] ?: PdfFolderLayout.Summary(0, 0)
                 "${summary.children} · ${android.text.format.Formatter.formatShortFileSize(this@PdfLibraryActivity, summary.bytes)}"
             } else "${DateFormat.getDateInstance(DateFormat.SHORT).format(Date(entry.created))} · ${android.text.format.Formatter.formatShortFileSize(this@PdfLibraryActivity, entry.bytes)}"
-            holder.menu.text = if (selecting) { if (entry.id in model.selection) "☑" else "□" } else "⋮"
+            holder.menu.setCompoundDrawables(chromeIcon(if (selecting) { if (entry.id in model.selection) "select" else "empty" } else "more", muted), null, null, null)
+            holder.detail.setCompoundDrawables(if (entry.isFolder) chromeIcon("folder-count", muted, 12) else null, null, null, null)
+            holder.detail.compoundDrawablePadding = dp(3)
             holder.root.background = if (entry.id in model.selection) shape(if (dark) 0xFF223958.toInt() else 0xFFDDEAFF.toInt()) else null
             holder.icon.folder = entry.isFolder; holder.icon.thumbnail = thumbnails.get(entry.id + ":" + entry.sourceModified); holder.icon.invalidate()
             holder.root.setOnClickListener {

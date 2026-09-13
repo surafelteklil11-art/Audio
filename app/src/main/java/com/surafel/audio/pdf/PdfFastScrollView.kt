@@ -21,7 +21,7 @@ class PdfFastScrollView(context: Context) : View(context) {
     private var grabOffset = 0f
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val density = resources.displayMetrics.density
-    private val thumbHeight get() = minOf(height.toFloat(), 48 * density)
+    private val thumbHeight get() = minOf(height.toFloat(), 30 * density)
     private val travel get() = (height - thumbHeight).coerceAtLeast(0f)
     private val thumbTop get() = if (count > 1) travel * page / (count - 1) else 0f
     init { isFocusable = true; isClickable = true; importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES }
@@ -33,12 +33,12 @@ class PdfFastScrollView(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (count < 1) return
-        val left = 8 * density; val right = width - 4 * density
+        val left = 22 * density; val right = width - 4 * density
         val top = thumbTop; val centerY = top + thumbHeight / 2
         paint.color = 0xC94C5059.toInt()
         canvas.drawRoundRect(RectF(left, top, right, top + thumbHeight), 8 * density, 8 * density, paint)
         paint.color = Color.WHITE; paint.strokeWidth = 2 * density
-        for (dy in listOf(-3, 3)) canvas.drawLine(left + 10 * density, centerY + dy * density, right - 10 * density, centerY + dy * density, paint)
+        for (dy in listOf(-3, 3)) canvas.drawLine(left + 6 * density, centerY + dy * density, right - 6 * density, centerY + dy * density, paint)
     }
     private fun seek(y: Float) {
         if (count < 1) return

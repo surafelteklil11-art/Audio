@@ -73,8 +73,8 @@ class PdfScrollView(context: Context, private val model: PdfReaderModel) : Recyc
             layoutParams = params
         }
         override fun onDraw(canvas: Canvas) {
-            canvas.drawColor(if (night) Color.rgb(16, 18, 24) else Color.rgb(52, 57, 67))
-            val gap = 8 * resources.displayMetrics.density
+            canvas.drawColor(if (night) Color.rgb(16, 18, 24) else Color.BLACK)
+            val gap = 4 * resources.displayMetrics.density
             val w = width * zoom
             val left = (width - w) / 2 + pan
             val rect = RectF(left, 0f, left + w, height - gap)
@@ -124,7 +124,7 @@ class PdfScrollView(context: Context, private val model: PdfReaderModel) : Recyc
         })
     }
     private fun pageHeight(index: Int) = (((if (width > 0) width else resources.displayMetrics.widthPixels) * zoom * (ratios[index] ?: 1.4142f))
-        .toDouble().coerceIn(1.0, 1000000.0).toInt() + (8 * resources.displayMetrics.density).toInt())
+        .toDouble().coerceIn(1.0, 1000000.0).toInt() + (4 * resources.displayMetrics.density).toInt())
     fun showDocument(pages: Int, initialPage: Int) {
         if (pages == count) return
         count = pages; sheets.notifyDataSetChanged()

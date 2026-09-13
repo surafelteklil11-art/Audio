@@ -16,9 +16,8 @@ class PdfReaderActivity : PdfUiActivity() {
     private lateinit var page: PdfPageView
     private lateinit var pages: PdfScrollView
     private var renderedBitmap: android.graphics.Bitmap? = null
-    private lateinit var counter: TextView
     private lateinit var status: TextView
-    private lateinit var mode: TextView
+    private lateinit var editAction: TextView
     private lateinit var topBar: View
     private lateinit var bottomBar: View
     private lateinit var pageBadge: TextView
@@ -40,10 +39,14 @@ class PdfReaderActivity : PdfUiActivity() {
         val root = column().apply { fitsSystemWindows = true; setBackgroundColor(paper) }
         setContentView(root)
         val top = row().apply { setPadding(dp(6), 0, dp(6), 0) }
-        top.addView(action("‹", "Back to PDF library") { leave() })
-        top.addView(label(entry.name, 15f, ink, true).apply { gravity = Gravity.CENTER_VERTICAL; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(0, dp(56), 1f))
-        top.addView(action("⌕", "Search PDF text") { prompt("Search PDF", "Find text") { model.search(it) } })
-        top.addView(action("⋮", "Reader options") { choices("Reader", listOf("Share", "Print", "Toggle page night mode", "Keep screen on")) { option ->
+        top.addView(iconAction("back", "Back to PDF library") { leave() })
+        top.addView(label(entry.name, 16f, ink, true).apply { gravity = Gravity.CENTER_VERTICAL; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(0, dp(56), 1f))
+        top.addView(iconAction("rotate", "Rotate reading screen") {
+            requestedOrientation = if (resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT)
+                android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+        })
+        top.addView(iconAction("search-text", "Search PDF text") { prompt("Search PDF", "Find text") { model.search(it) } })
+        top.addView(iconAction("more", "Reader options") { choices("Reader", listOf("Share", "Print", "Toggle page night mode", "Keep screen on")) { option ->
             when (option) {
                 0 -> runCatching { PdfSharing.share(this, model.library.file(entry), entry.name) }.onFailure { toast("No sharing app available") }
                 1 -> PdfSharing.print(this, model.library.file(entry), entry.name)
@@ -66,7 +69,7 @@ class PdfReaderActivity : PdfUiActivity() {
             onPositionChanged = { index -> if (visibility == View.VISIBLE) updatePageIndicators(index) }
             onSingleTap = { if (canHideReadingUi()) {
                 uiHandler.removeCallbacks(hideReadingUi)
-                setChromeVisible(!chromeVisible); showScrollHints(chromeVisible)
+                setChromeVisible(!chromeVisible); showScrollHints(false)
                 scheduleReadingUiHide()
             } }
             onReadingScroll = { active -> if (canHideReadingUi()) {
@@ -97,24 +100,32 @@ class PdfReaderActivity : PdfUiActivity() {
         }
         readingArea.addView(fastScroll, FrameLayout.LayoutParams(dp(48), -1, Gravity.RIGHT).apply { topMargin = dp(8); bottomMargin = dp(8) })
         root.addView(readingArea, LinearLayout.LayoutParams(-1, 0, 1f))
-        val navigation = row().apply { gravity = Gravity.CENTER }
-        navigation.addView(action("↑", "Previous page") { navigate(model.state.value!!.page - 1) })
-        counter = action("—", "Go to page") { prompt("Go to page", "Page number") { text -> text.toIntOrNull()?.let { navigate(it - 1) } ?: toast("Enter a page number") } }
-        navigation.addView(counter, LinearLayout.LayoutParams(0, dp(48), 1f))
-        navigation.addView(action("↓", "Next page") { navigate(model.state.value!!.page + 1) })
-        val bottom = column().apply { tag = "pdf-bottom-bar" }; bottomBar = bottom
-        bottom.addView(navigation); root.addView(bottom)
-        val toolbar = row()
-        mode = action("Read ▾", "Choose reading or annotation mode") {
-            choices("Page tools", listOf("Read / Zoom", "Pen", "Highlight", "Signature", "Add text")) { i ->
-                if (i == 4) prompt("Add text", "Text to place on the page", multi = true) { page.stamp = it.take(1000); chooseMode("Text"); status.text = "Tap the page to place text" }
-                else { chooseMode(listOf("Read", "Pen", "Highlight", "Signature")[i]); status.text = if (i == 0) "Scroll up or down · Pinch to zoom" else "Draw on the page · Save copy when finished" }
+        val bottom = row().apply { tag = "pdf-bottom-bar"; setPadding(dp(2), 0, dp(2), 0) }; bottomBar = bottom
+        root.addView(bottom)
+        bottom.addView(tabAction("View mode") { choices("View mode", listOf("Continuous reading", "Go to page", "Toggle night mode", "Keep screen on")) { option ->
+            when (option) {
+                0 -> chooseMode("Read")
+                1 -> goToPage()
+                2 -> { page.night = !page.night; pages.night = page.night; settings.edit().putBoolean("night_page", page.night).apply(); page.invalidate() }
+                3 -> { val enabled = !settings.getBoolean("keep_screen", false); settings.edit().putBoolean("keep_screen", enabled).apply(); if (enabled) window.addFlags(128) else window.clearFlags(128) }
             }
-        }
-        toolbar.addView(mode, LinearLayout.LayoutParams(0, dp(52), 1f))
-        toolbar.addView(action("Undo") { if (!model.state.value!!.busy && model.marks.isNotEmpty()) { model.marks.removeAt(model.marks.lastIndex); page.invalidate(); updateReaderMode() } }, LinearLayout.LayoutParams(0, dp(52), 1f))
-        toolbar.addView(action("Save copy") { if (model.marks.isEmpty()) toast("Add text, a signature or a mark first") else if (!model.state.value!!.busy) model.saveMarks(page.overlay()) }, LinearLayout.LayoutParams(0, dp(52), 1f))
-        bottom.addView(toolbar)
+        } }, LinearLayout.LayoutParams(0, dp(56), 1f))
+        editAction = tabAction("Edit") { editMenu() }
+        bottom.addView(editAction, LinearLayout.LayoutParams(0, dp(56), 1f))
+        bottom.addView(tabAction("Manage") { choices("Manage", listOf("Go to page", "Previous page", "Next page", "Document details")) { option ->
+            when (option) {
+                0 -> goToPage()
+                1 -> navigate(model.state.value!!.page - 1)
+                2 -> navigate(model.state.value!!.page + 1)
+                3 -> message(entry.name, "${model.state.value!!.count} pages\nCurrent page: ${model.state.value!!.page + 1}\n${android.text.format.Formatter.formatShortFileSize(this, model.library.file(entry).length())}")
+            }
+        } }, LinearLayout.LayoutParams(0, dp(56), 1f))
+        bottom.addView(tabAction("Share") { runCatching { PdfSharing.share(this, model.library.file(entry), entry.name) }.onFailure { toast("No sharing app available") } }, LinearLayout.LayoutParams(0, dp(56), 1f))
+        bottom.addView(tabAction("Tools") { choices("Tools", listOf("Search text", "Print", "All PDF tools")) { option -> when (option) {
+            0 -> prompt("Search PDF", "Find text") { model.search(it) }
+            1 -> PdfSharing.print(this, model.library.file(entry), entry.name)
+            2 -> startActivity(android.content.Intent(this, PdfLibraryActivity::class.java).putExtra("open_tab", "Tools"))
+        } } }, LinearLayout.LayoutParams(0, dp(56), 1f))
         model.state.observe(this) { s ->
             page.bitmap = if (s.bitmapPage == s.page) s.bitmap else null
             page.inputEnabled = !s.busy; pages.inputEnabled = !s.busy
@@ -124,7 +135,8 @@ class PdfReaderActivity : PdfUiActivity() {
             }
             updateReaderMode()
             updatePageIndicators(s.page)
-            status.text = when { s.busy -> "Working…"; s.error != null -> s.error; model.marks.isNotEmpty() -> "Unsaved marks · Save copy to keep them"; else -> "Scroll up or down · Pinch to zoom" }
+            status.text = when { s.busy -> "Working…"; s.error != null -> s.error; model.marks.isNotEmpty() -> "Unsaved marks · Save copy to keep them"; else -> "" }
+            status.visibility = if (chromeVisible && status.text.isNotEmpty()) View.VISIBLE else View.GONE
             if (!canHideReadingUi()) { setChromeVisible(true); showScrollHints(false) }
             else if (chromeVisible) scheduleReadingUiHide()
             if (s.passwordRequired && !passwordDialogShown) { passwordDialogShown = true
@@ -136,12 +148,26 @@ class PdfReaderActivity : PdfUiActivity() {
         if (model.id != id) model.open(id)
         if (savedInstanceState?.getBoolean("reader_chrome", true) == false && canHideReadingUi()) setChromeVisible(false)
     }
+    private fun goToPage() = prompt("Go to page", "Page number") { value ->
+        value.toIntOrNull()?.let { navigate(it - 1) } ?: toast("Enter a page number")
+    }
+    private fun editMenu() {
+        uiHandler.removeCallbacks(hideReadingUi)
+        choices("Edit PDF", listOf("Read / Zoom", "Pen", "Highlight", "Signature", "Add text", "Undo", "Save copy")) { i ->
+            when (i) {
+                in 0..3 -> chooseMode(listOf("Read", "Pen", "Highlight", "Signature")[i])
+                4 -> prompt("Add text", "Text to place on the page", multi = true) { page.stamp = it.take(1000); chooseMode("Text"); status.text = "Tap the page to place text"; status.visibility = View.VISIBLE }
+                5 -> if (!model.state.value!!.busy && model.marks.isNotEmpty()) { model.marks.removeAt(model.marks.lastIndex); page.invalidate(); updateReaderMode() }
+                6 -> if (model.marks.isEmpty()) toast("Add text, a signature or a mark first") else if (!model.state.value!!.busy) model.saveMarks(page.overlay())
+            }
+        }
+    }
     private fun canHideReadingUi(): Boolean = ::pages.isInitialized && pages.visibility == View.VISIBLE &&
         model.state.value!!.let { it.count > 0 && !it.busy && it.error == null } && model.marks.isEmpty()
     private fun setChromeVisible(visible: Boolean) {
         chromeVisible = visible
         val value = if (visible) View.VISIBLE else View.GONE
-        topBar.visibility = value; bottomBar.visibility = value; status.visibility = value
+        topBar.visibility = value; bottomBar.visibility = value; status.visibility = if (visible && status.text.isNotEmpty()) View.VISIBLE else View.GONE
         WindowCompat.getInsetsController(window, window.decorView).apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             if (visible) show(WindowInsetsCompat.Type.systemBars()) else hide(WindowInsetsCompat.Type.systemBars())
@@ -150,7 +176,7 @@ class PdfReaderActivity : PdfUiActivity() {
     private fun updatePageIndicators(index: Int) {
         val count = model.state.value!!.count
         val text = if (count > 0) "${index + 1} / $count" else "—"
-        counter.text = text; pageBadge.text = text; fastScroll.setPage(index, count)
+        pageBadge.text = text; fastScroll.setPage(index, count)
     }
     private fun showScrollHints(show: Boolean) {
         val value = if (show && canHideReadingUi()) View.VISIBLE else View.GONE
@@ -174,7 +200,7 @@ class PdfReaderActivity : PdfUiActivity() {
         pages.stopScroll()
         if (pages.visibility == android.view.View.VISIBLE) model.rememberScrolledPage(pages.currentPage)
         uiHandler.removeCallbacks(hideReadingUi)
-        page.mode = value; mode.text = "${value} ▾"
+        page.mode = value; editAction.contentDescription = if (value == "Read") "Edit" else "Edit: $value"
         updateReaderMode()
         val state = model.state.value!!
         if (page.visibility == android.view.View.VISIBLE && state.bitmapPage != state.page) model.go(state.page)

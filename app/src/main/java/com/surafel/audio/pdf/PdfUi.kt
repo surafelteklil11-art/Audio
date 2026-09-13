@@ -15,9 +15,9 @@ abstract class PdfUiActivity : AppCompatActivity() {
     protected val dark get() = settings.getBoolean("dark", true)
     protected val ink get() = if (dark) Color.WHITE else Color.rgb(25, 31, 45)
     protected val muted get() = if (dark) 0xFF9299AB.toInt() else 0xFF58657A.toInt()
-    protected val paper get() = if (dark) 0xFF1D1F25.toInt() else 0xFFF6F8FC.toInt()
+    protected val paper get() = if (dark) 0xFF1E1F23.toInt() else 0xFFF6F8FC.toInt()
     protected val card get() = if (dark) 0xFF292C35.toInt() else Color.WHITE
-    protected val blue = 0xFF2582FF.toInt()
+    protected val blue = 0xFF087CFF.toInt()
     override fun onCreate(savedInstanceState: Bundle?) {
         delegate.localNightMode = if (dark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
         super.onCreate(savedInstanceState)
@@ -37,6 +37,16 @@ abstract class PdfUiActivity : AppCompatActivity() {
         gravity = Gravity.CENTER; minHeight = dp(48); minWidth = dp(48); setPadding(dp(8), dp(4), dp(8), dp(4))
         contentDescription = description; isClickable = true; isFocusable = true; setOnClickListener { task() }
         val attrs = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground)); foreground = attrs.getDrawable(0); attrs.recycle()
+    }
+    protected fun chromeIcon(name: String, color: Int = ink, size: Int = 24) = PdfChromeIcon(name, color).apply { setBounds(0, 0, dp(size), dp(size)) }
+    protected fun iconAction(name: String, description: String, task: () -> Unit): TextView = action("", description, task).apply {
+        setPadding(dp(12), dp(12), dp(12), dp(12)); setCompoundDrawables(chromeIcon(name), null, null, null)
+    }
+    protected fun tabAction(name: String, selected: Boolean = false, size: Float = 12f, task: () -> Unit): TextView = action(name, name, task).apply {
+        val color = if (selected) blue else ink
+        textSize = size; setTextColor(color); typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        setPadding(0, dp(5), 0, dp(3)); compoundDrawablePadding = dp(5)
+        setCompoundDrawables(null, chromeIcon(name, color), null, null)
     }
     protected fun toast(message: String) { Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
     protected fun message(title: String, text: String) { android.app.AlertDialog.Builder(this).setTitle(title).setMessage(text).setPositiveButton("OK", null).show() }
@@ -69,11 +79,15 @@ class PdfFileIcon(context: android.content.Context) : View(context) {
         val save = canvas.save(); canvas.scale(width / 56f, height / 64f)
         thumbnail?.let { if (!it.isRecycled) { canvas.drawBitmap(it, null, RectF(6f, 2f, 50f, 62f), paint); canvas.restoreToCount(save); return } }
         if (folder) {
-            paint.shader = LinearGradient(4f, 10f, 48f, 60f, intArrayOf(0xFF57CFFF.toInt(), 0xFF2470ED.toInt()), null, Shader.TileMode.CLAMP)
-            canvas.drawRoundRect(RectF(1f, 8f, 25f, 28f), 4f, 4f, paint)
-            canvas.drawRoundRect(RectF(1f, 16f, 54f, 55f), 5f, 5f, paint)
-            paint.shader = LinearGradient(0f, 22f, 50f, 62f, intArrayOf(0xFF9DDEFF.toInt(), 0xFF438FFD.toInt()), null, Shader.TileMode.CLAMP)
-            canvas.drawRoundRect(RectF(5f, 24f, 55f, 58f), 4f, 4f, paint); paint.shader = null
+            paint.shader = LinearGradient(4f, 12f, 46f, 62f, intArrayOf(0xFF4BD1FF.toInt(), 0xFF2776DB.toInt()), null, Shader.TileMode.CLAMP)
+            val back = Path().apply { moveTo(2f, 16f); quadTo(2f, 12f, 6f, 12f); lineTo(19f, 12f); lineTo(26f, 17f); lineTo(47f, 17f); quadTo(51f, 17f, 51f, 21f); lineTo(51f, 57f); lineTo(2f, 57f); close() }
+            canvas.drawPath(back, paint)
+            paint.shader = null; paint.color = 0xFFC0E4F8.toInt(); canvas.drawRoundRect(10f, 23f, 51f, 53f, 2f, 2f, paint)
+            paint.shader = LinearGradient(18f, 28f, 48f, 59f, intArrayOf(0xFF89D8FF.toInt(), 0xFF68A8E9.toInt()), null, Shader.TileMode.CLAMP)
+            val front = Path().apply { moveTo(13f, 28f); lineTo(54f, 28f); quadTo(56f, 28f, 55f, 32f); lineTo(51f, 56f); quadTo(51f, 58f, 47f, 58f); lineTo(7f, 58f); close() }
+            canvas.drawPath(front, paint); paint.shader = null
+            paint.color = 0xFF76B9EB.toInt(); paint.strokeWidth = 1.2f
+            canvas.drawLine(43f, 32f, 50f, 32f, paint); canvas.drawLine(42f, 35f, 49f, 35f, paint)
         } else {
             paint.color = 0xFFFF5465.toInt(); canvas.drawRoundRect(RectF(7f, 4f, 49f, 60f), 5f, 5f, paint)
             paint.color = 0xFFFFB6BE.toInt(); canvas.drawRect(36f, 4f, 49f, 17f, paint)

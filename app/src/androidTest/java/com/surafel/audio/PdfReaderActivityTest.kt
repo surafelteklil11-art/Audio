@@ -126,6 +126,11 @@ class PdfReaderActivityTest {
             }
             // Start from visible controls even on a slow emulator where idle hiding already ran.
             if (!top.isShown) { tap(); waitUntil { top.isShown } }
+            scenario.onActivity {
+                val buttons = descendants(bottom).filterIsInstance<android.widget.TextView>().map { it.text.toString() }
+                assertEquals(listOf("View mode", "Edit", "Manage", "Share", "Tools"), buttons)
+            }
+            PdfTestScreenshots.capture("reader-reference-chrome", scenario)
             tap(); waitUntil { !top.isShown && !bottom.isShown && !badge.isShown && !fast.isShown }
             PdfTestScreenshots.capture("reader-clean-fullscreen", scenario)
             scenario.onActivity {
