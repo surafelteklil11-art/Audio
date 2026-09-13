@@ -14,6 +14,20 @@ enum class PlayMode { SOLO, TWO_PLAYERS, HOST, GUEST }
 
 class CheckersModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("checkers", 0)
+    val progress = CheckersProgress(prefs)
+    private var matchId = java.util.UUID.randomUUID().toString()
+    var tournamentDay: String? = null; private set
+    val turnLabel: String get() {
+        val game = match ?: return ""
+        val self = if (network) mySide else human
+        val opponent = if (network || mode == PlayMode.TWO_PLAYERS) "Alpha" else difficulty.opponent
+        return when (val result = game.result) {
+            null -> if (game.position.turn == self) "Your turn" else opponent
+            0 -> "Draw"
+            self -> "You win!"
+            else -> "$opponent wins"
+        }
+    }
     private val main = Handler(Looper.getMainLooper())
     private val thinker = Executors.newSingleThreadExecutor { Thread(it, "checkers-ai").apply { isDaemon = true } }
     private var task: Future<*>? = null
@@ -27,7 +41,7 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
     var difficulty = runCatching { Difficulty.valueOf(prefs.getString("difficulty", "MEDIUM")!!) }.getOrDefault(Difficulty.MEDIUM)
     var human = prefs.getInt("human", 1).let { if (it == -1) -1 else 1 }
     var design = prefs.getInt("design", 0).coerceIn(0, 7)
-    var tokenStyle = prefs.getInt("tokens", 0).coerceIn(0, 3)
+    var tokenStyle = prefs.getInt("tokens", 0).coerceIn(0, 7)
     var hints = prefs.getBoolean("hints", true)
     var sound = prefs.getBoolean("sound", true)
     var thinking = false; private set
@@ -56,10 +70,19 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
         changed()
     }
     fun start(newMode: PlayMode) {
+        tournamentDay = null; matchId = java.util.UUID.randomUUID().toString()
         disconnect(); cancelThought(); mode = newMode
         match = CheckersMatch(rules); recorded = false; finishedAt = null; started = SystemClock.elapsedRealtime(); elapsedBefore = 0
         lastMove = null; hintPath = emptyList(); notice = ""; roomCode = ""; waiting = false
         revision++; persist(); changed(); requestAi()
+    }
+    fun startDaily(): Boolean {
+        val daily = progress.startDaily()
+        if (daily.status != "playing") return false
+        val saved = runCatching { JSONObject(prefs.getString("saved", "")!!) }.getOrNull()
+        if (saved?.optString("tournamentDay") == daily.day && saved.optString("difficulty") == Difficulty.entries[daily.round].name && !saved.optBoolean("recorded") && resumeSaved()) return true
+        rules = Rules.presets[1]; human = 1; difficulty = Difficulty.entries[daily.round]
+        start(PlayMode.SOLO); tournamentDay = daily.day; persist(); changed(); return true
     }
     fun home() {
         persist(); disconnect(); cancelThought(); match = null; roomCode = ""; notice = ""; revision++; changed()
@@ -73,6 +96,7 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
         disconnect(); cancelThought(); mode = savedMode; match = restored; rules = r
         human = if (j.optInt("human", 1) == -1) -1 else 1
         difficulty = Difficulty.valueOf(j.getString("difficulty")); recorded = j.optBoolean("recorded")
+        matchId = j.optString("matchId").ifEmpty { java.util.UUID.randomUUID().toString() }; tournamentDay = j.optString("tournamentDay").takeIf { it.isNotEmpty() }
         elapsedBefore = j.optLong("elapsed").coerceIn(0, 10000000); started = SystemClock.elapsedRealtime()
         finishedAt = if (restored.result != null) elapsedBefore else null
         notice = ""; lastMove = null; hintPath = emptyList(); revision++; changed(); requestAi(); true
@@ -106,7 +130,7 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
                 PlayMode.TWO_PLAYERS -> "local_${if (outcome == 0) "draw" else if (outcome == 1) "white" else "black"}"
                 else -> "nearby_${if (outcome == 0) "draw" else if (outcome == mySide) "win" else "loss"}"
             }
-            prefs.edit().putInt(key, prefs.getInt(key, 0) + 1).apply(); recorded = true
+            progress.record(matchId, key, difficulty, mode == PlayMode.SOLO && outcome == human, tournamentDay); recorded = true
         }
         persist(); changed(); requestAi()
     }
@@ -201,7 +225,7 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
         val game = match ?: return
         if (network) return
         val j = JSONObject().put("rules", CheckersCodec.rules(game.rules)).put("mode", mode.name).put("human", human)
-            .put("difficulty", difficulty.name).put("recorded", recorded).put("elapsed", elapsedSeconds)
+            .put("difficulty", difficulty.name).put("matchId", matchId).put("tournamentDay", tournamentDay ?: "").put("recorded", recorded).put("elapsed", elapsedSeconds)
             .put("history", JSONArray(game.history.takeLast(256).map { CheckersCodec.position(it) }))
         prefs.edit().putString("saved", j.toString()).apply()
     }

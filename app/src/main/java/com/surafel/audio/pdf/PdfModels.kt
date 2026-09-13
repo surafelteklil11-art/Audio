@@ -203,6 +203,47 @@ class PdfReaderModel(app: Application) : AndroidViewModel(app) {
             main.post { if (!closed) { state.value = state.value!!.copy(busy = false); notice.value = message } }
         }
     }
+    fun addImage(uri: android.net.Uri, added: () -> Unit) {
+        if (state.value!!.busy || marks.size >= 500) return
+        if (marks.count { it.image != null } >= 12) { notice.value = "Save a copy before adding more images"; return }
+        state.value = state.value!!.copy(busy = true)
+        worker.execute {
+            val file = PdfTools(getApplication()).temp()
+            try {
+                getApplication<Application>().contentResolver.openInputStream(uri)!!.use { input -> file.outputStream().use { PdfLibrary.copyBounded(input, it) } }
+                val options = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeFile(file.path, options)
+                require(options.outWidth > 0 && options.outHeight > 0) { "This image could not be opened" }
+                options.inJustDecodeBounds = false; options.inSampleSize = 1
+                while (maxOf(options.outWidth, options.outHeight) / options.inSampleSize > 1024) options.inSampleSize *= 2
+                val image = android.graphics.BitmapFactory.decodeFile(file.path, options) ?: error("This image could not be opened")
+                main.post { if (closed) image.recycle() else { marks.add(PdfMark(mutableListOf(android.graphics.PointF(.325f, .3f)), image = image)); state.value = state.value!!.copy(busy = false); added() } }
+            } catch (e: Exception) { main.post { if (!closed) { state.value = state.value!!.copy(busy = false); notice.value = PdfLibraryModel.errorMessage(e) } } }
+            finally { file.delete() }
+        }
+    }
+    fun readingText(callback: (String) -> Unit) {
+        if (state.value!!.busy) return
+        state.value = state.value!!.copy(busy = true)
+        worker.execute {
+            val text = runCatching { PdfTools(getApplication()).extract(library.file(library.get(id)), password) }
+            main.post { if (!closed) { state.value = state.value!!.copy(busy = false); callback(text.getOrElse { "Unable to read text: ${it.message}" }.ifBlank { "This page contains images. Selectable text is required for Reflow." }) } }
+        }
+    }
+    fun transform(name: String, suffix: String = ".pdf", operation: (PdfTools, File, File) -> Unit, exported: ((File) -> Unit)? = null) {
+        if (state.value!!.busy) return
+        state.value = state.value!!.copy(busy = true)
+        worker.execute {
+            val tools = PdfTools(getApplication()); val directory = File(getApplication<Application>().cacheDir, "pdf_exports").apply { mkdirs() }
+            val output = File.createTempFile("export-", suffix, directory)
+            try {
+                operation(tools, decrypted ?: library.file(library.get(id)), output)
+                val saved = if (suffix == ".pdf") library.import(name, library.get(id).folder) { output.inputStream() } else null
+                main.post { if (!closed) { state.value = state.value!!.copy(busy = false); if (saved != null) notice.value = "Saved ${saved.name}" else exported?.invoke(output) } }
+            } catch (e: Exception) { output.delete(); main.post { if (!closed) { state.value = state.value!!.copy(busy = false); notice.value = PdfLibraryModel.errorMessage(e) } } }
+            finally { if (suffix == ".pdf") output.delete() }
+        }
+    }
     override fun onCleared() {
         closed = true; worker.execute { pdf?.close(); pdf = null; decrypted?.delete(); decrypted = null; password = "" }
         worker.shutdown(); super.onCleared()

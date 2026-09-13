@@ -8,7 +8,7 @@ import android.view.ScaleGestureDetector
 import android.view.View
 
 /** Marks use normalized display coordinates so rotation and zoom do not move saved ink. */
-data class PdfMark(val points: MutableList<PointF> = mutableListOf(), val text: String? = null, val highlight: Boolean = false)
+data class PdfMark(val points: MutableList<PointF> = mutableListOf(), val text: String? = null, val highlight: Boolean = false, val image: Bitmap? = null)
 class PdfPageView(context: Context, val marks: MutableList<PdfMark>) : View(context) {
     var bitmap: Bitmap? = null
         set(value) { if (field !== value) { field = value; zoom = 1f; panX = 0f; panY = 0f }; invalidate() }
@@ -18,6 +18,7 @@ class PdfPageView(context: Context, val marks: MutableList<PdfMark>) : View(cont
     var onMarksChanged: (() -> Unit)? = null
     var onDoubleTap: (() -> Unit)? = null
     var night = false
+    var readingStyle = "Original"
     private var zoom = 1f; private var panX = 0f; private var panY = 0f
     private var lastX = 0f; private var lastY = 0f
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
@@ -42,7 +43,7 @@ class PdfPageView(context: Context, val marks: MutableList<PdfMark>) : View(cont
     override fun onDraw(canvas: Canvas) {
         canvas.drawColor(if (night) 0xFF101218.toInt() else 0xFF343943.toInt())
         val b = bitmap ?: return; val rect = target()
-        paint.colorFilter = if (night) ColorMatrixColorFilter(floatArrayOf(-1f,0f,0f,0f,255f, 0f,-1f,0f,0f,255f, 0f,0f,-1f,0f,255f, 0f,0f,0f,1f,0f)) else null
+        paint.colorFilter = PdfReadingStyle.filter(if (night) "Invert" else readingStyle)
         canvas.drawBitmap(b, null, rect, paint); paint.colorFilter = null
         val save = canvas.save(); canvas.clipRect(rect); canvas.translate(rect.left, rect.top); canvas.scale(rect.width(), rect.height()); drawMarks(canvas); canvas.restoreToCount(save)
     }
@@ -53,7 +54,13 @@ class PdfPageView(context: Context, val marks: MutableList<PdfMark>) : View(cont
         for (mark in marks) {
             p.color = if (mark.highlight) 0x66FFD329 else 0xFF1967D2.toInt(); p.strokeWidth = if (mark.highlight) .024f else .003f
             p.strokeCap = Paint.Cap.ROUND; p.strokeJoin = Paint.Join.ROUND
-            if (mark.text != null) {
+            if (mark.image != null && !mark.image.isRecycled) {
+                val point = mark.points.firstOrNull() ?: continue
+                val image = mark.image
+                val w = .35f; val h = w * image.height / image.width
+                p.style = Paint.Style.FILL; p.alpha = 255; p.isFilterBitmap = true
+                canvas.drawBitmap(image, null, RectF(point.x, point.y * aspect, point.x + w, point.y * aspect + h), p)
+            } else if (mark.text != null) {
                 p.style = Paint.Style.FILL; p.textSize = .027f
                 val point = mark.points.firstOrNull() ?: continue
                 mark.text.lines().forEachIndexed { i, line -> canvas.drawText(line, point.x, point.y * aspect + i * .033f, p) }

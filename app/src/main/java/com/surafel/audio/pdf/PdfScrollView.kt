@@ -28,12 +28,19 @@ class PdfScrollView(context: Context, private val model: PdfReaderModel) : Recyc
     var onSettled: ((Int) -> Unit)? = null
     var night = false
         set(value) { field = value; for (i in 0 until childCount) getChildAt(i).invalidate() }
+    var readingStyle = "Original"
+        set(value) { field = value; for (i in 0 until childCount) getChildAt(i).invalidate() }
+    private val snap = androidx.recyclerview.widget.PagerSnapHelper()
+    var horizontal = false
+        set(value) { if (field == value) return; val index = currentPage; field = value; manager.orientation = if (value) HORIZONTAL else VERTICAL; sheets.notifyDataSetChanged(); scrollToPage(index) }
+    var pageByPage = false
+        set(value) { if (field == value) return; val index = currentPage; field = value; snap.attachToRecyclerView(if (value) this else null); sheets.notifyDataSetChanged(); scrollToPage(index) }
     var inputEnabled = true
     val currentPage: Int get() {
         val first = manager.findFirstVisibleItemPosition()
         if (first == NO_POSITION) return 0
         val view = manager.findViewByPosition(first) ?: return first
-        return if (view.bottom < height / 3 && first + 1 < count) first + 1 else first
+        return if ((if (horizontal) view.right < width / 3 else view.bottom < height / 3) && first + 1 < count) first + 1 else first
     }
     val loadedPages: Set<Int> get() = (0 until childCount).mapNotNull {
         (getChildAt(it) as? Sheet)?.takeIf { sheet -> sheet.image != null }?.index
@@ -70,7 +77,8 @@ class PdfScrollView(context: Context, private val model: PdfReaderModel) : Recyc
         fun resize() {
             // Keep RecyclerView's LayoutParams: they contain this row's ViewHolder.
             val params = layoutParams ?: LayoutParams(LayoutParams.MATCH_PARENT, pageHeight(index))
-            params.height = pageHeight(index)
+            params.height = if (horizontal || pageByPage) this@PdfScrollView.height.coerceAtLeast(1) else pageHeight(index)
+            params.width = if (horizontal) this@PdfScrollView.width.coerceAtLeast(1) else LayoutParams.MATCH_PARENT
             layoutParams = params
         }
         override fun onDraw(canvas: Canvas) {
@@ -78,13 +86,17 @@ class PdfScrollView(context: Context, private val model: PdfReaderModel) : Recyc
             val gap = 4 * resources.displayMetrics.density
             val w = width * zoom
             val left = (width - w) / 2 + pan
-            val rect = RectF(left, 0f, left + w, height - gap)
+            val rect = if (horizontal || pageByPage) {
+                val ratio = ratios[index] ?: 1.4142f
+                val fittedW = minOf(width.toFloat(), (height - gap) / ratio) * zoom
+                val fittedH = fittedW * ratio
+                RectF((width - fittedW) / 2 + pan, (height - fittedH) / 2, (width + fittedW) / 2 + pan, (height + fittedH) / 2)
+            } else RectF(left, 0f, left + w, height - gap)
             paint.color = if (night) Color.rgb(24, 24, 24) else Color.WHITE
             paint.colorFilter = null; canvas.drawRect(rect, paint)
             val bitmap = image
             if (bitmap != null && !bitmap.isRecycled) {
-                paint.colorFilter = if (night) ColorMatrixColorFilter(floatArrayOf(
-                    -1f,0f,0f,0f,255f, 0f,-1f,0f,0f,255f, 0f,0f,-1f,0f,255f, 0f,0f,0f,1f,0f)) else null
+                paint.colorFilter = PdfReadingStyle.filter(if (night) "Invert" else readingStyle)
                 canvas.drawBitmap(bitmap, null, rect, paint); paint.colorFilter = null
             } else {
                 paint.color = if (night) Color.LTGRAY else Color.DKGRAY
@@ -184,7 +196,7 @@ class PdfScrollView(context: Context, private val model: PdfReaderModel) : Recyc
     }
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        if (w != oldw) post { if (adapter === sheets) sheets.notifyDataSetChanged() }
+        if (w != oldw || h != oldh && (horizontal || pageByPage)) post { if (adapter === sheets) sheets.notifyDataSetChanged() }
     }
     fun release() {
         stopScroll(); adapter = null

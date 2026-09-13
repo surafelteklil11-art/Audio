@@ -137,7 +137,9 @@ object CheckersEngine {
 }
 
 enum class Difficulty(val label: String, val depth: Int, val budgetMillis: Long) {
-    BEGINNER("Beginner", 1, 20), EASY("Easy", 2, 70), MEDIUM("Medium", 4, 200), HARD("Hard", 6, 550), EXPERT("Expert", 9, 1200)
+    BEGINNER("Ben · Beginner", 1, 20), EASY("Joe · Easy", 2, 70), MEDIUM("Sophia · Medium", 4, 200), HARD("Lisa · Hard", 6, 550), EXPERT("Alpha · Expert", 9, 1200);
+    val opponent get() = label.substringBefore(" ·")
+    val stars get() = ordinal + 1
 }
 
 object CheckersAi {

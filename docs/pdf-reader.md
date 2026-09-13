@@ -75,3 +75,11 @@ The reader uses a single compact top bar with back, screen rotation, text search
 ## Double-tap screenshot
 
 Double-tap while reading to capture the visible reader window as a PNG in Gallery → Pictures/Audio PDF. Pinch remains the zoom gesture; single tap still toggles the reader bars. Captures include the visible document, zoom position, annotations and any currently visible reader controls. Saving runs off the UI thread, overlapping requests are ignored, and a toast reports success or failure. Android 10+ publishes through MediaStore without a storage permission prompt; Android 7–9 requests its legacy write permission only when taking a screenshot. Failed image writes are removed.
+
+## Reader controls and page management (1.0.321)
+
+The reader uses dark bottom sheets for reading direction, background, and tools. Vertical continuous reading is the default; horizontal reading and page snapping are optional. Original, Paper, Eye comfort and Invert backgrounds are available. Reflow opens selectable extracted text (scanned pages require OCR). The editing toolbar provides Edit, Annotate and Sign tabs, text/image insertion, pen/highlight/signature marks, undo and saving an annotated copy. It does not rewrite existing text objects in the source PDF.
+
+Fast scrolling begins only on the visible handle after a vertical drag exceeds touch slop. Taps elsewhere on the right edge, a stationary handle tap and horizontal navigation gestures do not seek. Double-tap screenshots save to Gallery without a success toast; failures still report an error.
+
+Manage pages displays selectable thumbnails with drag sorting, rotation, blank/PDF insertion, subset extraction and deletion from an edited copy. Saving keeps the source unchanged. Native sharing reports the original document display name instead of the temporary cache filename.

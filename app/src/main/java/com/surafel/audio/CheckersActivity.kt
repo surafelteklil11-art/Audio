@@ -48,11 +48,12 @@ class CheckersActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         model = ViewModelProvider(this)[CheckersModel::class.java]
-        window.statusBarColor = Color.rgb(52, 29, 20); window.navigationBarColor = Color.rgb(52, 29, 20)
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; fitsSystemWindows = true; background = CalendarSurface(true) }
+        window.statusBarColor = Color.BLACK; window.navigationBarColor = Color.BLACK
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply { hide(androidx.core.view.WindowInsetsCompat.Type.statusBars()); systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE }
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; fitsSystemWindows = true; background = CheckersWood() }
         setContentView(root)
         val scroll = ScrollView(this).apply { isFillViewport = true }
-        content = column().apply { setPadding(dp(14), dp(12), dp(14), dp(20)) }
+        content = column().apply { setPadding(dp(5), dp(12), dp(5), dp(12)) }
         scroll.addView(content, FrameLayout.LayoutParams(-1, -2)); root.addView(scroll, LinearLayout.LayoutParams(-1, -1))
         onBackPressedDispatcher.addCallback(this) { if (model.match != null) leaveGame() else finish() }
         renderHome()
@@ -77,24 +78,10 @@ class CheckersActivity : AppCompatActivity() {
             b.showPosition(game.rules, game.position, move)
         } else b.refresh()
         renderedRevision = model.revision
-        val turnText = when {
-            b.selected.size > 1 && model.canMove -> "Continue capturing · መብላቱን ቀጥል"
-            result == 0 -> "Draw · አቻ"
-            result != null -> if (result == 1) "White wins · ነጭ አሸነፈ" else "Black wins · ጥቁር አሸነፈ"
-            model.network && !model.connected -> model.notice
-            model.waiting -> "Waiting for move confirmation…"
-            model.thinking -> if (game.position.turn == model.human) "Finding a hint…" else "${model.difficulty.label} is thinking…"
-            else -> (if (game.position.turn == 1) "White's turn · የነጭ ተራ" else "Black's turn · የጥቁር ተራ") +
-                if (model.network) (if (model.canMove) " · Your move" else " · Your friend's move") else ""
-        }
-        val gameInfo = "${game.rules.name} · ${game.rules.size}×${game.rules.size} · " + when (model.mode) {
-            PlayMode.SOLO -> "${model.difficulty.label} · You: ${if (model.human == 1) "White" else "Black"}"
-            PlayMode.TWO_PLAYERS -> "2 players · One phone"
-            else -> "Nearby · ${if (model.mySide == 1) "You: White" else "You: Black"}"
-        }
-        info?.text = "$gameInfo\n$turnText"
+        info?.text = model.turnLabel
+        info?.contentDescription = "${model.turnLabel}. ${game.rules.name}. ${model.difficulty.label}"
         room?.apply {
-            text = if (model.roomCode.isNotEmpty() && !model.connected) "Room code · ኮዱን ንካና copy አድርግ\n${model.roomCode}" else ""
+            text = if (model.roomCode.isNotEmpty() && !model.connected) "Tap to copy room code\n${model.roomCode}" else ""
             visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
         }
         undo?.apply { isEnabled = !model.network && result == null && game.history.size > (if (model.mode == PlayMode.SOLO && game.position.turn == model.human) 2 else 1); alpha = if (isEnabled) 1f else .45f }
@@ -108,71 +95,80 @@ class CheckersActivity : AppCompatActivity() {
             gravity = Gravity.CENTER; setTextColor(0xFFA8E0EA.toInt()); typeface = Typeface.create("serif", Typeface.BOLD_ITALIC)
             setPadding(0, 0, 0, dp(12))
         }, spaced())
-        content.addView(button("PLAY · ከአፑ ጋር") { model.start(PlayMode.SOLO) }.apply {
+        content.addView(button("PLAY") { model.start(PlayMode.SOLO) }.apply {
             tag = "checkers-solo"; background = GradientDrawable().apply { setColor(0xFFCCDA75.toInt()); cornerRadius = dp(12).toFloat() }; textSize = 23f
         }, spaced())
-        if (model.hasSaved) content.addView(button("Continue saved game · ቀጥል") { model.resumeSaved() }.apply { tag = "checkers-continue" }, spaced())
+        if (model.hasSaved) content.addView(button("Continue saved game") { model.resumeSaved() }.apply { tag = "checkers-continue" }, spaced())
         content.addView(button("Rules: ${model.rules.name} · ${model.rules.size}×${model.rules.size}") { chooseRules() }.apply { tag = "checkers-rules" }, spaced())
         content.addView(button("Difficulty: ${model.difficulty.label}") { chooseDifficulty() }.apply { tag = "checkers-difficulty" }, spaced())
-        content.addView(button("2 PLAYERS · በአንድ ስልክ") { model.start(PlayMode.TWO_PLAYERS) }.apply { tag = "checkers-local" }, spaced())
-        content.addView(button("NEARBY · ከሌላ ስልክ ጋር") { nearby() }.apply {
+        content.addView(button("2 PLAYERS · One phone") { model.start(PlayMode.TWO_PLAYERS) }.apply { tag = "checkers-local" }, spaced())
+        content.addView(button("NEARBY · Another phone") { nearby() }.apply {
             tag = "checkers-nearby"; background = GradientDrawable().apply { setColor(0xFF337D70.toInt()); cornerRadius = dp(12).toFloat() }; setTextColor(Color.WHITE)
         }, spaced())
         val row = LinearLayout(this).apply { gravity = Gravity.CENTER }
         row.addView(button("Settings") { settings() }, weight())
-        row.addView(button("Stats") { showText("Stats", model.stats()) }, weight())
+        row.addView(button("Stats") { statsPanel() }, weight())
         row.addView(button("Design") { designs() }, weight())
         content.addView(row, spaced())
         if (model.notice.isNotEmpty()) content.addView(cardText(model.notice), spaced())
-        content.addView(cardText("Nearby: ሁለቱንም ስልኮች በአንድ Wi-Fi ወይም Hotspot አገናኝ። ኢንተርኔት አያስፈልግም።"), spaced())
+        content.addView(button("Daily Tournament") { tournamentPanel() }.apply { tag = "checkers-tournament" }, spaced())
     }
     private fun buildGame() {
         gameScreen = true; content.removeAllViews()
-        val header = LinearLayout(this)
-        header.addView(button("⌂ Home") { leaveGame() }, weight())
-        clock = label("00:00", 21f, true).apply { gravity = Gravity.CENTER; setTextColor(cream) }
-        header.addView(clock, weight())
-        header.addView(button("↻ New") { confirm("Start a new game?", "The current match will end.") {
-            if (model.network) { model.home(); nearby() } else model.start(model.mode)
-        } }, weight())
-        content.addView(header, spaced())
-        info = cardText("").apply {
-            tag = "checkers-game-info"; textSize = 14f; gravity = Gravity.CENTER
-            typeface = Typeface.DEFAULT_BOLD; setTextColor(brown)
-            background = GradientDrawable().apply { setColor(cream); cornerRadius = dp(12).toFloat() }
-            setLines(2); ellipsize = android.text.TextUtils.TruncateAt.END
+        val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        header.addView(iconButton("Home") { leaveGame() }, LinearLayout.LayoutParams(dp(64), dp(56)))
+        clock = label("00:00", 21f, true).apply { gravity = Gravity.CENTER; setTextColor(cream); typeface = Typeface.MONOSPACE }
+        header.addView(clock, LinearLayout.LayoutParams(0, dp(40), 1f))
+        header.addView(iconButton("New") { confirm("Start a new game?", "The current match will end.") {
+            if (model.tournamentDay != null) tournamentPanel() else if (model.network) { model.home(); nearby() } else model.start(model.mode)
+        } }, LinearLayout.LayoutParams(dp(64), dp(56)))
+        content.addView(header, LinearLayout.LayoutParams(-1, dp(56)))
+        info = label("", 28f, true).apply {
+            tag = "checkers-game-info"; gravity = Gravity.CENTER; setTextColor(cream)
+            typeface = Typeface.create("serif", Typeface.BOLD_ITALIC); setSingleLine(); includeFontPadding = false
+            ellipsize = android.text.TextUtils.TruncateAt.END
         }
-        content.addView(info, spaced())
-        room = cardText("").apply { tag = "checkers-room-code"; isClickable = true; isFocusable = true; setOnClickListener {
-            if (model.roomCode.isNotEmpty()) {
-                getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Checkers room", model.roomCode))
-                Toast.makeText(this@CheckersActivity, "Room code copied", Toast.LENGTH_SHORT).show()
-            }
-        } }
-        content.addView(room, spaced())
+        // Exact reserved height: only glyphs change on a turn, never board geometry.
+        content.addView(info, LinearLayout.LayoutParams(-1, dp(48)))
+        room = cardText("").apply { tag = "checkers-room-code"; setOnClickListener { if (model.roomCode.isNotEmpty()) {
+            getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Checkers room", model.roomCode))
+            Toast.makeText(this@CheckersActivity, "Room code copied", Toast.LENGTH_SHORT).show()
+        } } }; content.addView(room, spaced())
+        content.addView(Space(this), LinearLayout.LayoutParams(1, 0, 1f))
         board = CheckersBoardView(this).apply {
-            tag = "checkers-board"; onMove = { model.play(it) }
-            onStep = { render() }
-            onMotionChanged = {
-                if (model.sound && isAnimating) playSoundEffect(SoundEffectConstants.CLICK)
-                render()
-            }
+            tag = "checkers-board"; onMove = { model.play(it) }; onStep = { render() }
+            onMotionChanged = { if (model.sound && isAnimating) playSoundEffect(SoundEffectConstants.CLICK); render() }
         }
-        content.addView(board, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
-        val controls = LinearLayout(this)
-        controls.addView(button("Rules") { tutorial() }, weight())
-        hint = button("Hint") { model.requestHint() }.apply { tag = "checkers-hint" }; controls.addView(hint, weight())
-        undo = button("Undo") { model.undo() }.apply { tag = "checkers-undo" }; controls.addView(undo, weight())
-        controls.addView(button("Design") { designs() }, weight())
-        content.addView(controls, spaced())
-        content.addView(cardText("አንድ ድንጋይ ምረጥ፣ ከዚያ የሚሄድበትን ቦታ ንካ። ተከታታይ መብላት ሲኖር እያንዳንዱን ማረፊያ በተራ ንካ። K = King።"), spaced())
+        content.addView(board, LinearLayout.LayoutParams(-1, -2))
+        content.addView(Space(this), LinearLayout.LayoutParams(1, 0, 1f))
+        val controls = LinearLayout(this).apply { gravity = Gravity.CENTER }
+        controls.addView(iconButton("Settings") { settings() }, LinearLayout.LayoutParams(0, dp(64), 1f))
+        controls.addView(iconButton("Nearby") { nearby() }, LinearLayout.LayoutParams(0, dp(64), 1f))
+        hint = iconButton("Hint") { model.requestHint() }.apply { tag = "checkers-hint" }; controls.addView(hint, LinearLayout.LayoutParams(0, dp(64), 1f))
+        undo = iconButton("Undo") { model.undo() }.apply { tag = "checkers-undo" }; controls.addView(undo, LinearLayout.LayoutParams(0, dp(64), 1f))
+        controls.addView(iconButton("Design") { designs() }, LinearLayout.LayoutParams(0, dp(64), 1f))
+        content.addView(controls, LinearLayout.LayoutParams(-1, dp(76)))
+        if (model.tournamentDay != null) content.addView(button("Tournament progress / Next round") { tournamentPanel() }, spaced())
+    }
+    private fun iconButton(name: String, action: () -> Unit) = label("", 12f).apply {
+        contentDescription = name; isClickable = true; isFocusable = true; gravity = Gravity.CENTER
+        val icon = CheckersIcon(name, if (name == "Delete") 0xFF39281A.toInt() else 0xFFD6C6A4.toInt()).apply { setBounds(0, 0, dp(34), dp(34)) }
+        setCompoundDrawables(null, icon, null, null); setOnClickListener { action() }
     }
     private fun leaveGame() {
         if (model.network) confirm("Leave nearby match?", "Your friend's connection will close.") { model.home() }
         else model.home()
     }
-    private fun chooseDifficulty() = choose("Difficulty", Difficulty.entries.map { it.label }, model.difficulty.ordinal) {
-        model.difficulty = Difficulty.entries[it]; model.saveOptions()
+    private fun chooseDifficulty() {
+        val body = column()
+        Difficulty.entries.reversed().forEach { level ->
+            val item = column().apply { setPadding(dp(10), dp(10), dp(10), dp(10)); contentDescription = level.label; isClickable = true; isFocusable = true }
+            item.addView(label(level.label, 22f, true))
+            item.addView(label("★".repeat(level.stars) + if (model.difficulty == level) "    ◉" else "    ○", 24f).apply { setTextColor(0xFF8C6500.toInt()) })
+            item.setOnClickListener { model.difficulty = level; model.saveOptions(); dialog?.dismiss() }
+            body.addView(item, spaced())
+        }
+        showPanel("Difficulty", body)
     }
     private fun chooseRules() {
         val body = column()
@@ -218,22 +214,62 @@ class CheckersActivity : AppCompatActivity() {
     }
     private fun designs() {
         val body = column()
-        CheckersBoardView.names.forEachIndexed { index, name ->
-            body.addView(button("${if (model.design == index) "● " else ""}$name") {
-                model.design = index; model.saveOptions(); designs()
-            }, spaced())
+        body.addView(label("${model.progress.stars} ★", 42f, true).apply { gravity = Gravity.CENTER }, spaced())
+        body.addView(label("Collect stars by winning games", 16f).apply { gravity = Gravity.CENTER; typeface = Typeface.create("sans-serif", Typeface.ITALIC) }, spaced())
+        fun grid(title: String, names: List<String>, selected: Int, token: Boolean) {
+            body.addView(label(title, 23f, true).apply { gravity = Gravity.CENTER }, spaced())
+            names.chunked(4).forEachIndexed { rowIndex, chunk ->
+                val line = LinearLayout(this)
+                chunk.forEachIndexed { columnIndex, name ->
+                    val index = rowIndex * 4 + columnIndex
+                    val cell = column().apply { gravity = Gravity.CENTER; setPadding(dp(3), dp(3), dp(3), dp(3)); contentDescription = name; isClickable = true; isFocusable = true
+                        background = GradientDrawable().apply { setColor(Color.TRANSPARENT); if (index == selected) setStroke(dp(2), 0xFF91E6A7.toInt()) }
+                        setOnClickListener { if (token) model.tokenStyle = index else model.design = index; model.saveOptions(); designs() }
+                    }
+                    cell.addView(CheckersPreview(this, index.coerceAtMost(7), if (token) index else null), LinearLayout.LayoutParams(-1, dp(68)))
+                    cell.addView(label(name, 10f).apply { gravity = Gravity.CENTER; setLines(2) }, LinearLayout.LayoutParams(-1, dp(30)))
+                    line.addView(cell, LinearLayout.LayoutParams(0, dp(104), 1f))
+                }; body.addView(line, spaced())
+            }
         }
-        body.addView(label("Tokens", 20f, true), spaced())
-        listOf("Classic rings", "Spiral rings", "Single ring", "Octagon engraving").forEachIndexed { index, name ->
-            body.addView(button("${if (model.tokenStyle == index) "● " else ""}$name") {
-                model.tokenStyle = index; model.saveOptions(); designs()
-            }, spaced())
+        grid("Board", CheckersBoardView.names, model.design, false)
+        grid("Tokens", listOf("Classic rings", "Spiral rings", "Single ring", "Octagon", "Recessed", "Smooth", "Flower", "Sunburst"), model.tokenStyle, true)
+        showPanel("You have", body)
+    }
+    private fun statsPanel() {
+        val body = column()
+        fun section(title: String, group: String, headings: List<String>, rows: List<List<String>>) {
+            val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            header.addView(label(title, 24f, true), LinearLayout.LayoutParams(0, dp(56), 1f))
+            header.addView(iconButton("Delete") { confirm("Reset $title statistics?", "Your stars and daily tournament entry will be kept.") { model.progress.reset(group); statsPanel() } }, LinearLayout.LayoutParams(dp(44), dp(48)))
+            body.addView(header, spaced())
+            val table = TableLayout(this).apply { isStretchAllColumns = true }
+            (listOf(headings) + rows).forEachIndexed { index, values ->
+                val row = TableRow(this)
+                values.forEach { value -> row.addView(label(value, 17f, index == 0).apply {
+                    gravity = Gravity.CENTER; setPadding(dp(5), dp(8), dp(5), dp(8))
+                    background = GradientDrawable().apply { setColor(Color.TRANSPARENT); setStroke(dp(1), brown) }
+                }, TableRow.LayoutParams(0, dp(42), 1f)) }; table.addView(row)
+            }; body.addView(table, spaced())
         }
-        showPanel("Design · All unlocked", body)
+        section("Single Player", "solo", listOf("", "WIN", "LOSE", "DRAW"), Difficulty.entries.reversed().map { d -> listOf(d.opponent) + listOf("win", "loss", "draw").map { model.progress.count("solo_${d.name}_$it").toString() } })
+        section("Tournament", "tournament", listOf("", "WIN", "2ND", "PLAYED"), listOf(listOf("You") + listOf("win", "second", "played").map { model.progress.count("tournament_$it").toString() }))
+        section("Nearby", "nearby", listOf("", "WIN", "LOSE", "DRAW"), listOf(listOf("You") + listOf("win", "loss", "draw").map { model.progress.count("nearby_$it").toString() }))
+        showPanel("Stats", body)
+    }
+    private fun tournamentPanel() {
+        val body = column(); val daily = model.progress.daily()?.takeIf { it.day == model.progress.today() }
+        body.addView(label(model.progress.today(), 16f, true), spaced())
+        body.addView(label("Daily local tournament · 5 rounds\nBeat Ben, Joe, Sophia, Lisa and Alpha in order. Each win earns 1–5 stars. A draw replays the round; a loss ends today's entry. Reach the final for second place, or win it for the trophy.", 15f), spaced())
+        Difficulty.entries.forEachIndexed { index, d -> body.addView(label("${if (daily != null && (index < daily.round || daily.status == "won")) "✓" else "${index + 1}."} ${d.label}   ${"★".repeat(d.stars)}", 17f, true), spaced()) }
+        val finished = daily != null && daily.status != "playing"
+        body.addView(label(when { daily?.status == "won" -> "Tournament champion!"; finished -> "Today's tournament is complete. Come back tomorrow."; daily == null -> "One entry each day. Progress is saved on this phone."; else -> "Round ${daily.round + 1} of 5" }, 16f, true), spaced())
+        if (!finished) body.addView(button(if (daily == null) "Enter tournament" else "Continue tournament") { dialog?.dismiss(); model.startDaily() }, spaced())
+        showPanel("Daily Tournament", body)
     }
     private fun nearby() {
         val body = column()
-        body.addView(label("1. በአንዱ ስልክ Hotspot ክፈትና ሌላውን አገናኝ፤ ወይም ሁለቱም በአንድ Wi-Fi ይሁኑ።\n2. በሁለቱም ስልኮች ይህን Audio ስሪት ክፈት።\n3. አንዱ Create room፣ ሌላው Join room ይምረጥ።\n\nMobile data መጥፋት ይችላል። በእንግዳ Wi-Fi ላይ የስልኮች ግንኙነት ሊከለከል ይችላል፤ ካልተገናኘ Hotspot ተጠቀም።", 14f), spaced())
+        body.addView(label("1. Connect both phones to the same Wi-Fi or phone hotspot.\n2. Open this Audio version on both phones.\n3. One player chooses Create room; the other chooses Join room.\n\nMobile data is not required. If a guest Wi-Fi blocks the connection, use a phone hotspot.", 14f), spaced())
         body.addView(button("Wi-Fi / Hotspot Settings") {
             try { startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) }
             catch (_: Exception) { Toast.makeText(this, "Open Wi-Fi / Hotspot from your phone's Settings", Toast.LENGTH_LONG).show() }
@@ -246,7 +282,7 @@ class CheckersActivity : AppCompatActivity() {
         }.apply { tag = "checkers-host" }, spaced())
         body.addView(button("Join room") { joinRoom() }.apply { tag = "checkers-join" }, spaced())
         body.addView(label("Host plays White and chooses the rules. The guest plays Black. Keep Audio open on both phones. If disconnected, return home and create a new room. Undo and hints are disabled for nearby matches.", 13f), spaced())
-        showPanel("Nearby · ያለኢንተርኔት", body)
+        showPanel("Nearby · Offline", body)
     }
     private fun joinRoom() {
         val body = column()

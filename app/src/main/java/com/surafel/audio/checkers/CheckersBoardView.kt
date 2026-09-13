@@ -14,6 +14,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 
 class CheckersBoardView(context: Context) : View(context) {
     var rules = Rules.presets[1]
@@ -218,14 +220,14 @@ class CheckersBoardView(context: Context) : View(context) {
 internal object CheckersTokens {
     fun draw(c: Canvas, paint: Paint, x: Float, y: Float, radius: Float, piece: Int, tokenStyle: Int) {
         val white = piece > 0
-        paint.color = 0x55000000; c.drawOval(x - radius, y - radius + radius * .18f, x + radius, y + radius * 1.18f, paint)
-        paint.color = if (white) 0xFFA56328.toInt() else 0xFF131514.toInt(); c.drawCircle(x, y + radius * .11f, radius, paint)
+        paint.color = 0x55000000; c.drawOval(x - radius, y - radius + radius * .18f, x + radius, y + radius * 1.28f, paint)
+        paint.color = if (white) 0xFFA56328.toInt() else 0xFF131514.toInt(); c.drawCircle(x, y + radius * .20f, radius, paint)
         paint.shader = LinearGradient(x - radius, y - radius, x + radius, y + radius,
             if (white) 0xFFFFE8AC.toInt() else 0xFF77776B.toInt(), if (white) 0xFFD4AB60.toInt() else 0xFF272A29.toInt(), Shader.TileMode.CLAMP)
         c.drawCircle(x, y - radius * .06f, radius, paint); paint.shader = null
         paint.style = Paint.Style.STROKE; paint.strokeWidth = radius * .04f
         paint.color = if (white) 0xFF996027.toInt() else 0xFF121613.toInt()
-        val rings = when (tokenStyle) { 1 -> 4; 2 -> 1; 3 -> 0; else -> 2 }
+        val rings = when (tokenStyle) { 1 -> 4; 2 -> 1; 3, 4, 5, 6, 7 -> 0; else -> 2 }
         repeat(rings) { c.drawCircle(x, y - radius * .06f, radius * (.82f - it * .13f), paint) }
         if (tokenStyle == 3) {
             val p = Path(); for (k in 0..8) {
@@ -233,6 +235,16 @@ internal object CheckersTokens {
                 val py = y + kotlin.math.sin(angle).toFloat() * radius * .75f - radius * .06f
                 if (k == 0) p.moveTo(px, py) else p.lineTo(px, py)
             }; c.drawPath(p, paint)
+        }
+        if (tokenStyle == 4) c.drawCircle(x, y, radius * .65f, paint)
+        if (tokenStyle == 5) {
+            paint.style = Paint.Style.FILL; paint.shader = RadialGradient(x-radius*.3f,y-radius*.4f,radius*1.5f,if(white)0xFFFFF0BF.toInt() else 0xFF888877.toInt(),if(white)0xFF97602F.toInt() else 0xFF151616.toInt(),Shader.TileMode.CLAMP)
+            c.drawCircle(x,y-radius*.06f,radius*.94f,paint); paint.shader=null
+        }
+        if (tokenStyle == 6 || tokenStyle == 7) {
+            val petals = if (tokenStyle == 6) 5 else 12
+            for(i in 0 until petals) { val angle=2*Math.PI*i/petals; c.drawCircle(x+cos(angle).toFloat()*radius*.45f,y+sin(angle).toFloat()*radius*.45f,radius*.25f,paint) }
+            c.drawCircle(x,y,radius*.24f,paint)
         }
         paint.style = Paint.Style.FILL
         if (abs(piece) == 2) {

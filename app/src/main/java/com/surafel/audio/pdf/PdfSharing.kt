@@ -37,7 +37,7 @@ object PdfSharing {
             }
             return
         }
-        val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.pdf-files", file)
+        val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.pdf-files", file, name)
         val intent = Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, uri).putExtra(Intent.EXTRA_TITLE, name)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION).apply { clipData = ClipData.newRawUri(name, uri) }
         activity.startActivity(Intent.createChooser(intent, "Share $name"))

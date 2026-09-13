@@ -14,6 +14,12 @@ class PdfChromeIcon(private val name: String, private val tint: Int) : Drawable(
         fun box(l: Float, t: Float, r: Float, b: Float) = c.drawRoundRect(l, t, r, b, 1.5f, 1.5f, p)
         when (name) {
             "menu" -> { line(3f, 5f, 21f, 5f); line(3f, 12f, 21f, 12f); line(3f, 19f, 16f, 19f) }
+            "close" -> { line(4f,4f,20f,20f); line(20f,4f,4f,20f) }
+            "Add text" -> { line(3f,3f,17f,3f); line(10f,3f,10f,21f); line(17f,17f,23f,17f); line(20f,14f,20f,20f) }
+            "Add image" -> { box(2f,2f,22f,21f); path(3f,17f,9f,10f,15f,16f); c.drawCircle(16f,7f,2f,p); line(17f,18f,23f,18f); line(20f,15f,20f,22f) }
+            "Pen", "Signature", "Highlight" -> { path(3f,21f,5f,14f,18f,1f,23f,6f,10f,19f,3f,21f); line(5f,14f,10f,19f) }
+            "Undo" -> { path(9f,3f,2f,9f,9f,15f); c.drawArc(2f,8f,23f,23f,210f,220f,false,p) }
+            "Read / Zoom" -> { c.drawCircle(10f,10f,8f,p); line(16f,16f,23f,23f); line(6f,10f,14f,10f); line(10f,6f,10f,14f) }
             "back" -> { path(10f, 4f, 2f, 12f, 10f, 20f); line(3f, 12f, 22f, 12f) }
             "search", "search-text" -> { c.drawCircle(10f, 10f, 8f, p); line(16f, 16f, 22f, 22f); if (name == "search-text") { line(6f, 6f, 14f, 6f); line(10f, 6f, 10f, 14f) } }
             "more" -> { p.style = Paint.Style.FILL; for (y in listOf(4f, 12f, 20f)) c.drawCircle(12f, y, 1.7f, p) }
@@ -30,6 +36,11 @@ class PdfChromeIcon(private val name: String, private val tint: Int) : Drawable(
             "Manage" -> { path(12f, 22f, 3f, 22f, 3f, 2f, 21f, 2f, 21f, 8f, 8f, 8f, 8f, 18f); line(7f, 5f, 17f, 5f); path(18f, 11f, 23f, 14f, 23f, 20f, 18f, 23f, 13f, 20f, 13f, 14f, 18f, 11f); c.drawCircle(18f,17f,1.8f,p) }
             "Share" -> { path(11f, 5f, 3f, 5f, 3f, 22f, 20f, 22f, 20f, 14f); path(10f, 14f, 10f, 8f, 17f, 8f, 17f, 2f, 23f, 8f, 17f, 14f) }
             "rotate" -> { c.save(); c.rotate(-40f,12f,12f); box(7f, 4f, 17f, 21f); line(10f,18f,14f,18f); c.restore(); c.drawArc(2f,2f,22f,22f,200f,75f,false,p); c.drawArc(2f,2f,22f,22f,20f,75f,false,p); path(8f,1f,12f,1f,12f,5f); path(16f,23f,12f,23f,12f,19f) }
+            "Insert" -> { box(3f,2f,17f,22f); line(14f,14f,23f,14f); line(18.5f,9f,18.5f,19f) }
+            "Rotate" -> { box(5f,10f,19f,22f); c.drawArc(3f,1f,21f,16f,190f,160f,false,p); path(17f,2f,21f,6f,16f,7f) }
+            "Extract" -> { box(3f,2f,16f,22f); line(10f,12f,23f,12f); path(19f,8f,23f,12f,19f,16f) }
+            "Delete" -> { box(5f,6f,19f,22f); line(2f,5f,22f,5f); line(9f,1f,15f,1f); line(10f,10f,10f,18f); line(15f,10f,15f,18f) }
+            "Setup" -> { c.drawCircle(12f,12f,9f,p); c.drawCircle(12f,12f,3f,p) }
             "plus" -> { p.strokeWidth = 2.5f; line(4f,12f,20f,12f); line(12f,4f,12f,20f) }
             "diamond" -> { p.style = Paint.Style.FILL; p.color = 0xFFFFA62B.toInt(); path(1f,8f,6f,2f,18f,2f,23f,8f,12f,22f,1f,8f); p.style = Paint.Style.STROKE; p.color = Color.WHITE; path(8f,8f,12f,15f,16f,8f) }
         }

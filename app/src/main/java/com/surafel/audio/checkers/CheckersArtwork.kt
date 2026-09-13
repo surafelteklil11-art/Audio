@@ -1,0 +1,60 @@
+package com.surafel.audio.checkers
+
+import android.graphics.*
+import android.graphics.drawable.Drawable
+import android.content.Context
+import android.view.View
+import kotlin.math.*
+
+/** Native wood grain, stable between redraws and independent of Audio's global theme. */
+class CheckersWood : Drawable() {
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun draw(c: Canvas) {
+        val w = bounds.width().toFloat(); val h = bounds.height().toFloat()
+        p.style = Paint.Style.FILL; p.shader = LinearGradient(0f,0f,w,h,intArrayOf(0xFF5B3827.toInt(),0xFF9B6749.toInt(),0xFF573522.toInt()),null,Shader.TileMode.CLAMP)
+        c.drawRect(bounds,p); p.shader = null
+        for (i in 0..360) {
+            val x = w * i / 360; val wave = sin(i * 2.37).toFloat()
+            p.color = if (i % 3 == 0) 0x180C0704 else 0x14EFD8B2; p.strokeWidth = max(1f,w/850)
+            val path = Path().apply { moveTo(x,0f); cubicTo(x+wave*w*.02f,h*.3f,x-wave*w*.016f,h*.7f,x,h) }
+            p.style = Paint.Style.STROKE; c.drawPath(path,p)
+        }
+        p.style = Paint.Style.FILL; p.shader = RadialGradient(w*.5f,h*.45f,max(w,h)*.8f,intArrayOf(Color.TRANSPARENT,0x99000000.toInt()),null,Shader.TileMode.CLAMP)
+        c.drawRect(bounds,p); p.shader = null
+    }
+    override fun setAlpha(alpha: Int) { p.alpha = alpha }
+    override fun setColorFilter(filter: ColorFilter?) { p.colorFilter = filter }
+    @Deprecated("Deprecated in Android") override fun getOpacity() = PixelFormat.OPAQUE
+}
+class CheckersPreview(context: Context, private val design: Int = 0, private val token: Int? = null) : View(context) {
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun onDraw(c: Canvas) {
+        if (token != null) { CheckersTokens.draw(c,p,width/2f,height/2f,min(width,height)*.35f,1,token); return }
+        val cell = min(width,height)*.105f; val left=(width-cell*8)/2; val top=(height-cell*8)/2
+        p.color=0xFF6C442D.toInt(); c.drawRect(left-4,top-4,left+cell*8+4,top+cell*8+8,p)
+        val colors=CheckersBoardView.palettes[design]
+        for (r in 0..7) for (col in 0..7) { p.color=colors[(r+col)%2]; c.drawRect(left+col*cell,top+r*cell,left+(col+1)*cell,top+(r+1)*cell,p) }
+    }
+}
+class CheckersIcon(private val kind: String, private val tint: Int = 0xFFD6C6A4.toInt()) : Drawable() {
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun draw(c: Canvas) {
+        val saved=c.save(); c.translate(bounds.left.toFloat(),bounds.top.toFloat()); c.scale(bounds.width()/48f,bounds.height()/48f)
+        p.color=tint; p.style=Paint.Style.FILL; p.strokeWidth=4f; p.strokeCap=Paint.Cap.ROUND
+        fun path(vararg xy:Float) { val path=Path(); path.moveTo(xy[0],xy[1]); for(i in 2 until xy.size step 2) path.lineTo(xy[i],xy[i+1]); path.close(); c.drawPath(path,p) }
+        when(kind) {
+            "Home" -> { path(2f,22f,24f,3f,46f,22f,39f,22f,39f,44f,29f,44f,29f,30f,19f,30f,19f,44f,9f,44f,9f,22f); c.drawRect(32f,5f,39f,18f,p) }
+            "New", "Undo" -> { p.style=Paint.Style.STROKE; c.drawArc(8f,9f,40f,41f,if(kind=="New") 15f else 180f,270f,false,p); p.style=Paint.Style.FILL; if(kind=="New")path(30f,3f,30f,20f,44f,17f) else path(2f,23f,19f,10f,19f,35f) }
+            "Settings" -> { for(i in 0..7) { c.save(); c.rotate(i*45f,24f,24f); c.drawRect(19f,1f,29f,12f,p); c.restore() }; c.drawCircle(24f,24f,17f,p); p.color=0xFF68442E.toInt(); c.drawCircle(24f,24f,8f,p) }
+            "Stats" -> { c.drawRect(4f,25f,13f,44f,p); c.drawRect(19f,14f,28f,44f,p); c.drawRect(34f,3f,43f,44f,p) }
+            "Design" -> { p.style=Paint.Style.STROKE; c.drawRect(3f,3f,45f,45f,p); p.style=Paint.Style.FILL; for(r in 0..3) for(col in 0..3) if((r+col)%2==0)c.drawRect(4f+col*10,4f+r*10,14f+col*10,14f+r*10,p) }
+            "Nearby" -> { p.color=0xFF4F9EDA.toInt(); c.drawCircle(24f,24f,22f,p); p.color=0xFFE7EDDF.toInt(); path(4f,17f,16f,6f,22f,10f,18f,22f,30f,26f,25f,40f,15f,38f,14f,27f); path(31f,4f,43f,16f,37f,21f,30f,14f) }
+            "Delete" -> { c.drawRect(10f,13f,38f,44f,p); c.drawRoundRect(6f,6f,42f,11f,2f,2f,p); c.drawRect(18f,2f,30f,6f,p) }
+            "2 Players" -> { c.drawCircle(16f,12f,7f,p); c.drawCircle(33f,12f,7f,p); c.drawRoundRect(4f,23f,44f,44f,8f,8f,p) }
+            else -> { p.typeface=Typeface.DEFAULT_BOLD; p.textSize=44f; p.textAlign=Paint.Align.CENTER; c.drawText("?",24f,40f,p) }
+        }; c.restoreToCount(saved)
+    }
+    override fun setAlpha(alpha:Int) { p.alpha=alpha }
+    override fun setColorFilter(filter:ColorFilter?) { p.colorFilter=filter }
+    @Deprecated("Deprecated in Android") override fun getOpacity()=PixelFormat.TRANSLUCENT
+}

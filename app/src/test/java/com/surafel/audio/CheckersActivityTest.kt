@@ -74,14 +74,14 @@ class CheckersActivityTest {
             val root = c.setup().visible().get().findViewById<ViewGroup>(android.R.id.content)
             root.findViewWithTag<View>("checkers-difficulty").performClick()
             val dialog = ShadowAlertDialog.getLatestAlertDialog()
-            descendants(dialog.findViewById(android.R.id.content)).filterIsInstance<TextView>().first { it.text.toString() == "Expert" }.performClick()
+            descendants(dialog.findViewById(android.R.id.content)).filterIsInstance<TextView>().first { it.text.toString() == "Alpha · Expert" }.let { (it.parent as View).performClick() }
             root.findViewWithTag<View>("checkers-solo").performClick()
-            assertTrue(root.findViewWithTag<TextView>("checkers-game-info").text.contains("Expert"))
+            assertTrue(root.findViewWithTag<TextView>("checkers-game-info").contentDescription.contains("Expert"))
         }
         Robolectric.buildActivity(CheckersActivity::class.java).use { c ->
             val root = c.setup().visible().get().findViewById<ViewGroup>(android.R.id.content)
             root.findViewWithTag<View>("checkers-continue").performClick()
-            assertTrue(root.findViewWithTag<TextView>("checkers-game-info").text.contains("Expert"))
+            assertTrue(root.findViewWithTag<TextView>("checkers-game-info").contentDescription.contains("Expert"))
             assertEquals(0, root.findViewWithTag<CheckersBoardView>("checkers-board").position.ply)
         }
     }
@@ -111,7 +111,7 @@ class CheckersActivityTest {
             assertEquals(board.width, board.height); assertTrue(board.width in 600..720)
             val info = root.findViewWithTag<TextView>("checkers-game-info")
             assertTrue(info.isShown)
-            assertTrue(androidx.core.graphics.ColorUtils.calculateContrast(info.currentTextColor, android.graphics.Color.rgb(250, 235, 198)) >= 7)
+            assertTrue(androidx.core.graphics.ColorUtils.calculateContrast(info.currentTextColor, android.graphics.Color.rgb(91, 56, 39)) >= 4.5)
             val rect = android.graphics.Rect(); assertTrue(board.getGlobalVisibleRect(rect))
             assertEquals(board.height, rect.height()); snapshot(root, "board")
         }

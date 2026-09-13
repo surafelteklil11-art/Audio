@@ -48,8 +48,18 @@ abstract class PdfUiActivity : AppCompatActivity() {
         setPadding(0, dp(5), 0, dp(3)); compoundDrawablePadding = dp(5)
         setCompoundDrawables(null, chromeIcon(name, color), null, null)
     }
+    protected fun sheet(title: String, body: View): com.google.android.material.bottomsheet.BottomSheetDialog {
+        val dialog = com.google.android.material.bottomsheet.BottomSheetDialog(this, com.google.android.material.R.style.Theme_MaterialComponents_DayNight_BottomSheetDialog)
+        val panel = column().apply { setPadding(dp(20), dp(10), dp(20), dp(20)); background = shape(paper, 20) }
+        panel.addView(View(this).apply { background = shape(muted, 3) }, LinearLayout.LayoutParams(dp(46), dp(4)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(18) })
+        if (title.isNotEmpty()) panel.addView(label(title, 15f, muted).apply { setPadding(0, 0, 0, dp(16)) })
+        panel.addView(body)
+        dialog.setContentView(panel)
+        dialog.setOnShowListener { (panel.parent as? View)?.setBackgroundColor(Color.TRANSPARENT); dialog.behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED }
+        dialog.show(); return dialog
+    }
     protected fun toast(message: String) { Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
-    protected fun message(title: String, text: String) { android.app.AlertDialog.Builder(this).setTitle(title).setMessage(text).setPositiveButton("OK", null).show() }
+    protected fun message(title: String, text: String) { androidx.appcompat.app.AlertDialog.Builder(android.view.ContextThemeWrapper(this, if (dark) androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert else androidx.appcompat.R.style.Theme_AppCompat_Light_Dialog_Alert)).setTitle(title).setMessage(text).setPositiveButton("OK", null).show() }
     protected fun prompt(title: String, hint: String, initial: String = "", password: Boolean = false, multi: Boolean = false, submit: (String) -> Unit) {
         val input = EditText(this).apply {
             this.hint = hint; setText(initial); setTextColor(ink); setHintTextColor(muted); setPadding(dp(20), dp(12), dp(20), dp(12))
@@ -57,17 +67,17 @@ abstract class PdfUiActivity : AppCompatActivity() {
             if (multi) { minLines = 4; maxLines = 10; gravity = Gravity.TOP } else isSingleLine = true
             if (password) isSaveEnabled = false
         }
-        val dialog = android.app.AlertDialog.Builder(this).setTitle(title).setView(input).setNegativeButton("Cancel", null).setPositiveButton("Continue", null).create()
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(android.view.ContextThemeWrapper(this, if (dark) androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert else androidx.appcompat.R.style.Theme_AppCompat_Light_Dialog_Alert)).setTitle(title).setView(input).setNegativeButton("Cancel", null).setPositiveButton("Continue", null).create()
         dialog.setOnShowListener { dialog.getButton(-1).setOnClickListener {
             val text = input.text.toString()
             if (text.isBlank()) input.error = "Enter a value" else { dialog.dismiss(); submit(text) }
         } }; dialog.show()
     }
     protected fun confirm(title: String, detail: String, task: () -> Unit) {
-        android.app.AlertDialog.Builder(this).setTitle(title).setMessage(detail).setNegativeButton("Cancel", null).setPositiveButton("Continue") { _, _ -> task() }.show()
+        androidx.appcompat.app.AlertDialog.Builder(android.view.ContextThemeWrapper(this, if (dark) androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert else androidx.appcompat.R.style.Theme_AppCompat_Light_Dialog_Alert)).setTitle(title).setMessage(detail).setNegativeButton("Cancel", null).setPositiveButton("Continue") { _, _ -> task() }.show()
     }
     protected fun choices(title: String, options: List<String>, task: (Int) -> Unit) {
-        android.app.AlertDialog.Builder(this).setTitle(title).setItems(options.toTypedArray()) { _, i -> task(i) }.setNegativeButton("Cancel", null).show()
+        androidx.appcompat.app.AlertDialog.Builder(android.view.ContextThemeWrapper(this, if (dark) androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert else androidx.appcompat.R.style.Theme_AppCompat_Light_Dialog_Alert)).setTitle(title).setItems(options.toTypedArray()) { _, i -> task(i) }.setNegativeButton("Cancel", null).show()
     }
 }
 

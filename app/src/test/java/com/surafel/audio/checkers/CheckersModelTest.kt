@@ -27,6 +27,7 @@ class CheckersModelTest {
             assertTrue(guest.join(host.roomCode))
             until { host.connected && guest.connected }
             assertTrue(host.canMove); assertFalse(guest.canMove)
+            assertEquals("Your turn", host.turnLabel); assertEquals("Alpha", guest.turnLabel)
             repeat(12) {
                 val mover = if (host.match!!.position.turn == 1) host else guest
                 val move = CheckersEngine.legal(mover.match!!.position, mover.match!!.rules).first()
@@ -36,6 +37,8 @@ class CheckersModelTest {
                 until { host.match!!.position.ply == nextPly && guest.match!!.position.ply == nextPly }
                 assertEquals(host.match!!.position, guest.match!!.position)
                 assertEquals(host.match!!.rules, guest.match!!.rules)
+                assertEquals(if (host.match!!.position.turn == 1) "Your turn" else "Alpha", host.turnLabel)
+                assertEquals(if (guest.match!!.position.turn == -1) "Your turn" else "Alpha", guest.turnLabel)
             }
             val before = guest.match!!.position
             guest.undo(); assertEquals(before, guest.match!!.position)

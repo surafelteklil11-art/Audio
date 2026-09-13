@@ -19,6 +19,10 @@ class PdfFastScrollView(context: Context) : View(context) {
     private var count = 0
     private var dragging = false
     private var grabOffset = 0f
+    private var pressed = false
+    private var downY = 0f
+    private var downX = 0f
+    private val slop = android.view.ViewConfiguration.get(context).scaledTouchSlop
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val density = resources.displayMetrics.density
     private val thumbHeight get() = minOf(height.toFloat(), 30 * density)
@@ -53,16 +57,26 @@ class PdfFastScrollView(context: Context) : View(context) {
         if (count < 1 || !isEnabled) return false
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                grabOffset = if (event.y in thumbTop..(thumbTop + thumbHeight)) event.y - thumbTop else thumbHeight / 2
-                dragging = true; parent?.requestDisallowInterceptTouchEvent(true)
-                onDragging?.invoke(true); seek(event.y)
+                // Only the drawn handle owns this gesture. Leave the rest of the edge
+                // to page scrolling and Android's back gesture.
+                if (event.x < 22 * density || event.x > width - 4 * density || event.y !in thumbTop..(thumbTop + thumbHeight)) return false
+                pressed = true; dragging = false; downX = event.x; downY = event.y
+                grabOffset = event.y - thumbTop
             }
-            MotionEvent.ACTION_MOVE -> if (dragging) seek(event.y)
+            MotionEvent.ACTION_MOVE -> if (pressed) {
+                val dy = kotlin.math.abs(event.y - downY); val dx = kotlin.math.abs(event.x - downX)
+                if (!dragging && dx > slop && dx > dy) { pressed = false; return false }
+                if (!dragging && dy > slop && dy > dx) {
+                    dragging = true; parent?.requestDisallowInterceptTouchEvent(true); onDragging?.invoke(true)
+                }
+                if (dragging) seek(event.y)
+            }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (dragging) {
-                    if (event.actionMasked == MotionEvent.ACTION_UP) { seek(event.y); performClick() }
+                    if (event.actionMasked == MotionEvent.ACTION_UP) seek(event.y)
                     dragging = false; parent?.requestDisallowInterceptTouchEvent(false); onDragging?.invoke(false)
                 }
+                pressed = false
             }
         }
         return true

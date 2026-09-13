@@ -39,6 +39,59 @@ class PdfReaderActivityTest {
         val source = if (locked) tools.temp().also { tools.lock(file, it, "secret123") } else file
         return PdfLibrary(app).import("Reading guide.pdf") { source.inputStream() }
     }
+    @Test fun pageManagerReordersRotatesInsertsAndExtractsWithoutChangingOriginal() {
+        val source = entry(pages = 3); val library = PdfLibrary(app); val original = library.file(source).readBytes()
+        ActivityScenario.launch<PdfManagePagesActivity>(Intent(app, PdfManagePagesActivity::class.java).putExtra("document_id", source.id)).use { scenario ->
+            lateinit var model: PdfManagePagesModel
+            scenario.onActivity { model = ViewModelProvider(it)[PdfManagePagesModel::class.java] }
+            waitUntil { model.pages.size == 3 && !model.busy }
+            scenario.onActivity {
+                model.pages.reverse(); model.pages[0].rotation = 90
+                model.selected.add(model.pages[0].key); model.blank()
+                assertEquals(4, model.pages.size); model.save()
+            }
+            waitUntil { !model.busy && library.all().size == 2 }
+            val edited = library.all().single { it.id != source.id }
+            PdfTools(app).load(library.file(edited)).use { doc ->
+                assertEquals(4, doc.numberOfPages); assertEquals(90, doc.getPage(0).rotation)
+                val text = com.tom_roush.pdfbox.text.PDFTextStripper().getText(doc)
+                assertTrue(text.indexOf("Page 3") < text.indexOf("Page 1"))
+            }
+            scenario.onActivity { model.pages.removeAt(1); model.changed = true; model.save(true) }
+            waitUntil { !model.busy && library.all().size == 3 }
+            assertTrue(model.changed)
+            val extracted = library.all().single { it.name.contains("extracted") }
+            assertEquals(1, PdfTools(app).pageCount(library.file(extracted)))
+            assertArrayEquals(original, library.file(source).readBytes())
+            PdfTestScreenshots.capture("reader-manage-pages", scenario)
+        }
+    }
+    @Test fun editorUsesPersistentTabsAndImagesAreIncludedInSavedCopy() {
+        val source = entry(); val library = PdfLibrary(app)
+        val image = File(app.cacheDir, "annotation-fixture.png")
+        Bitmap.createBitmap(80, 40, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.RED); image.outputStream().use { compress(Bitmap.CompressFormat.PNG, 100, it) }; recycle() }
+        ActivityScenario.launch<PdfReaderActivity>(Intent(app, PdfReaderActivity::class.java).putExtra("document_id", source.id)).use { scenario ->
+            lateinit var model: PdfReaderModel
+            scenario.onActivity { model = ViewModelProvider(it)[PdfReaderModel::class.java] }
+            waitUntil { !model.state.value!!.busy && model.state.value!!.count == 2 }
+            scenario.onActivity { activity ->
+                descendants(activity.window.decorView).filterIsInstance<android.widget.TextView>().first { it.text.toString() == "Edit" }.performClick()
+                val visible = descendants(activity.window.decorView).filterIsInstance<android.widget.TextView>().filter { it.isShown }.map { it.text.toString() }
+                assertTrue(visible.containsAll(listOf("Edit", "Annotate", "Sign", "Add text", "Add image")))
+                model.addImage(android.net.Uri.fromFile(image)) {}
+            }
+            waitUntil { !model.state.value!!.busy && model.marks.any { it.image != null } }
+            scenario.recreate()
+            scenario.onActivity { activity ->
+                assertTrue(descendants(activity.window.decorView).any { it.isShown && it.contentDescription == "Close editor" })
+                val page = descendants(activity.window.decorView).filterIsInstance<PdfPageView>().single()
+                val overlay = page.overlay(); assertTrue(android.graphics.Color.red(overlay.getPixel((overlay.width * .4).toInt(), (overlay.height * .35).toInt())) > 200)
+                model.saveMarks(overlay)
+            }
+            waitUntil { !model.state.value!!.busy && library.all().size == 2 }
+            PdfTestScreenshots.capture("reader-editor", scenario)
+        }; image.delete()
+    }
     @Test fun readerRemembersPageAndMarksAcrossRotationAndSavesCopy() {
         val entry = entry(); val library = PdfLibrary(app); val original = library.file(entry).readBytes()
         ActivityScenario.launch<PdfReaderActivity>(Intent(app, PdfReaderActivity::class.java).putExtra("document_id", entry.id)).use { scenario ->
@@ -149,14 +202,18 @@ class PdfReaderActivityTest {
             scenario.onActivity {
                 val time = android.os.SystemClock.uptimeMillis()
                 // Hold the thumb while layout finishes and screenshots are collected.
-                val down = android.view.MotionEvent.obtain(time + 400, time + 400, android.view.MotionEvent.ACTION_DOWN, fast.width / 2f, fast.height * .9f, 0)
+                val thumbHeight = 30f * fast.resources.displayMetrics.density
+                val thumbY = (fast.height - thumbHeight) * model.state.value!!.page / (model.state.value!!.count - 1) + thumbHeight / 2
+                val down = android.view.MotionEvent.obtain(time, time, android.view.MotionEvent.ACTION_DOWN, fast.width * .75f, thumbY, 0)
                 fast.dispatchTouchEvent(down); down.recycle()
+                val move = android.view.MotionEvent.obtain(time, time + 60, android.view.MotionEvent.ACTION_MOVE, fast.width * .75f, fast.height * .9f, 0)
+                fast.dispatchTouchEvent(move); move.recycle()
             }
             waitUntil { model.state.value!!.page >= 9 }
             PdfTestScreenshots.capture("reader-scroll-indicators", scenario)
             scenario.onActivity {
                 val time = android.os.SystemClock.uptimeMillis()
-                val event = android.view.MotionEvent.obtain(time, time, android.view.MotionEvent.ACTION_UP, fast.width / 2f, fast.height * .9f, 0)
+                val event = android.view.MotionEvent.obtain(time, time, android.view.MotionEvent.ACTION_UP, fast.width * .75f, fast.height * .9f, 0)
                 fast.dispatchTouchEvent(event); event.recycle()
             }
             waitUntil { !badge.isShown && !fast.isShown }
