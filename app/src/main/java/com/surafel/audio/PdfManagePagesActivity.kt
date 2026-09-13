@@ -108,7 +108,7 @@ class PdfManagePagesActivity : PdfUiActivity() {
                 if (model.busy) return false
                 val a = from.bindingAdapterPosition; val b = to.bindingAdapterPosition
                 if (a < 0 || b < 0) return false
-                java.util.Collections.swap(model.pages, a, b); model.changed = true; adapter.notifyItemMoved(a, b); return true
+                model.pages.add(b, model.pages.removeAt(a)); model.changed = true; adapter.notifyItemMoved(a, b); return true
             }
             override fun onSwiped(holder: RecyclerView.ViewHolder, direction: Int) = Unit
             override fun clearView(recycler: RecyclerView, holder: RecyclerView.ViewHolder) { super.clearView(recycler, holder); adapter.notifyDataSetChanged() }

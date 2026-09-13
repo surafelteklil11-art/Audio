@@ -20,7 +20,7 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
     val turnLabel: String get() {
         val game = match ?: return ""
         val self = if (network) mySide else human
-        val opponent = if (network || mode == PlayMode.TWO_PLAYERS) "Alpha" else difficulty.opponent
+        val opponent = if (network || mode == PlayMode.TWO_PLAYERS) "Alpha" else difficulty.label
         return when (val result = game.result) {
             null -> if (game.position.turn == self) "Your turn" else opponent
             0 -> "Draw"
@@ -69,8 +69,8 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
             .putInt("human", human).putInt("design", design).putInt("tokens", tokenStyle).putBoolean("hints", hints).putBoolean("sound", sound).apply()
         changed()
     }
-    fun start(newMode: PlayMode) {
-        tournamentDay = null; matchId = java.util.UUID.randomUUID().toString()
+    fun start(newMode: PlayMode, dailyDay: String? = null) {
+        tournamentDay = dailyDay; matchId = java.util.UUID.randomUUID().toString()
         disconnect(); cancelThought(); mode = newMode
         match = CheckersMatch(rules); recorded = false; finishedAt = null; started = SystemClock.elapsedRealtime(); elapsedBefore = 0
         lastMove = null; hintPath = emptyList(); notice = ""; roomCode = ""; waiting = false
@@ -82,7 +82,7 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
         val saved = runCatching { JSONObject(prefs.getString("saved", "")!!) }.getOrNull()
         if (saved?.optString("tournamentDay") == daily.day && saved.optString("difficulty") == Difficulty.entries[daily.round].name && !saved.optBoolean("recorded") && resumeSaved()) return true
         rules = Rules.presets[1]; human = 1; difficulty = Difficulty.entries[daily.round]
-        start(PlayMode.SOLO); tournamentDay = daily.day; persist(); changed(); return true
+        start(PlayMode.SOLO, daily.day); return true
     }
     fun home() {
         persist(); disconnect(); cancelThought(); match = null; roomCode = ""; notice = ""; revision++; changed()

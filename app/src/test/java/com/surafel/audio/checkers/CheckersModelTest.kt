@@ -14,6 +14,20 @@ import org.robolectric.annotation.LooperMode
 @Config(sdk = [28])
 @LooperMode(LooperMode.Mode.PAUSED)
 class CheckersModelTest {
+    @Test fun dailyContextIsAvailableOnTheFirstGameRenderAndSurvivesResume() {
+        val app = RuntimeEnvironment.getApplication()
+        app.getSharedPreferences("checkers", 0).edit().clear().commit()
+        val model = CheckersModel(app)
+        try {
+            val days = mutableListOf<String?>()
+            model.attach { if (model.match != null) days.add(model.tournamentDay) }
+            assertTrue(model.startDaily()); assertTrue(days.isNotEmpty())
+            assertTrue(days.all { it == model.progress.today() })
+            model.home(); assertTrue(model.resumeSaved())
+            assertEquals(model.progress.today(), model.tournamentDay)
+            assertEquals("Your turn", model.turnLabel)
+        } finally { model.home(); model.detach() }
+    }
     @Test fun twoAppModelsExchangeTurnsAndFreezeAfterDisconnect() {
         val app = RuntimeEnvironment.getApplication()
         app.getSharedPreferences("checkers", 0).edit().clear().commit()

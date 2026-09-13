@@ -26,6 +26,23 @@ class CheckersWood : Drawable() {
     override fun setColorFilter(filter: ColorFilter?) { p.colorFilter = filter }
     @Deprecated("Deprecated in Android") override fun getOpacity() = PixelFormat.OPAQUE
 }
+/** Fine, non-repeating paper flecks for the reference-style cream panels. */
+class CheckersPaper : Drawable() {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun draw(canvas: Canvas) {
+        val rect = RectF(bounds); val radius = bounds.width() * .012f
+        paint.style = Paint.Style.FILL
+        paint.shader = LinearGradient(rect.left, rect.top, rect.right, rect.bottom, intArrayOf(0xFFE7DCBE.toInt(), 0xFFD8CAA7.toInt(), 0xFFE7DCBE.toInt()), null, Shader.TileMode.CLAMP)
+        canvas.drawRoundRect(rect, radius, radius, paint); paint.shader = null
+        val points = FloatArray(2400)
+        for (i in points.indices step 2) { points[i] = rect.left + ((i * 618.03398875) % 1000).toFloat() / 1000 * rect.width(); points[i+1] = rect.top + ((i * i * .754877666) % 1000).toFloat() / 1000 * rect.height() }
+        paint.color = 0x18635436; paint.strokeWidth = max(1f, rect.width() / 600f); canvas.drawPoints(points, paint)
+        paint.style = Paint.Style.STROKE; paint.color = 0x66FFF0CD; paint.strokeWidth = 1.5f; canvas.drawRoundRect(rect, radius, radius, paint)
+    }
+    override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+    override fun setColorFilter(filter: ColorFilter?) { paint.colorFilter = filter }
+    @Deprecated("Deprecated in Android") override fun getOpacity() = PixelFormat.TRANSLUCENT
+}
 class CheckersPreview(context: Context, private val design: Int = 0, private val token: Int? = null) : View(context) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c: Canvas) {

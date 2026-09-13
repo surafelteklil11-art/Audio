@@ -29,6 +29,22 @@ import org.junit.runner.RunWith
 import java.io.File
 
 object PdfTestScreenshots {
+    fun captureDisplay(name: String) {
+        val instrument = InstrumentationRegistry.getInstrumentation()
+        instrument.waitForIdleSync(); Thread.sleep(250)
+        val bitmap = instrument.uiAutomation.takeScreenshot() ?: error("Could not capture dialog")
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, "$name-api-${android.os.Build.VERSION.SDK_INT}.png")
+            put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/AudioPdfPreviews")
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)!!
+        context.contentResolver.openOutputStream(uri)!!.use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }; bitmap.recycle()
+        values.clear(); values.put(MediaStore.MediaColumns.IS_PENDING, 0); context.contentResolver.update(uri, values, null, null)
+    }
+
     fun <T : Activity> capture(name: String, scenario: ActivityScenario<T>) {
         val ready = CountDownLatch(1)
         lateinit var bitmap: Bitmap

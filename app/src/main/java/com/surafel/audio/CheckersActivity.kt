@@ -92,7 +92,7 @@ class CheckersActivity : AppCompatActivity() {
         content.removeAllViews()
         content.addView(CheckersLogoView(this), LinearLayout.LayoutParams(-1, -2))
         content.addView(label("Checkers", 38f, true).apply {
-            gravity = Gravity.CENTER; setTextColor(0xFFA8E0EA.toInt()); typeface = Typeface.create("serif", Typeface.BOLD_ITALIC)
+            gravity = Gravity.CENTER; setTextColor(0xFFE8D7AD.toInt()); typeface = Typeface.create("serif", Typeface.BOLD_ITALIC)
             setPadding(0, 0, 0, dp(12))
         }, spaced())
         content.addView(button("PLAY") { model.start(PlayMode.SOLO) }.apply {
@@ -317,7 +317,7 @@ class CheckersActivity : AppCompatActivity() {
     private fun showText(title: String, text: String) { showPanel(title, column().apply { addView(label(text, 16f)) }) }
     private fun showPanel(title: String, body: View) {
         dialog?.dismiss()
-        val root = column().apply { background = CalendarSurface(false); setPadding(dp(16), dp(14), dp(16), dp(14)) }
+        val root = column().apply { background = CheckersPaper(); setPadding(dp(16), dp(14), dp(16), dp(14)) }
         val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         row.addView(label(title, 22f, true), LinearLayout.LayoutParams(0, -2, 1f))
         row.addView(button("×") { dialog?.dismiss() }.apply { contentDescription = "Close" }, LinearLayout.LayoutParams(dp(48), dp(48)))
@@ -340,9 +340,9 @@ class CheckersActivity : AppCompatActivity() {
         this.text = text; textSize = size; setTextColor(brown); if (bold) typeface = Typeface.DEFAULT_BOLD
         setLineSpacing(dp(3).toFloat(), 1f)
     }
-    private fun cardText(text: String) = label(text, 14f).apply { background = CalendarSurface(false); setPadding(dp(12), dp(10), dp(12), dp(10)) }
+    private fun cardText(text: String) = label(text, 14f).apply { background = CheckersPaper(); setPadding(dp(12), dp(10), dp(12), dp(10)) }
     private fun button(text: String, action: () -> Unit) = label(text, 16f, true).apply {
-        gravity = Gravity.CENTER; background = CalendarSurface(false); minHeight = dp(52)
+        gravity = Gravity.CENTER; background = CheckersPaper(); minHeight = dp(52)
         setPadding(dp(10), dp(12), dp(10), dp(12)); isClickable = true; isFocusable = true; setOnClickListener { action() }
     }
     private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }

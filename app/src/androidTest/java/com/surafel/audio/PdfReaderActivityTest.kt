@@ -39,6 +39,28 @@ class PdfReaderActivityTest {
         val source = if (locked) tools.temp().also { tools.lock(file, it, "secret123") } else file
         return PdfLibrary(app).import("Reading guide.pdf") { source.inputStream() }
     }
+    @Test fun referenceSheetsExposeReadingSettingsAndTools() {
+        val source = entry()
+        ActivityScenario.launch<PdfReaderActivity>(Intent(app, PdfReaderActivity::class.java).putExtra("document_id", source.id)).use { scenario ->
+            lateinit var model: PdfReaderModel
+            scenario.onActivity { model = ViewModelProvider(it)[PdfReaderModel::class.java] }
+            waitUntil { !model.state.value!!.busy && model.state.value!!.count == 2 }
+            fun open(name: String) { scenario.onActivity { activity -> descendants(activity.window.decorView).first { it.isShown && it.contentDescription == name }.performClick() } }
+            fun texts(): List<String> {
+                fun nodes(n: android.view.accessibility.AccessibilityNodeInfo?): List<String> = if (n == null) emptyList() else listOfNotNull(n.text?.toString(), n.contentDescription?.toString()) + (0 until n.childCount).flatMap { nodes(n.getChild(it)) }
+                return nodes(InstrumentationRegistry.getInstrumentation().uiAutomation.rootInActiveWindow)
+            }
+            open("View mode")
+            waitUntil { "Reading direction" in texts() }
+            assertTrue(texts().containsAll(listOf("Horizontal", "Vertical", "Original", "Paper", "Eye comfort", "Invert", "Reflow", "Page by page", "Keep screen on")))
+            PdfTestScreenshots.captureDisplay("reader-view-mode")
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+            open("Tools"); waitUntil { "More tools" in texts() }
+            assertTrue(texts().containsAll(listOf("PDF to image", "Compress", "Merge PDF", "Split PDF", "Manage pages", "Extract pages", "Insert pages", "Delete pages")))
+            PdfTestScreenshots.captureDisplay("reader-tools-sheet")
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        }
+    }
     @Test fun pageManagerReordersRotatesInsertsAndExtractsWithoutChangingOriginal() {
         val source = entry(pages = 3); val library = PdfLibrary(app); val original = library.file(source).readBytes()
         ActivityScenario.launch<PdfManagePagesActivity>(Intent(app, PdfManagePagesActivity::class.java).putExtra("document_id", source.id)).use { scenario ->
