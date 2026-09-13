@@ -27,12 +27,17 @@ class FullscreenVideoActivity : AppCompatActivity() {
     private var session: VideoSession? = null
     private var panel: VideoPanel? = null
     private var resumeOnStart = false
+    private var pendingPopup = false
+    private var transferring = false
     private val changed: () -> Unit = {
         if (session?.owner == VideoOwner.POPUP) { panel?.dispose(); finish() }
-        else if (session?.owner == VideoOwner.FULLSCREEN) panel?.attachVideo()
+        else if (transferring && session?.owner == VideoOwner.FULLSCREEN) { transferring = false; panel?.attachVideo() }
     }
     private val overlayPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        if (Settings.canDrawOverlays(this)) openPopup()
+        if (Settings.canDrawOverlays(this)) {
+            pendingPopup = true
+            if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) resumePopupRequest()
+        }
         else Toast.makeText(this, "Popup needs Display over other apps permission", Toast.LENGTH_LONG).show()
     }
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,13 +80,16 @@ class FullscreenVideoActivity : AppCompatActivity() {
         val current = session ?: return
         if (current.owner != VideoOwner.FULLSCREEN || isFinishing) return
         if (resumeOnStart) { VideoSessions.play(current); resumeOnStart = false }
+        transferring = true
         VideoSessions.move(current.id, VideoOwner.TRANSFERRING)
         try { ContextCompat.startForegroundService(this, Intent(this, PopupVideoService::class.java).setAction(PopupVideoService.ADD).putExtra(PopupVideoService.SESSION, current.id)) }
         catch (_: RuntimeException) { VideoSessions.move(current.id, VideoOwner.FULLSCREEN); Toast.makeText(this, "Could not start popup. Please try again.", Toast.LENGTH_LONG).show() }
     }
+    private fun resumePopupRequest() { if (pendingPopup) { pendingPopup = false; window.decorView.post { if (!isFinishing) openPopup() } } }
+    override fun onResume() { super.onResume(); resumePopupRequest() }
     override fun onStart() { super.onStart(); session?.let { if (resumeOnStart && it.owner == VideoOwner.FULLSCREEN) VideoSessions.play(it) }; resumeOnStart = false }
     override fun onStop() {
-        session?.takeIf { it.owner == VideoOwner.FULLSCREEN }?.let { resumeOnStart = it.player.playWhenReady; VideoSessions.pause(it) }
+        session?.takeIf { it.owner == VideoOwner.FULLSCREEN }?.let { resumeOnStart = it.player.playWhenReady && it.player.playbackState != androidx.media3.common.Player.STATE_ENDED; VideoSessions.pause(it) }
         super.onStop()
     }
     override fun onSaveInstanceState(outState: Bundle) {
