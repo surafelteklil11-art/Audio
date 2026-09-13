@@ -23,6 +23,7 @@ class PdfScrollView(context: Context, private val model: PdfReaderModel) : Recyc
     private val slop = ViewConfiguration.get(context).scaledTouchSlop
     var onPositionChanged: ((Int) -> Unit)? = null
     var onSingleTap: (() -> Unit)? = null
+    var onDoubleTap: (() -> Unit)? = null
     var onReadingScroll: ((Boolean) -> Unit)? = null
     var onSettled: ((Int) -> Unit)? = null
     var night = false
@@ -105,14 +106,14 @@ class PdfScrollView(context: Context, private val model: PdfReaderModel) : Recyc
         }
         override fun onDoubleTap(e: MotionEvent): Boolean {
             cancelScrollTouch(e); zoomGesture = true
-            setZoom(if (zoom > 1f) 1f else 2.5f); return true
+            this@PdfScrollView.onDoubleTap?.invoke(); return true
         }
     })
     init {
         layoutManager = manager; adapter = sheets
         itemAnimator = null; setItemViewCacheSize(0); recycledViewPool.setMaxRecycledViews(0, 2)
         isVerticalScrollBarEnabled = false; isClickable = true
-        contentDescription = "PDF document. Swipe up or down to read; pinch to zoom; double tap to reset zoom."
+        contentDescription = "PDF document. Swipe up or down to read; pinch to zoom; double tap to save a screenshot."
         addOnScrollListener(object : OnScrollListener() {
             override fun onScrolled(view: RecyclerView, dx: Int, dy: Int) {
                 if (count > 0) { onPositionChanged?.invoke(currentPage); if (scrollState == SCROLL_STATE_IDLE) settle() }

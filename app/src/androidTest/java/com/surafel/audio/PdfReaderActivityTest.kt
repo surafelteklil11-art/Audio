@@ -170,6 +170,49 @@ class PdfReaderActivityTest {
             }
         }
     }
+    @Test fun doubleTapSavesOneScreenshotWithoutZoomingOrTogglingChrome() {
+        val collection = android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        fun screenshots(): Set<Long> {
+            val ids = mutableSetOf<Long>()
+            app.contentResolver.query(collection, arrayOf("_id"), "_display_name LIKE ?", arrayOf("AudioPDF_%"), null)?.use { cursor ->
+                while (cursor.moveToNext()) ids.add(cursor.getLong(0))
+            }
+            return ids
+        }
+        val before = screenshots()
+        try {
+            val entry = entry()
+            ActivityScenario.launch<PdfReaderActivity>(Intent(app, PdfReaderActivity::class.java).putExtra("document_id", entry.id)).use { scenario ->
+                lateinit var pages: PdfScrollView
+                scenario.onActivity { pages = descendants(it.window.decorView).filterIsInstance<PdfScrollView>().single() }
+                waitUntil { 0 in pages.loadedPages }
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+                var rowHeight = 0; var width = 0; var height = 0; var barsVisible = false
+                scenario.onActivity { activity ->
+                    rowHeight = pages.getChildAt(0).height
+                    width = activity.window.decorView.width; height = activity.window.decorView.height
+                    barsVisible = activity.window.decorView.findViewWithTag<View>("pdf-top-bar").isShown
+                    val time = android.os.SystemClock.uptimeMillis()
+                    for ((delay, action) in listOf(0L to 0, 20L to 1, 90L to 0, 110L to 1)) {
+                        val event = android.view.MotionEvent.obtain(time + if (delay >= 90) 90 else 0, time + delay, action, pages.width / 2f, pages.height / 2f, 0)
+                        pages.dispatchTouchEvent(event); event.recycle()
+                    }
+                }
+                waitUntil { (screenshots() - before).isNotEmpty() }
+                val created = screenshots() - before
+                assertEquals("One double tap saves one image", 1, created.size)
+                val uri = android.content.ContentUris.withAppendedId(collection, created.single())
+                val bitmap = app.contentResolver.openInputStream(uri)!!.use { android.graphics.BitmapFactory.decodeStream(it) }!!
+                assertEquals(width, bitmap.width); assertEquals(height, bitmap.height); bitmap.recycle()
+                scenario.onActivity { activity ->
+                    assertEquals("Double tap must not zoom", rowHeight, pages.getChildAt(0).height)
+                    assertEquals("Double tap must not toggle reader bars", barsVisible, activity.window.decorView.findViewWithTag<View>("pdf-top-bar").isShown)
+                }
+            }
+        } finally {
+            (screenshots() - before).forEach { app.contentResolver.delete(android.content.ContentUris.withAppendedId(collection, it), null, null) }
+        }
+    }
     @Test fun protectedDocumentAcceptsPasswordAfterWrongAttempt() {
         val entry = entry(true)
         ActivityScenario.launch<PdfReaderActivity>(Intent(app, PdfReaderActivity::class.java).putExtra("document_id", entry.id)).use { scenario ->

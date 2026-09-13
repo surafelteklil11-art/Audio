@@ -62,7 +62,7 @@ Literal dot-only collection names such as `...` are included, while hidden names
 
 ## Distraction-free reading
 
-Single-tap a reading page to hide or restore the reader bars and Android system bars. Reading controls hide after a short idle delay. While scrolling, only the page counter at the upper left and a draggable page thumb on the right remain; both disappear shortly after scrolling stops. Drag the thumb to seek across the entire PDF. Double-tap and pinch zoom remain separate from single-tap controls. Annotation, loading and error states retain their controls. TalkBack users retain controls without an idle timeout, and the thumb supports accessible page selection.
+Single-tap a reading page to hide or restore the reader bars and Android system bars. Reading controls hide after a short idle delay. While scrolling, only the page counter at the upper left and a draggable page thumb on the right remain; both disappear shortly after scrolling stops. Drag the thumb to seek across the entire PDF. Double-tap saves a screenshot; pinch zoom remains separate from single-tap controls. Annotation, loading and error states retain their controls. TalkBack users retain controls without an idle timeout, and the thumb supports accessible page selection.
 
 Native API 33/35 regressions cover tap toggling, scroll indicators, thumb seeking, idle hiding, and annotation controls after recreation.
 
@@ -71,3 +71,7 @@ Native API 33/35 regressions cover tap toggling, scroll indicators, thumb seekin
 Home uses the supplied Hi Read reference: a two-level gradient header, compact blue folder artwork and rows, consistent line icons, a smaller import button, and icon-over-label Home/Recent/Favorite/Tools navigation. The diamond opens an honest summary of included tools; there is no paid subscription state.
 
 The reader uses a single compact top bar with back, screen rotation, text search and options, and a five-action bottom bar: View mode, Edit, Manage, Share and Tools. Normal reading has no instruction strip or duplicate page navigation row. Edit retains pen, highlighting, signature, text, undo and save-copy actions. Manage includes page navigation and document details. Tools includes search, print and access to the full PDF tools screen. Page dimensions follow each PDF; document content, folder counts and file sizes are never replaced with reference-image data.
+
+## Double-tap screenshot
+
+Double-tap while reading to capture the visible reader window as a PNG in Gallery → Pictures/Audio PDF. Pinch remains the zoom gesture; single tap still toggles the reader bars. Captures include the visible document, zoom position, annotations and any currently visible reader controls. Saving runs off the UI thread, overlapping requests are ignored, and a toast reports success or failure. Android 10+ publishes through MediaStore without a storage permission prompt; Android 7–9 requests its legacy write permission only when taking a screenshot. Failed image writes are removed.

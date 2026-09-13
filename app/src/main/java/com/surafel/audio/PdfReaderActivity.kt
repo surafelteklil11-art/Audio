@@ -31,6 +31,10 @@ class PdfReaderActivity : PdfUiActivity() {
         }
     }
     private var passwordDialogShown = false
+    private var takingScreenshot = false
+    private val screenshotPermission = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) takeScreenshot() else toast("Allow storage access to save screenshots to Gallery")
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         model = ViewModelProvider(this)[PdfReaderModel::class.java]
@@ -60,11 +64,13 @@ class PdfReaderActivity : PdfUiActivity() {
         status.setOnClickListener { if (model.state.value!!.passwordRequired) prompt("Protected PDF", "Password", password = true) { key -> passwordDialogShown = false; model.open(id, key) } }
         root.addView(status)
         page = PdfPageView(this, model.marks).apply {
-            contentDescription = "PDF page. Pinch to zoom; drag to pan; double tap to reset zoom."
+            contentDescription = "PDF page. Pinch to zoom; drag to pan; double tap to save a screenshot."
+            onDoubleTap = { takeScreenshot() }
             night = settings.getBoolean("night_page", false)
             onMarksChanged = { status.text = "Unsaved marks · Save copy to keep them" }
         }
         pages = PdfScrollView(this, model).apply {
+            onDoubleTap = { takeScreenshot() }
             night = settings.getBoolean("night_page", false)
             onPositionChanged = { index -> if (visibility == View.VISIBLE) updatePageIndicators(index) }
             onSingleTap = { if (canHideReadingUi()) {
@@ -150,6 +156,20 @@ class PdfReaderActivity : PdfUiActivity() {
     }
     private fun goToPage() = prompt("Go to page", "Page number") { value ->
         value.toIntOrNull()?.let { navigate(it - 1) } ?: toast("Enter a page number")
+    }
+    private fun takeScreenshot() {
+        if (takingScreenshot || model.state.value!!.busy || model.state.value!!.count == 0 || isFinishing || isDestroyed) return
+        if (android.os.Build.VERSION.SDK_INT <= 28 && androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            screenshotPermission.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE); return
+        }
+        takingScreenshot = true; uiHandler.removeCallbacks(hideReadingUi)
+        PdfScreenshot.capture(this) { result ->
+            takingScreenshot = false
+            if (!isFinishing && !isDestroyed) {
+                toast(if (result.isSuccess) "Screenshot saved to Gallery · Pictures/Audio PDF" else result.exceptionOrNull()?.message ?: "Screenshot could not be saved")
+                scheduleReadingUiHide()
+            }
+        }
     }
     private fun editMenu() {
         uiHandler.removeCallbacks(hideReadingUi)

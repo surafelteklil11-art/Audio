@@ -16,6 +16,7 @@ class PdfPageView(context: Context, val marks: MutableList<PdfMark>) : View(cont
     var stamp = ""
     var inputEnabled = true
     var onMarksChanged: (() -> Unit)? = null
+    var onDoubleTap: (() -> Unit)? = null
     var night = false
     private var zoom = 1f; private var panX = 0f; private var panY = 0f
     private var lastX = 0f; private var lastY = 0f
@@ -25,7 +26,7 @@ class PdfPageView(context: Context, val marks: MutableList<PdfMark>) : View(cont
     })
     private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDown(e: MotionEvent) = true
-        override fun onDoubleTap(e: MotionEvent): Boolean { zoom = if (zoom > 1f) 1f else 2.5f; panX = 0f; panY = 0f; invalidate(); return true }
+        override fun onDoubleTap(e: MotionEvent): Boolean { this@PdfPageView.onDoubleTap?.invoke(); return true }
     })
     private fun target(): RectF {
         val b = bitmap ?: return RectF(); val fit = minOf(width.toFloat() / b.width, height.toFloat() / b.height) * .97f * zoom
