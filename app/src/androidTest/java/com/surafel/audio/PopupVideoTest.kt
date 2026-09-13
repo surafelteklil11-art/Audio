@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.Rect
 import android.net.Uri
 import android.os.SystemClock
 import android.provider.MediaStore
@@ -70,7 +72,7 @@ class PopupVideoTest {
             assertNull(VideoSessions.create(app, Uri.fromFile(video), "Seventh"))
             PopupVideoService.instance!!.windows.values.forEach { it.panel.showControls() }
         }
-        screenshot("video-six-popups")
+        verifySixVisibleWindows()
         val first = mainValue { VideoSessions.get(ids.first())!! }
         val second = mainValue { VideoSessions.get(ids[1])!! }
         val panel = mainValue { PopupVideoService.instance!!.windows[first.id]!!.panel }
@@ -147,11 +149,49 @@ class PopupVideoTest {
         throw AssertionError("Timed out waiting for native video state")
     }
     private fun shell(command: String) { instrumentation.uiAutomation.executeShellCommand(command).use { android.os.ParcelFileDescriptor.AutoCloseInputStream(it).readBytes() } }
+    private fun verifySixVisibleWindows() {
+        val rectangles = mainValue {
+            PopupVideoService.instance!!.windows.values.map { popup ->
+                val xy = IntArray(2); popup.panel.getLocationOnScreen(xy)
+                Rect(xy[0], xy[1], xy[0] + popup.panel.width, xy[1] + popup.panel.height)
+            }
+        }
+        android.util.Log.i("PopupVideoTest", "Visible popup rectangles: $rectangles")
+        assertEquals(6, rectangles.size)
+        rectangles.forEachIndexed { index, rect ->
+            assertFalse("Empty popup $index: $rect", rect.isEmpty)
+            rectangles.drop(index + 1).forEach { assertFalse("Overlapping popups: $rect and $it", Rect.intersects(rect, it)) }
+        }
+        // A decoder callback can precede SurfaceFlinger's presentation. Verify the actual
+        // display, including every overlay, instead of accepting player state alone.
+        val deadline = SystemClock.uptimeMillis() + 15000
+        var visible = 0
+        while (SystemClock.uptimeMillis() < deadline) {
+            val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: continue
+            visible = rectangles.count { rect ->
+                var colorful = 0
+                for (x in 1..9) for (y in 1..9) {
+                    val px = (rect.left + rect.width() * x / 10).coerceIn(0, bitmap.width - 1)
+                    val py = (rect.top + rect.height() * y / 10).coerceIn(0, bitmap.height - 1)
+                    val hsv = FloatArray(3); Color.colorToHSV(bitmap.getPixel(px, py), hsv)
+                    if (hsv[1] > .65f && hsv[2] > .6f) colorful++
+                }
+                colorful > 30
+            }
+            if (visible == 6) { saveScreenshot("video-six-popups", bitmap); bitmap.recycle(); return }
+            saveScreenshot("video-six-popups-presentation-$visible", bitmap); bitmap.recycle()
+            SystemClock.sleep(500)
+        }
+        throw AssertionError("Only $visible of six videos were visible on the actual display; rectangles=$rectangles")
+    }
     private fun screenshot(name: String) {
         val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: throw AssertionError("No display screenshot")
+        saveScreenshot(name, bitmap); bitmap.recycle()
+    }
+    private fun saveScreenshot(name: String, bitmap: Bitmap) {
         val values = ContentValues().apply { put(MediaStore.Images.Media.DISPLAY_NAME, "$name.png"); put(MediaStore.Images.Media.MIME_TYPE, "image/png"); put(MediaStore.Images.Media.RELATIVE_PATH, "Download/AudioPdfPreviews"); put(MediaStore.Images.Media.IS_PENDING, 1) }
         val uri = app.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)!!
         app.contentResolver.openOutputStream(uri)!!.use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        app.contentResolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null); bitmap.recycle()
+        app.contentResolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
     }
 }
