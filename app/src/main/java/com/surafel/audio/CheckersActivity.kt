@@ -227,7 +227,7 @@ class CheckersActivity : AppCompatActivity() {
     private fun settings() {
         val body = column()
         fun setting(title: String, subtitle: String = "", checked: Boolean? = null, change: ((Boolean) -> Unit)? = null, task: (() -> Unit)? = null) {
-            val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), dp(8), dp(8), dp(8)); minHeight = dp(76) }
+            val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), dp(8), dp(8), dp(8)); minimumHeight = dp(76) }
             val text = column(); text.addView(label(title, 23f, true))
             if (subtitle.isNotEmpty()) text.addView(label(subtitle, 15f).apply { setTextColor(0xFF8B826D.toInt()) })
             row.addView(text, LinearLayout.LayoutParams(0, -2, 1f))
