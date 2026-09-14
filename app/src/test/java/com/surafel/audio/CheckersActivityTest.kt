@@ -69,6 +69,24 @@ class CheckersActivityTest {
             assertEquals(0, root.findViewWithTag<CheckersBoardView>("checkers-board").position.ply)
         }
     }
+    @Test fun homeHasFiveIconActionsAndPlayOffersNoLeftYesRight() {
+        Robolectric.buildActivity(CheckersActivity::class.java).use { c ->
+            val activity = c.setup().visible().get(); val root = activity.findViewById<ViewGroup>(android.R.id.content)
+            val bottom = root.findViewWithTag<ViewGroup>("checkers-home-bottom")
+            assertEquals(listOf("Settings", "Stats", "Nearby", "2 Players", "Design"), (0 until bottom.childCount).map { (bottom.getChildAt(it) as TextView).text.toString() })
+            assertTrue((0 until bottom.childCount).all { (bottom.getChildAt(it) as TextView).compoundDrawables[1] != null })
+            assertNull(root.findViewWithTag<View>("checkers-continue"))
+            assertFalse(root.findViewWithTag<TextView>("checkers-rules").text.contains("×"))
+            root.findViewWithTag<View>("checkers-solo").performClick()
+            activity.onBackPressedDispatcher.onBackPressed()
+            root.findViewWithTag<View>("checkers-solo").performClick()
+            val dialog = ShadowAlertDialog.getLatestAlertDialog(); val panel = dialog.findViewById<ViewGroup>(android.R.id.content)
+            val no = panel.findViewWithTag<View>("checkers-resume-no"); val yes = panel.findViewWithTag<View>("checkers-resume-yes")
+            val row = no.parent as ViewGroup
+            assertSame(row, yes.parent); assertSame(no, row.getChildAt(0)); assertSame(yes, row.getChildAt(1))
+            no.performClick(); assertNotNull(root.findViewWithTag<View>("checkers-board"))
+        }
+    }
     @Test fun savedSoloGameAndDifficultySurviveClosingActivity() {
         Robolectric.buildActivity(CheckersActivity::class.java).use { c ->
             val root = c.setup().visible().get().findViewById<ViewGroup>(android.R.id.content)
@@ -80,7 +98,8 @@ class CheckersActivityTest {
         }
         Robolectric.buildActivity(CheckersActivity::class.java).use { c ->
             val root = c.setup().visible().get().findViewById<ViewGroup>(android.R.id.content)
-            root.findViewWithTag<View>("checkers-continue").performClick()
+            root.findViewWithTag<View>("checkers-solo").performClick()
+            ShadowAlertDialog.getLatestAlertDialog().findViewById<ViewGroup>(android.R.id.content).findViewWithTag<View>("checkers-resume-yes").performClick()
             assertTrue(root.findViewWithTag<TextView>("checkers-game-info").contentDescription.contains("Expert"))
             assertEquals(0, root.findViewWithTag<CheckersBoardView>("checkers-board").position.ply)
         }

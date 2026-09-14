@@ -10,6 +10,21 @@ class CheckersEngineTest {
     private fun position(vararg pieces: Pair<Int, Int>, turn: Int = 1, size: Int = 8, quiet: Int = 0): Position {
         val b = MutableList(size * size) { 0 }; pieces.forEach { b[it.first] = it.second }; return Position(b, turn, quiet)
     }
+    @Test fun everyRulePresetSupportsAllThreeBoardSizes() {
+        for (size in listOf(6, 8, 10)) for (preset in Rules.presets) {
+            val rules = preset.copy(size = size)
+            var position = CheckersEngine.initial(rules)
+            assertEquals(size * size, position.board.size)
+            assertEquals(position.board.count { it == 1 }, position.board.count { it == -1 })
+            assertTrue(CheckersEngine.legal(position, rules).isNotEmpty())
+            repeat(6) {
+                val moves = CheckersEngine.legal(position, rules)
+                if (moves.isNotEmpty()) position = CheckersEngine.play(position, rules, moves.first())
+                assertTrue(CheckersEngine.valid(position, rules))
+            }
+            assertEquals(rules, CheckersCodec.rules(CheckersCodec.rules(rules)))
+        }
+    }
     @Test fun presetsHaveCorrectPieceCountsAndFirstPlayer() {
         Rules.presets.forEach { r ->
             val p = CheckersEngine.initial(r)

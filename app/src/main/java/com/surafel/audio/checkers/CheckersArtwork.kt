@@ -65,9 +65,19 @@ class CheckersIcon(private val kind: String, private val tint: Int = 0xFFD6C6A4.
             "Settings" -> { for(i in 0..7) { c.save(); c.rotate(i*45f,24f,24f); c.drawRect(19f,1f,29f,12f,p); c.restore() }; c.drawCircle(24f,24f,17f,p); p.color=0xFF68442E.toInt(); c.drawCircle(24f,24f,8f,p) }
             "Stats" -> { c.drawRect(4f,25f,13f,44f,p); c.drawRect(19f,14f,28f,44f,p); c.drawRect(34f,3f,43f,44f,p) }
             "Design" -> { p.style=Paint.Style.STROKE; c.drawRect(3f,3f,45f,45f,p); p.style=Paint.Style.FILL; for(r in 0..3) for(col in 0..3) if((r+col)%2==0)c.drawRect(4f+col*10,4f+r*10,14f+col*10,14f+r*10,p) }
-            "Nearby" -> { p.color=0xFF4F9EDA.toInt(); c.drawCircle(24f,24f,22f,p); p.color=0xFFE7EDDF.toInt(); path(4f,17f,16f,6f,22f,10f,18f,22f,30f,26f,25f,40f,15f,38f,14f,27f); path(31f,4f,43f,16f,37f,21f,30f,14f) }
+            "Nearby" -> {
+                p.style=Paint.Style.STROKE; p.strokeWidth=2.8f
+                c.drawRoundRect(2f,15f,17f,44f,2f,2f,p); c.drawRoundRect(31f,15f,46f,44f,2f,2f,p)
+                c.drawLine(8f,39f,11f,39f,p); c.drawLine(37f,39f,40f,39f,p)
+                c.drawArc(13f,2f,35f,25f,210f,120f,false,p); c.drawArc(19f,9f,29f,19f,210f,120f,false,p)
+                c.drawLine(20f,29f,28f,29f,p); c.drawLine(25f,26f,28f,29f,p); c.drawLine(20f,29f,23f,32f,p)
+            }
             "Delete" -> { c.drawRect(10f,13f,38f,44f,p); c.drawRoundRect(6f,6f,42f,11f,2f,2f,p); c.drawRect(18f,2f,30f,6f,p) }
-            "2 Players" -> { c.drawCircle(16f,12f,7f,p); c.drawCircle(33f,12f,7f,p); c.drawRoundRect(4f,23f,44f,44f,8f,8f,p) }
+            "2 Players" -> {
+                c.drawOval(7f,2f,21f,20f,p); c.drawOval(27f,2f,41f,20f,p)
+                path(3f,28f,13f,21f,13f,16f,19f,16f,21f,22f,27f,22f,29f,16f,35f,16f,35f,21f,45f,28f,45f,46f,3f,46f)
+                p.color=0xFF67472F.toInt(); p.typeface=Typeface.DEFAULT_BOLD; p.textSize=18f; p.textAlign=Paint.Align.CENTER; c.drawText("VS",24f,43f,p)
+            }
             else -> { p.typeface=Typeface.DEFAULT_BOLD; p.textSize=44f; p.textAlign=Paint.Align.CENTER; c.drawText("?",24f,40f,p) }
         }; c.restoreToCount(saved)
     }

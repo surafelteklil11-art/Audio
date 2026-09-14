@@ -38,6 +38,9 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
     var match: CheckersMatch? = null; private set
     var mode = PlayMode.SOLO; private set
     var rules = runCatching { CheckersCodec.rules(JSONObject(prefs.getString("rules", "")!!)) }.getOrDefault(Rules.presets[1])
+    var boardSize = prefs.getInt("board_size", rules.size).takeIf { it in listOf(6, 8, 10) } ?: 8
+    var playAs = prefs.getInt("play_as", prefs.getInt("human", 1)).coerceIn(-1, 1)
+    var music = prefs.getBoolean("music", false)
     var difficulty = runCatching { Difficulty.valueOf(prefs.getString("difficulty", "MEDIUM")!!) }.getOrDefault(Difficulty.MEDIUM)
     var human = prefs.getInt("human", 1).let { if (it == -1) -1 else 1 }
     var design = prefs.getInt("design", 0).coerceIn(0, 7)
@@ -63,15 +66,27 @@ class CheckersModel(app: Application) : AndroidViewModel(app) {
     val canMove get() = match?.let { it.result == null && !thinking && !waiting &&
         (!network || connected && it.position.turn == mySide) && (mode != PlayMode.SOLO || it.position.turn == human) } ?: false
     val hasSaved get() = prefs.contains("saved")
+    val hasUnfinishedSaved: Boolean get() = runCatching {
+        val saved = JSONObject(prefs.getString("saved", "")!!)
+        val mode = PlayMode.valueOf(saved.getString("mode"))
+        val rules = CheckersCodec.rules(saved.getJSONObject("rules")); val history = saved.getJSONArray("history")
+        require(history.length() in 1..256)
+        val daily = saved.optString("tournamentDay")
+        !saved.optBoolean("recorded") && (daily.isEmpty() || daily == progress.today()) &&
+            mode in listOf(PlayMode.SOLO, PlayMode.TWO_PLAYERS) &&
+            CheckersMatch(rules, MutableList(history.length()) { CheckersCodec.position(history.getJSONObject(it), rules) }).result == null
+    }.getOrDefault(false)
 
     fun saveOptions() {
         prefs.edit().putString("rules", CheckersCodec.rules(rules).toString()).putString("difficulty", difficulty.name)
+            .putInt("board_size", boardSize).putInt("play_as", playAs).putBoolean("music", music)
             .putInt("human", human).putInt("design", design).putInt("tokens", tokenStyle).putBoolean("hints", hints).putBoolean("sound", sound).apply()
         changed()
     }
     fun start(newMode: PlayMode, dailyDay: String? = null) {
         tournamentDay = dailyDay; matchId = java.util.UUID.randomUUID().toString()
         disconnect(); cancelThought(); mode = newMode
+        if (dailyDay == null) { rules = rules.copy(size = boardSize); human = if (playAs == 0) if (kotlin.random.Random.nextBoolean()) 1 else -1 else playAs }
         match = CheckersMatch(rules); recorded = false; finishedAt = null; started = SystemClock.elapsedRealtime(); elapsedBefore = 0
         lastMove = null; hintPath = emptyList(); notice = ""; roomCode = ""; waiting = false
         revision++; persist(); changed(); requestAi()

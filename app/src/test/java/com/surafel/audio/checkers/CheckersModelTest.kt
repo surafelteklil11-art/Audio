@@ -14,6 +14,21 @@ import org.robolectric.annotation.LooperMode
 @Config(sdk = [28])
 @LooperMode(LooperMode.Mode.PAUSED)
 class CheckersModelTest {
+    @Test fun boardSizeIsIndependentAndRandomSideIsRetainedWhenResuming() {
+        val app = RuntimeEnvironment.getApplication()
+        app.getSharedPreferences("checkers", 0).edit().clear().commit()
+        val model = CheckersModel(app)
+        try {
+            model.boardSize = 6; model.playAs = 0; model.rules = Rules.presets.first(); model.saveOptions()
+            model.start(PlayMode.TWO_PLAYERS)
+            assertEquals(6, model.match!!.rules.size); assertEquals("International", model.match!!.rules.name)
+            assertTrue(model.human in listOf(-1, 1)); val side = model.human
+            assertTrue(model.hasUnfinishedSaved)
+            model.home(); assertTrue(model.resumeSaved()); assertEquals(side, model.human); assertEquals(0, model.playAs)
+            model.match!!.history.add(Position(List(36) { 0 }, turn = 1))
+            model.home(); assertFalse(model.hasUnfinishedSaved)
+        } finally { model.home(); model.detach() }
+    }
     @Test fun dailyContextIsAvailableOnTheFirstGameRenderAndSurvivesResume() {
         val app = RuntimeEnvironment.getApplication()
         app.getSharedPreferences("checkers", 0).edit().clear().commit()

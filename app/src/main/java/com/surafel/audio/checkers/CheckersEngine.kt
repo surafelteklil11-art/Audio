@@ -13,7 +13,7 @@ data class Rules(
     val orthogonal: Boolean = false, val crown: Crown = Crown.END,
     val kingPriority: Boolean = false, val first: Int = 1
 ) {
-    init { require(size == 8 || size == 10); require(first == 1 || first == -1); require(!orthogonal || size == 8) }
+    init { require(size in listOf(6, 8, 10)); require(first == 1 || first == -1) }
     companion object {
         val presets = listOf(
             Rules(), Rules("Brazilian", 8),
@@ -35,7 +35,7 @@ object CheckersEngine {
         val n = r.size
         return Position(List(n * n) { i ->
             val row = i / n; val col = i % n
-            if (r.orthogonal) when (row) { 1, 2 -> -1; n - 3, n - 2 -> 1; else -> 0 }
+            if (r.orthogonal) when (row) { in 1 until n / 2 - 1 -> -1; in n / 2 + 1 until n - 1 -> 1; else -> 0 }
             else if ((row + col) % 2 == 0) 0 else when {
                 row < n / 2 - 1 -> -1
                 row >= n - (n / 2 - 1) -> 1

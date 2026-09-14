@@ -35,6 +35,7 @@ class CheckersActivity : AppCompatActivity() {
     private var renderedRevision = -1
     private var renderedMatch: CheckersMatch? = null
     private var dialog: AlertDialog? = null
+    private val gameMusic by lazy { CheckersMusic(this) }
     private val handler = Handler(Looper.getMainLooper())
     private val brown = Color.rgb(66, 39, 23)
     private val cream = Color.rgb(250, 235, 198)
@@ -58,9 +59,9 @@ class CheckersActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this) { if (model.match != null) leaveGame() else finish() }
         renderHome()
     }
-    override fun onStart() { super.onStart(); model.attach { render() }; handler.post(ticker) }
-    override fun onStop() { handler.removeCallbacks(ticker); model.detach(); board?.stopMotion(); super.onStop() }
-    override fun onDestroy() { dialog?.dismiss(); dialog = null; super.onDestroy() }
+    override fun onStart() { super.onStart(); model.attach { render() }; handler.post(ticker); gameMusic.setEnabled(model.music) }
+    override fun onStop() { gameMusic.setEnabled(false); handler.removeCallbacks(ticker); model.detach(); board?.stopMotion(); super.onStop() }
+    override fun onDestroy() { dialog?.dismiss(); dialog = null; gameMusic.close(); super.onDestroy() }
     private fun render() {
         if (model.match == null) { renderHome(); return }
         if (!gameScreen) buildGame()
@@ -87,34 +88,46 @@ class CheckersActivity : AppCompatActivity() {
         undo?.apply { isEnabled = !model.network && result == null && game.history.size > (if (model.mode == PlayMode.SOLO && game.position.turn == model.human) 2 else 1); alpha = if (isEnabled) 1f else .45f }
         hint?.apply { isEnabled = !model.network && model.canMove && !b.isAnimating && b.selected.size < 2; alpha = if (isEnabled) 1f else .45f }
     }
+    private fun play() {
+        if (!model.hasUnfinishedSaved) { model.start(PlayMode.SOLO); return }
+        val body = LinearLayout(this).apply { layoutDirection = View.LAYOUT_DIRECTION_LTR }
+        body.addView(button("No") { dialog?.dismiss(); model.start(PlayMode.SOLO) }.apply { tag = "checkers-resume-no" }, weight())
+        body.addView(button("Yes") { dialog?.dismiss(); if (!model.resumeSaved()) model.start(PlayMode.SOLO) }.apply { tag = "checkers-resume-yes" }, weight())
+        showPanel("Continue saved game?", body)
+    }
     private fun renderHome() {
         gameScreen = false; board?.stopMotion(); board = null; clock = null; renderedRevision = -1; renderedMatch = null
-        content.removeAllViews()
+        content.removeAllViews(); content.setPadding(dp(24), dp(12), dp(24), dp(12))
         content.addView(CheckersLogoView(this), LinearLayout.LayoutParams(-1, -2))
         content.addView(label("Checkers", 38f, true).apply {
             gravity = Gravity.CENTER; setTextColor(0xFFE8D7AD.toInt()); typeface = Typeface.create("serif", Typeface.BOLD_ITALIC)
-            setPadding(0, 0, 0, dp(12))
+            setPadding(0, 0, 0, dp(18))
         }, spaced())
-        content.addView(button("PLAY") { model.start(PlayMode.SOLO) }.apply {
-            tag = "checkers-solo"; background = GradientDrawable().apply { setColor(0xFFCCDA75.toInt()); cornerRadius = dp(12).toFloat() }; textSize = 23f
+        content.addView(button("PLAY") { play() }.apply {
+            tag = "checkers-solo"; background = GradientDrawable().apply { setColor(0xFFCCDA75.toInt()); cornerRadius = dp(8).toFloat() }; textSize = 23f
         }, spaced())
-        if (model.hasSaved) content.addView(button("Continue saved game") { model.resumeSaved() }.apply { tag = "checkers-continue" }, spaced())
-        content.addView(button("Rules: ${model.rules.name} · ${model.rules.size}×${model.rules.size}") { chooseRules() }.apply { tag = "checkers-rules" }, spaced())
+        content.addView(button("Rules: ${model.rules.name}") { chooseRules() }.apply { tag = "checkers-rules" }, spaced())
         content.addView(button("Difficulty: ${model.difficulty.label}") { chooseDifficulty() }.apply { tag = "checkers-difficulty" }, spaced())
-        content.addView(button("2 PLAYERS · One phone") { model.start(PlayMode.TWO_PLAYERS) }.apply { tag = "checkers-local" }, spaced())
-        content.addView(button("NEARBY · Another phone") { nearby() }.apply {
-            tag = "checkers-nearby"; background = GradientDrawable().apply { setColor(0xFF337D70.toInt()); cornerRadius = dp(12).toFloat() }; setTextColor(Color.WHITE)
+        content.addView(button("DAILY TOURNAMENT") { tournamentPanel() }.apply {
+            tag = "checkers-tournament"; background = GradientDrawable().apply { setColor(0xFF337D70.toInt()); cornerRadius = dp(8).toFloat() }; setTextColor(Color.WHITE)
         }, spaced())
-        val row = LinearLayout(this).apply { gravity = Gravity.CENTER }
-        row.addView(button("Settings") { settings() }, weight())
-        row.addView(button("Stats") { statsPanel() }, weight())
-        row.addView(button("Design") { designs() }, weight())
-        content.addView(row, spaced())
         if (model.notice.isNotEmpty()) content.addView(cardText(model.notice), spaced())
-        content.addView(button("Daily Tournament") { tournamentPanel() }.apply { tag = "checkers-tournament" }, spaced())
+        content.addView(Space(this), LinearLayout.LayoutParams(1, 0, 1f))
+        val bottom = LinearLayout(this).apply { gravity = Gravity.CENTER; tag = "checkers-home-bottom" }
+        fun item(name: String, tagName: String, task: () -> Unit) {
+            bottom.addView(iconButton(name, task).apply {
+                text = name; textSize = 11f; setTextColor(0xFFD6C6A4.toInt()); compoundDrawablePadding = dp(5); tag = tagName
+            }, LinearLayout.LayoutParams(0, dp(76), 1f))
+        }
+        item("Settings", "checkers-settings") { settings() }
+        item("Stats", "checkers-stats") { statsPanel() }
+        item("Nearby", "checkers-nearby") { nearby() }
+        item("2 Players", "checkers-local") { model.start(PlayMode.TWO_PLAYERS) }
+        item("Design", "checkers-design") { designs() }
+        content.addView(bottom, LinearLayout.LayoutParams(-1, dp(88)))
     }
     private fun buildGame() {
-        gameScreen = true; content.removeAllViews()
+        gameScreen = true; content.removeAllViews(); content.setPadding(dp(5), dp(12), dp(5), dp(12))
         val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         header.addView(iconButton("Home") { leaveGame() }, LinearLayout.LayoutParams(dp(64), dp(56)))
         clock = label("00:00", 21f, true).apply { gravity = Gravity.CENTER; setTextColor(cream); typeface = Typeface.MONOSPACE }
@@ -172,8 +185,8 @@ class CheckersActivity : AppCompatActivity() {
     }
     private fun chooseRules() {
         val body = column()
-        Rules.presets.forEach { r -> body.addView(button("${if (model.rules == r) "● " else ""}${r.name} · ${r.size}×${r.size}") {
-            model.rules = r; model.saveOptions(); dialog?.dismiss()
+        Rules.presets.forEach { r -> body.addView(button("${if (model.rules.name == r.name) "● " else ""}${r.name}") {
+            model.rules = r.copy(size = model.boardSize); model.saveOptions(); dialog?.dismiss()
         }, spaced()) }
         body.addView(button("Customize rules…") { customRules() }, spaced())
         body.addView(label("Presets use their standard movement and capture patterns. Casual draw rule: three repetitions or 40 moves each without a capture or a man moving. Tournament endgame exceptions are not applied.", 13f), spaced())
@@ -182,11 +195,6 @@ class CheckersActivity : AppCompatActivity() {
     private fun customRules() {
         val r = model.rules
         val body = column()
-        if (!r.orthogonal) body.addView(button("Board size: ${r.size}×${r.size}") {
-            choose("Board size", listOf("8×8", "10×10"), if (r.size == 8) 0 else 1) {
-                model.rules = r.copy(name = "Custom", size = if (it == 0) 8 else 10); model.saveOptions(); customRules()
-            }
-        }, spaced())
         body.addView(button("Kings: ${r.kings.name.replace('_', ' ')}") {
             choose("Kings", listOf("Flying kings", "Short kings", "Flying: land directly after capture"), r.kings.ordinal) {
                 model.rules = r.copy(name = "Custom", kings = Kings.entries[it]); model.saveOptions(); customRules()
@@ -203,13 +211,41 @@ class CheckersActivity : AppCompatActivity() {
         body.addView(label("Promotion: ${r.crown.name}. Movement: ${if (r.orthogonal) "orthogonal" else "diagonal"}. Choose a preset to reset all rules.", 14f), spaced())
         showPanel("Custom rules", body)
     }
+    private fun settingsChoice(title: String, choices: List<String>, selected: Int, apply: (Int) -> Unit) {
+        val body = column()
+        choices.forEachIndexed { index, name ->
+            val option = RadioButton(this).apply {
+                text = name; textSize = 23f; typeface = Typeface.DEFAULT_BOLD; setTextColor(brown)
+                buttonTintList = android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(0xFF92AF3B.toInt(), 0xFF8B826D.toInt()))
+                isChecked = index == selected; minHeight = dp(64); setPadding(dp(12), dp(10), dp(12), dp(10)); compoundDrawablePadding = dp(12)
+                setOnClickListener { apply(index); model.saveOptions(); settings() }
+            }
+            body.addView(option, LinearLayout.LayoutParams(-1, dp(68)))
+        }
+        showPanel(title, body)
+    }
     private fun settings() {
         val body = column()
-        body.addView(toggle("Play as Black against the app", model.human == -1) { model.human = if (it) -1 else 1; model.saveOptions() }, spaced())
-        body.addView(toggle("Help · Highlight available moves", model.hints) { model.hints = it; model.saveOptions() }, spaced())
-        body.addView(toggle("Sound · Use system touch sounds", model.sound) { model.sound = it; model.saveOptions() }, spaced())
-        body.addView(button("Tutorial") { tutorial() }, spaced())
-        body.addView(label("Music continues through Audio's player. All board and token designs are available.", 14f), spaced())
+        fun setting(title: String, subtitle: String = "", checked: Boolean? = null, change: ((Boolean) -> Unit)? = null, task: (() -> Unit)? = null) {
+            val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), dp(8), dp(8), dp(8)); minHeight = dp(76) }
+            val text = column(); text.addView(label(title, 23f, true))
+            if (subtitle.isNotEmpty()) text.addView(label(subtitle, 15f).apply { setTextColor(0xFF8B826D.toInt()) })
+            row.addView(text, LinearLayout.LayoutParams(0, -2, 1f))
+            if (checked != null) row.addView(androidx.appcompat.widget.SwitchCompat(this).apply {
+                contentDescription = title; isChecked = checked; minWidth = dp(52)
+                thumbTintList = android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(0xFFE7EDB7.toInt(), 0xFFC5C3B7.toInt()))
+                trackTintList = android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(0xFF92AD38.toInt(), 0xFF8D8878.toInt()))
+                setOnCheckedChangeListener { _, value -> change?.invoke(value); model.saveOptions() }
+            }, LinearLayout.LayoutParams(dp(58), dp(48)))
+            if (task != null) { row.isClickable = true; row.isFocusable = true; row.contentDescription = title; row.setOnClickListener { task() } }
+            body.addView(row, LinearLayout.LayoutParams(-1, dp(78)))
+        }
+        setting("Board Size", "${model.boardSize}x${model.boardSize}", task = { settingsChoice("Board Size", listOf("6x6", "8x8", "10x10"), listOf(6, 8, 10).indexOf(model.boardSize)) { model.boardSize = listOf(6, 8, 10)[it]; model.rules = model.rules.copy(size = model.boardSize) } })
+        setting("Play as", when (model.playAs) { 1 -> "White"; -1 -> "Black"; else -> "Random" }, task = { settingsChoice("Play as", listOf("White", "Black", "Random"), listOf(1, -1, 0).indexOf(model.playAs)) { model.playAs = listOf(1, -1, 0)[it] } })
+        setting("Help", "Highlight available moves", model.hints, { model.hints = it })
+        setting("Sound", checked = model.sound, change = { model.sound = it })
+        setting("Music", checked = model.music, change = { model.music = it; gameMusic.setEnabled(it) })
+        setting("Tutorial", "Learn the basics", task = { tutorial() })
         showPanel("Settings", body)
     }
     private fun designs() {
