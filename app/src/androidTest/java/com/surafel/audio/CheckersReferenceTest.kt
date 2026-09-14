@@ -23,7 +23,7 @@ class CheckersReferenceTest {
             fun panelClick(name: String) {
                 scenario.onActivity { activity ->
                     val field = CheckersActivity::class.java.getDeclaredField("dialog").apply { isAccessible = true }
-                    val dialog = field.get(activity) as androidx.appcompat.app.AlertDialog
+                    val dialog = field.get(activity) as android.app.AlertDialog
                     descendants(dialog.window!!.decorView).first { it.contentDescription == name || it is android.widget.RadioButton && it.text.toString() == name }.performClick()
                 }; instrument.waitForIdleSync()
             }
