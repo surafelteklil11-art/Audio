@@ -95,6 +95,11 @@ class PdfReaderActivityTest {
                 }
                 assertEquals(listOf(2, 1), counts)
             }; zip.delete()
+            waitUntil {
+                var ready = false
+                scenario.onActivity { activity -> ready = descendants(activity.window.decorView).filterIsInstance<android.widget.ImageView>().count { it.drawable is android.graphics.drawable.BitmapDrawable } >= 3 }
+                ready
+            }
             PdfTestScreenshots.capture("reader-manage-pages", scenario)
         }
     }

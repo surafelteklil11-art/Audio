@@ -214,7 +214,10 @@ class CheckersActivity : AppCompatActivity() {
     }
     private fun designs() {
         val body = column()
-        body.addView(label("${model.progress.stars} ★", 42f, true).apply { gravity = Gravity.CENTER }, spaced())
+        body.addView(label("${model.progress.stars} ★", 42f, true).apply {
+            gravity = Gravity.CENTER
+            text = android.text.SpannableString(text).apply { setSpan(android.text.style.ForegroundColorSpan(0xFFFFC72C.toInt()), length - 1, length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
+        }, spaced())
         body.addView(label("Collect stars by winning games", 16f).apply { gravity = Gravity.CENTER; typeface = Typeface.create("sans-serif", Typeface.ITALIC) }, spaced())
         fun grid(title: String, names: List<String>, selected: Int, token: Boolean) {
             body.addView(label(title, 23f, true).apply { gravity = Gravity.CENTER }, spaced())
@@ -227,8 +230,8 @@ class CheckersActivity : AppCompatActivity() {
                         setOnClickListener { if (token) model.tokenStyle = index else model.design = index; model.saveOptions(); designs() }
                     }
                     cell.addView(CheckersPreview(this, index.coerceAtMost(7), if (token) index else null), LinearLayout.LayoutParams(-1, dp(68)))
-                    cell.addView(label(name, 10f).apply { gravity = Gravity.CENTER; setLines(2) }, LinearLayout.LayoutParams(-1, dp(30)))
-                    line.addView(cell, LinearLayout.LayoutParams(0, dp(104), 1f))
+                    androidx.appcompat.widget.TooltipCompat.setTooltipText(cell, name)
+                    line.addView(cell, LinearLayout.LayoutParams(0, dp(74), 1f))
                 }; body.addView(line, spaced())
             }
         }

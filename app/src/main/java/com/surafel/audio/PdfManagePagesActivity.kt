@@ -41,9 +41,17 @@ class PdfManagePagesModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun thumbnail(page: Page, active: java.util.concurrent.atomic.AtomicBoolean, callback: (Bitmap?) -> Unit) {
+        val snapshot = page.copy()
         worker.execute {
             if (closed || !active.get()) return@execute
-            val image = runCatching { page.file?.let { NativePdf(it).use { pdf -> pdf.render(page.index, 360) } } }.getOrNull()
+            val image = runCatching { snapshot.file?.let { NativePdf(it).use { pdf ->
+                val original = pdf.render(snapshot.index, 360)
+                if (snapshot.rotation == 0) original else {
+                    val rotated = Bitmap.createBitmap(original, 0, 0, original.width, original.height, android.graphics.Matrix().apply { postRotate(snapshot.rotation.toFloat()) }, true)
+                    if (rotated !== original) original.recycle()
+                    rotated
+                }
+            } } }.getOrNull()
             main.post { if (closed || !active.get()) image?.recycle() else callback(image) }
         }
     }
@@ -99,11 +107,11 @@ class PdfManagePagesActivity : PdfUiActivity() {
         val root = column().apply { fitsSystemWindows = true; setBackgroundColor(card) }; setContentView(root)
         val bar = row().apply { setBackgroundColor(paper) }
         bar.addView(iconAction("back", "Back to reader") { onBackPressedDispatcher.onBackPressed() })
-        bar.addView(label("Manage pages", 19f, ink, true), LinearLayout.LayoutParams(0, dp(56), 1f))
+        bar.addView(label("Manage pages", 19f, ink, true).apply { gravity = Gravity.CENTER_VERTICAL }, LinearLayout.LayoutParams(0, dp(56), 1f))
         bar.addView(action("Done") { model.save() }); root.addView(bar)
         progress = label("Long press to sort manually", 14f, muted).apply { setPadding(dp(18), dp(10), dp(18), dp(10)) }; root.addView(progress)
         val selectedRow = row().apply { setPadding(dp(16), 0, dp(12), 0) }
-        selection = label("0 Selected"); selectedRow.addView(selection, LinearLayout.LayoutParams(0, dp(48), 1f))
+        selection = label("0 Selected").apply { gravity = Gravity.CENTER_VERTICAL }; selectedRow.addView(selection, LinearLayout.LayoutParams(0, dp(48), 1f))
         selectedRow.addView(action("All □", "Select all pages") { if (model.selected.size == model.pages.size) model.selected.clear() else model.selected.addAll(model.pages.map { it.key }); refresh() }); root.addView(selectedRow)
         adapter = Pages(); val grid = RecyclerView(this).apply { layoutManager = GridLayoutManager(this@PdfManagePagesActivity, 2); adapter = this@PdfManagePagesActivity.adapter; setPadding(dp(10), dp(8), dp(10), 0) }
         ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP or ItemTouchHelper.DOWN or ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT, 0) {
@@ -150,7 +158,8 @@ class PdfManagePagesActivity : PdfUiActivity() {
             holder.number.text = "${position + 1}"; holder.check.text = if (page.key in model.selected) "✓" else "□"
             holder.box.background = shape(if (page.key in model.selected) blue else 0xFF474747.toInt(), 10)
             holder.box.contentDescription = "Page ${position + 1}${if (page.key in model.selected) ", selected" else ""}"
-            holder.image.rotation = page.rotation.toFloat()
+            holder.image.rotation = 0f
+            holder.image.setBackgroundColor(if (page.file == null) android.graphics.Color.WHITE else 0xFF424242.toInt())
             holder.box.setOnClickListener { if (!model.busy) { if (!model.selected.add(page.key)) model.selected.remove(page.key); refresh() } }
             model.thumbnail(page, holder.request) { bitmap -> if (holder.key != page.key) bitmap?.recycle() else { holder.bitmap = bitmap; holder.image.setImageBitmap(bitmap) } }
         }
