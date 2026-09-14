@@ -22,7 +22,6 @@ class CheckersEngineTest {
                 if (moves.isNotEmpty()) position = CheckersEngine.play(position, rules, moves.first())
                 assertTrue(CheckersEngine.valid(position, rules))
             }
-            assertEquals(rules, CheckersCodec.rules(CheckersCodec.rules(rules)))
         }
     }
     @Test fun presetsHaveCorrectPieceCountsAndFirstPlayer() {

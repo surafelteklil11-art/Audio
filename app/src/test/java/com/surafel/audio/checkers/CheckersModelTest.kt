@@ -21,6 +21,7 @@ class CheckersModelTest {
         try {
             model.boardSize = 6; model.playAs = 0; model.rules = Rules.presets.first(); model.saveOptions()
             model.start(PlayMode.TWO_PLAYERS)
+            assertEquals(model.match!!.rules, CheckersCodec.rules(CheckersCodec.rules(model.match!!.rules)))
             assertEquals(6, model.match!!.rules.size); assertEquals("International", model.match!!.rules.name)
             assertTrue(model.human in listOf(-1, 1)); val side = model.human
             assertTrue(model.hasUnfinishedSaved)
