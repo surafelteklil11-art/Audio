@@ -8,5 +8,5 @@
         android:strokeColor="#FFFFFFFF"
         android:strokeWidth="3.4"
         android:strokeLineCap="butt"
-        android:pathData="M54,27 C68.9,27 81,39.1 81,54 C81,68.9 68.9,81 54,81 C39.1,81 27,68.9 27,54 C27,46.6 30,39.8 34.8,34.8" />
+        android:pathData="M54,34 C65,34 74,43 74,54 C74,65 65,74 54,74 C43,74 34,65 34,54 C34,48.6 36.2,43.7 39.6,40.2" />
 </vector>
