@@ -500,6 +500,31 @@ class MainActivity : AppCompatActivity() {
             menu.addView(row, LinearLayout.LayoutParams(-1, dp(59)).apply { bottomMargin = dp(4) })
         }
 
+        fun addMinimalistPhoneItem() {
+            val row = LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                isClickable = false
+                isFocusable = false
+                setPadding(dp(5), 0, dp(5), 0)
+                background = roundedGradient(
+                    intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT),
+                    Color.rgb(18, 52, 94), dp(1), dp(13)
+                )
+            }
+            val itemIcon = ImageView(this).apply {
+                setImageResource(R.drawable.ic_minimalist_phone)
+                imageTintList = android.content.res.ColorStateList.valueOf(Color.rgb(221, 232, 250))
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                setPadding(dp(15), dp(15), dp(15), dp(15))
+            }
+            row.addView(itemIcon, LinearLayout.LayoutParams(dp(54), dp(56)))
+            row.addView(label("Minimalist Phone", 16, Color.rgb(221, 232, 250), Typeface.NORMAL).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                letterSpacing = .02f
+            }, LinearLayout.LayoutParams(0, dp(56), 1f))
+            menu.addView(row, LinearLayout.LayoutParams(-1, dp(59)).apply { bottomMargin = dp(4) })
+        }
+
         fun addSection(title: String) {
             val section = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
             section.addView(label(title, 10, Color.rgb(64, 177, 255), Typeface.BOLD).apply {
@@ -532,13 +557,7 @@ class MainActivity : AppCompatActivity() {
             closeDrawer()
             startActivity(Intent(this, SettingsActivity::class.java))
         }
-        addMenuItem("◯", "Minimalist Phone") {
-            closeDrawer()
-        }
-        addMenuItem("◔", "Minimalist Phone") {
-            closeDrawer()
-            launchMinimalistPhone()
-        }
+        addMinimalistPhoneItem()
 
         panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         overlay.addView(panel, FrameLayout.LayoutParams(dp(326), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.START))
