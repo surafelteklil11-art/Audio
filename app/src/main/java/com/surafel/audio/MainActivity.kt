@@ -532,6 +532,9 @@ class MainActivity : AppCompatActivity() {
             closeDrawer()
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+        addMenuItem("◯", "Minimalist Phone") {
+            closeDrawer()
+        }
         addMenuItem("◔", "Minimalist Phone") {
             closeDrawer()
             launchMinimalistPhone()
