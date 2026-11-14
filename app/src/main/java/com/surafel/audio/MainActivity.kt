@@ -532,6 +532,10 @@ class MainActivity : AppCompatActivity() {
             closeDrawer()
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+        addMenuItem("◔", "Minimalist Phone") {
+            closeDrawer()
+            launchMinimalistPhone()
+        }
 
         panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         overlay.addView(panel, FrameLayout.LayoutParams(dp(326), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.START))
@@ -541,6 +545,22 @@ class MainActivity : AppCompatActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         ))
+    }
+
+    private fun launchMinimalistPhone() {
+        val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val matches = packageManager.queryIntentActivities(launcherIntent, 0)
+            .filter { it.loadLabel(packageManager).toString().contains("minimalist", ignoreCase = true) }
+        val target = matches.firstOrNull { it.loadLabel(packageManager).toString().contains("phone", ignoreCase = true) }
+            ?: matches.firstOrNull()
+        if (target != null) {
+            val launchIntent = packageManager.getLaunchIntentForPackage(target.activityInfo.packageName)
+            if (launchIntent != null) {
+                startActivity(launchIntent)
+                return
+            }
+        }
+        Toast.makeText(this, "Minimalist Phone app is not installed or could not be found.", Toast.LENGTH_LONG).show()
     }
 
     private fun showEqualizer() {
