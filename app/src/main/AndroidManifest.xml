@@ -16,6 +16,7 @@
         <intent><action android:name="android.settings.BIOMETRIC_ENROLL" /></intent>
         <intent><action android:name="android.settings.SECURITY_SETTINGS" /></intent>
         <intent><action android:name="android.settings.SETTINGS" /></intent>
+        <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent>
     </queries>
     <uses-permission android:name="android.permission.INTERNET" />
     <application
