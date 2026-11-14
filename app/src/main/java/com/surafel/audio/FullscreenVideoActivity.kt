@@ -81,6 +81,8 @@ class FullscreenVideoActivity : AppCompatActivity() {
         if (current.owner != VideoOwner.FULLSCREEN || isFinishing) return
         if (resumeOnStart) { VideoSessions.play(current); resumeOnStart = false }
         transferring = true
+        // Release this Activity's output before the popup attaches its own TextureView.
+        panel?.detachVideo()
         VideoSessions.move(current.id, VideoOwner.TRANSFERRING)
         try { ContextCompat.startForegroundService(this, Intent(this, PopupVideoService::class.java).setAction(PopupVideoService.ADD).putExtra(PopupVideoService.SESSION, current.id)) }
         catch (_: RuntimeException) { VideoSessions.move(current.id, VideoOwner.FULLSCREEN); Toast.makeText(this, "Could not start popup. Please try again.", Toast.LENGTH_LONG).show() }
