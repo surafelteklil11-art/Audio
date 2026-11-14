@@ -504,13 +504,17 @@ class MainActivity : AppCompatActivity() {
         fun addMinimalistPhoneItem() {
             val row = LinearLayout(this).apply {
                 gravity = Gravity.CENTER_VERTICAL
-                isClickable = false
-                isFocusable = false
+                isClickable = true
+                isFocusable = true
                 setPadding(dp(5), 0, dp(5), 0)
                 background = roundedGradient(
                     intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT),
                     Color.rgb(18, 52, 94), dp(1), dp(13)
                 )
+                setOnClickListener {
+                    closeDrawer()
+                    startActivity(Intent(this@MainActivity, MinimalistPhoneActivity::class.java))
+                }
             }
             val itemIcon = ImageView(this).apply {
                 setImageResource(R.drawable.ic_minimalist_phone)
