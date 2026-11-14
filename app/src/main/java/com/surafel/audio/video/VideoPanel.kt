@@ -3,7 +3,6 @@ package com.surafel.audio.video
 import android.app.Activity
 import android.content.Context
 import android.graphics.Color
-import android.graphics.PixelFormat
 import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
@@ -15,7 +14,7 @@ import androidx.media3.common.VideoSize
 import androidx.media3.ui.AspectRatioFrameLayout
 import kotlin.math.abs
 
-/** The same surface-backed video output and controls work fullscreen and in overlay windows. */
+/** The same texture-backed video output and controls work fullscreen and in overlay windows. */
 class VideoPanel(context: Context, val session: VideoSession, private val compact: Boolean) : FrameLayout(context) {
     var onClose: (() -> Unit)? = null
     var onPopup: (() -> Unit)? = null
@@ -27,7 +26,7 @@ class VideoPanel(context: Context, val session: VideoSession, private val compac
     private val player get() = session.player
     private val handler = Handler(Looper.getMainLooper())
     private val video = AspectRatioFrameLayout(context).apply { resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT }
-    private val surface = SurfaceView(context).apply { holder.setFormat(PixelFormat.OPAQUE); isFocusable = false; isFocusableInTouchMode = false }
+    private val texture = TextureView(context)
     private val chrome = FrameLayout(context)
     private val top = row()
     private val bottom = column()
@@ -43,6 +42,7 @@ class VideoPanel(context: Context, val session: VideoSession, private val compac
     private val unlock = button("Unlock", "Unlock video controls") { locked = false; showControls() }
     private var locked = false
     private var disposed = false
+    private var attachedToPlayer = false
     private var scrubbing = false
     private var downX = 0f; private var downY = 0f
     private var previousX = 0f; private var previousY = 0f
@@ -62,7 +62,7 @@ class VideoPanel(context: Context, val session: VideoSession, private val compac
     }
     init {
         setBackgroundColor(Color.BLACK); clipChildren = true
-        video.addView(surface, LayoutParams(-1, -1)); addView(video, LayoutParams(-1, -1, Gravity.CENTER))
+        video.addView(texture, LayoutParams(-1, -1)); addView(video, LayoutParams(-1, -1, Gravity.CENTER))
         val touch = View(context).apply {
             contentDescription = if (compact) "Drag popup video; tap for controls" else "Video gestures: swipe horizontally to seek, left vertically for brightness, right for volume"
             setOnTouchListener { _, event -> handleTouch(event) }
@@ -126,7 +126,7 @@ class VideoPanel(context: Context, val session: VideoSession, private val compac
         feedback.maxLines = 3; feedback.textSize = if (compact) 11f else 15f
         feedback.setBackgroundColor(0xAA000000.toInt()); feedback.setPadding(dp(8), dp(4), dp(8), dp(4)); feedback.visibility = GONE
         addView(feedback, LayoutParams(-2, -2, Gravity.CENTER))
-        player.addListener(listener); VideoSessions.observers.add(changed); player.setVideoSurfaceView(surface)
+        player.addListener(listener); VideoSessions.observers.add(changed); player.setVideoTextureView(texture); attachedToPlayer = true
         updateAspect(player.videoSize); handler.post(tick); showControls()
     }
     private val taps = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
@@ -171,7 +171,18 @@ class VideoPanel(context: Context, val session: VideoSession, private val compac
         middle.visibility = if (locked) GONE else VISIBLE; unlock.visibility = if (locked) VISIBLE else GONE
         handler.removeCallbacks(hide); if (!locked) handler.postDelayed(hide, 2600)
     }
-    fun attachVideo() { if (!disposed) player.setVideoSurfaceView(surface) }
+    fun attachVideo() {
+        if (!disposed && !attachedToPlayer) {
+            player.setVideoTextureView(texture)
+            attachedToPlayer = true
+        }
+    }
+    fun detachVideo() {
+        if (!disposed && attachedToPlayer) {
+            player.clearVideoTextureView(texture)
+            attachedToPlayer = false
+        }
+    }
     fun setSafePadding(left: Int, top: Int, right: Int, bottom: Int) { chrome.setPadding(left, top, right, bottom) }
     private fun updateAspect(size: VideoSize) { video.setAspectRatio(if (size.height > 0) size.width * size.pixelWidthHeightRatio / size.height else 16f / 9) }
     private fun update() {
@@ -190,7 +201,7 @@ class VideoPanel(context: Context, val session: VideoSession, private val compac
     private fun cycleSpeed() { val choices = listOf(.5f, .75f, 1f, 1.25f, 1.5f, 2f); val index = choices.indexOf(player.playbackParameters.speed); player.setPlaybackSpeed(choices[(index + 1) % choices.size]); showControls() }
     private fun seekBy(delta: Long) { if (player.isCurrentMediaItemSeekable) player.seekTo((player.currentPosition + delta).coerceIn(0, player.duration.coerceAtLeast(0))); showControls() }
     private fun showFeedback(message: String) { feedback.text = message; feedback.visibility = VISIBLE; handler.postDelayed({ if (player.playerError == null) feedback.visibility = GONE }, 900) }
-    fun dispose() { if (disposed) return; disposed = true; handler.removeCallbacksAndMessages(null); VideoSessions.observers.remove(changed); player.removeListener(listener); player.clearVideoSurfaceView(surface) }
+    fun dispose() { if (disposed) return; detachVideo(); disposed = true; handler.removeCallbacksAndMessages(null); VideoSessions.observers.remove(changed); player.removeListener(listener) }
     private fun text(value: String, size: Float) = TextView(context).apply { text = value; textSize = size; setTextColor(Color.WHITE); gravity = Gravity.CENTER; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
     private fun button(value: String, description: String, action: () -> Unit) = text(value, if (compact) 12f else 16f).apply { contentDescription = description; isClickable = true; isFocusable = true; setOnClickListener { action(); showControls() } }
     private fun row() = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
