@@ -3,6 +3,7 @@ package com.surafel.audio.video
 import android.app.Activity
 import android.content.Context
 import android.graphics.Color
+import android.graphics.PixelFormat
 import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
@@ -14,7 +15,7 @@ import androidx.media3.common.VideoSize
 import androidx.media3.ui.AspectRatioFrameLayout
 import kotlin.math.abs
 
-/** The same texture and controls work in a fullscreen activity and an overlay window. */
+/** The same surface-backed video output and controls work fullscreen and in overlay windows. */
 class VideoPanel(context: Context, val session: VideoSession, private val compact: Boolean) : FrameLayout(context) {
     var onClose: (() -> Unit)? = null
     var onPopup: (() -> Unit)? = null
