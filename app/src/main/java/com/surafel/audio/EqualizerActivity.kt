@@ -21,6 +21,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -255,18 +256,25 @@ class EqualizerActivity : AudioToolPageActivity() {
             pages.addView(page, LinearLayout.LayoutParams(0, dp(92)))
         }
 
-        horizontal.addView(pages, ViewGroup.LayoutParams(-2, dp(92)))
+        // LayoutParams belong to the parent: HorizontalScrollView is a
+        // FrameLayout even though its child is a LinearLayout.
+        horizontal.addView(pages, FrameLayout.LayoutParams(-2, dp(92)))
         addView(horizontal, LinearLayout.LayoutParams(-1, dp(92)))
 
-        horizontal.post {
-            val viewportWidth = horizontal.width
-            if (viewportWidth > 0 && pageViews.isNotEmpty()) {
-                pageViews.forEach { page ->
-                    page.layoutParams = LinearLayout.LayoutParams(viewportWidth, dp(92))
+        // Size from the measured viewport, including subsequent window resizes.
+        // Preserve the parent-generated params instead of replacing them with
+        // LinearLayout.LayoutParams (which crashes the next scroll layout pass).
+        horizontal.addOnLayoutChangeListener { _, left, _, right, _, _, _, _, _ ->
+            val viewportWidth = right - left - horizontal.paddingLeft - horizontal.paddingRight
+            if (viewportWidth <= 0) return@addOnLayoutChangeListener
+            pageViews.forEach { page ->
+                if (page.layoutParams.width != viewportWidth) {
+                    page.layoutParams = page.layoutParams.apply { width = viewportWidth }
                 }
-                pages.layoutParams = LinearLayout.LayoutParams(viewportWidth * pageViews.size, dp(92))
-                pages.requestLayout()
-                horizontal.requestLayout()
+            }
+            val totalWidth = viewportWidth * pageViews.size
+            if (pages.layoutParams.width != totalWidth) {
+                pages.layoutParams = pages.layoutParams.apply { width = totalWidth }
             }
         }
     }

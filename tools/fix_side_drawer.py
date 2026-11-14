@@ -150,6 +150,10 @@ new_show_menu = '''    private fun showMenu() {
         }
         addMenuItem("◷", "Sleep Timer") { closeDrawer(); showSleepTimer() }
         addMenuItem("🚗", "Drive Mode") { toggleDriveMode(); closeDrawer() }
+        addMenuItem("▦", "Calendar · ቀን መቁጠሪያ") { closeDrawer(); startActivity(Intent(this, EthiopianCalendarActivity::class.java)) }
+        addMenuItem("◎", "Fingerprint · አሻራ") { closeDrawer(); startActivity(Intent(this, FingerprintActivity::class.java)) }
+        addMenuItem("▦", "Checkers · ዳማ") { closeDrawer(); startActivity(Intent(this, CheckersActivity::class.java)) }
+        addMenuItem("▤", "PDF Reader") { closeDrawer(); startActivity(Intent(this, PdfLibraryActivity::class.java)) }
         addSection("APP")
         addMenuItem("⚙", "Settings") {
             closeDrawer()

@@ -28,6 +28,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -77,7 +78,18 @@ class MainActivity : AppCompatActivity() {
         restoreVolumeBooster()
         adapter = SongAdapter(items) { playFrom(it) }
         findViewById<RecyclerView>(R.id.list).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = this@MainActivity.adapter }
-        videoAdapter = VideoAdapter(videos) { playVideo(it) }
+        videoAdapter = VideoAdapter(videos, { playVideo(it) }, { entry, anchor ->
+            android.widget.PopupMenu(this, anchor).apply {
+                menu.add("Play"); menu.add("Play in popup"); menu.add("Play next")
+                setOnMenuItemClickListener { item ->
+                    when (item.title.toString()) {
+                        "Play" -> playVideo(entry)
+                        "Play in popup" -> playVideo(entry, popup = true)
+                        "Play next" -> { VideoQueue.setNext(this@MainActivity, entry); Toast.makeText(this@MainActivity, "Queued next: ${entry.title}", Toast.LENGTH_SHORT).show() }
+                    }; true
+                }; show()
+            }
+        })
         findViewById<RecyclerView>(R.id.videoList).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = this@MainActivity.videoAdapter }
         findViewById<ImageButton>(R.id.play).setOnClickListener { if (!::player.isInitialized) return@setOnClickListener; if (player.isPlaying) player.pause() else if (player.mediaItemCount > 0) player.play(); updateNowPlaying() }
         findViewById<TextView>(R.id.playAll).setOnClickListener { if (items.isNotEmpty()) playFrom(0) }
@@ -348,7 +360,7 @@ class MainActivity : AppCompatActivity() {
         val options = arrayOf("Recently added", "Title A–Z", "Largest first", "Longest first")
         AlertDialog.Builder(this).setTitle("Sort Video by").setSingleChoiceItems(options, videoSortMode) { dialog, which -> videoSortMode = which; dialog.dismiss(); loadVideos() }.setNegativeButton("Cancel", null).show()
     }
-    private fun playVideo(entry: VideoEntry) { if (!hasVideoPermission()) return; startActivity(Intent(this, FullscreenVideoActivity::class.java).apply { putExtra(FullscreenVideoActivity.EXTRA_VIDEO_URI, entry.uri.toString()); putExtra(FullscreenVideoActivity.EXTRA_VIDEO_TITLE, entry.title) }) }
+    private fun playVideo(entry: VideoEntry, popup: Boolean = false) { if (!hasVideoPermission()) return; startActivity(Intent(this, FullscreenVideoActivity::class.java).apply { putExtra(FullscreenVideoActivity.EXTRA_VIDEO_URI, entry.uri.toString()); putExtra(FullscreenVideoActivity.EXTRA_VIDEO_TITLE, entry.title); putExtra(FullscreenVideoActivity.EXTRA_START_POPUP, popup) }) }
     private fun replaceItems(found: List<MediaItem>) { items.clear(); items.addAll(found); adapter.notifyDataSetChanged(); findViewById<TextView>(R.id.playAll).text = "▶  Play (${items.size})" }
     private fun mediaItem(uri: Uri, title: String?, artist: String?) = MediaItem.Builder().setUri(uri).setMediaMetadata(MediaMetadata.Builder().setTitle(title ?: "Unknown").setArtist(artist ?: "Unknown artist").build()).build()
     private fun updateNowPlaying() { if (!::player.isInitialized) return; val item = player.currentMediaItem; findViewById<TextView>(R.id.title).text = item?.mediaMetadata?.title ?: "Nothing playing"; findViewById<TextView>(R.id.artist).text = item?.mediaMetadata?.artist ?: "Choose a song"; findViewById<ImageButton>(R.id.play).setImageResource(if (player.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play) }
@@ -489,6 +501,35 @@ class MainActivity : AppCompatActivity() {
             menu.addView(row, LinearLayout.LayoutParams(-1, dp(59)).apply { bottomMargin = dp(4) })
         }
 
+        fun addMinimalistPhoneItem() {
+            val row = LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                isClickable = true
+                isFocusable = true
+                setPadding(dp(5), 0, dp(5), 0)
+                background = roundedGradient(
+                    intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT),
+                    Color.rgb(18, 52, 94), dp(1), dp(13)
+                )
+                setOnClickListener {
+                    closeDrawer()
+                    startActivity(Intent(this@MainActivity, MinimalistPhoneActivity::class.java))
+                }
+            }
+            val itemIcon = ImageView(this).apply {
+                setImageResource(R.drawable.ic_minimalist_phone)
+                imageTintList = android.content.res.ColorStateList.valueOf(Color.rgb(221, 232, 250))
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                setPadding(dp(15), dp(15), dp(15), dp(15))
+            }
+            row.addView(itemIcon, LinearLayout.LayoutParams(dp(54), dp(56)))
+            row.addView(label("Minimalist Phone", 16, Color.rgb(221, 232, 250), Typeface.NORMAL).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                letterSpacing = .02f
+            }, LinearLayout.LayoutParams(0, dp(56), 1f))
+            menu.addView(row, LinearLayout.LayoutParams(-1, dp(59)).apply { bottomMargin = dp(4) })
+        }
+
         fun addSection(title: String) {
             val section = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
             section.addView(label(title, 10, Color.rgb(64, 177, 255), Typeface.BOLD).apply {
@@ -512,11 +553,16 @@ class MainActivity : AppCompatActivity() {
         }
         addMenuItem("◷", "Sleep Timer") { closeDrawer(); showSleepTimer() }
         addMenuItem("🚗", "Drive Mode") { closeDrawer(); startActivity(Intent(this, DriveModeActivity::class.java)) }
+        addMenuItem("▦", "Calendar · ቀን መቁጠሪያ") { closeDrawer(); startActivity(Intent(this, EthiopianCalendarActivity::class.java)) }
+        addMenuItem("◎", "Fingerprint · አሻራ") { closeDrawer(); startActivity(Intent(this, FingerprintActivity::class.java)) }
+        addMenuItem("▦", "Checkers · ዳማ") { closeDrawer(); startActivity(Intent(this, CheckersActivity::class.java)) }
+        addMenuItem("▤", "PDF Reader") { closeDrawer(); startActivity(Intent(this, PdfLibraryActivity::class.java)) }
         addSection("APP")
         addMenuItem("⚙", "Settings") {
             closeDrawer()
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+        addMinimalistPhoneItem()
 
         panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         overlay.addView(panel, FrameLayout.LayoutParams(dp(326), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.START))
@@ -526,6 +572,22 @@ class MainActivity : AppCompatActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         ))
+    }
+
+    private fun launchMinimalistPhone() {
+        val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val matches = packageManager.queryIntentActivities(launcherIntent, 0)
+            .filter { it.loadLabel(packageManager).toString().contains("minimalist", ignoreCase = true) }
+        val target = matches.firstOrNull { it.loadLabel(packageManager).toString().contains("phone", ignoreCase = true) }
+            ?: matches.firstOrNull()
+        if (target != null) {
+            val launchIntent = packageManager.getLaunchIntentForPackage(target.activityInfo.packageName)
+            if (launchIntent != null) {
+                startActivity(launchIntent)
+                return
+            }
+        }
+        Toast.makeText(this, "Minimalist Phone app is not installed or could not be found.", Toast.LENGTH_LONG).show()
     }
 
     private fun showEqualizer() {
@@ -673,9 +735,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyTheme(theme: Int) {
-        val root = findViewById<View>(android.R.id.content)
-        val colors = when (theme) { 1 -> intArrayOf(Color.rgb(5, 18, 40), Color.rgb(9, 42, 72)); 2 -> intArrayOf(Color.rgb(6, 9, 20), Color.rgb(20, 12, 31)); else -> intArrayOf(Color.rgb(10, 9, 29), Color.rgb(31, 11, 58)) }
-        root.background = roundedGradient(colors, Color.TRANSPARENT, 0, 0)
+        val content = findViewById<ViewGroup>(android.R.id.content)
+        val root = content.getChildAt(0) ?: return
+        if (BackgroundManager.isCustom(this)) BackgroundManager.apply(this)
+        else ThemeCatalog.apply(this, root, theme)
     }
 
     private fun showWidgets() {
@@ -696,9 +759,9 @@ private class SongAdapter(private val items: List<MediaItem>, private val onClic
     class Holder(view: View) : RecyclerView.ViewHolder(view) { val title: TextView = view.findViewById(R.id.songTitle); val artist: TextView = view.findViewById(R.id.songArtist) }
 }
 
-private class VideoAdapter(private val items: List<VideoEntry>, private val onClick: (VideoEntry) -> Unit) : RecyclerView.Adapter<VideoAdapter.Holder>() {
+private class VideoAdapter(private val items: List<VideoEntry>, private val onClick: (VideoEntry) -> Unit, private val onLongClick: (VideoEntry, View) -> Unit) : RecyclerView.Adapter<VideoAdapter.Holder>() {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = Holder(LayoutInflater.from(parent.context).inflate(R.layout.item_video, parent, false))
-    override fun onBindViewHolder(holder: Holder, position: Int) { val item = items[position]; holder.title.text = item.title; holder.meta.text = "${formatSize(item.size)} • ${formatDuration(item.duration)}"; holder.thumb.setVideoUri(item.uri); holder.itemView.setOnClickListener { onClick(item) } }
+    override fun onBindViewHolder(holder: Holder, position: Int) { val item = items[position]; holder.title.text = item.title; holder.meta.text = "${formatSize(item.size)} • ${formatDuration(item.duration)}"; holder.thumb.setVideoUri(item.uri); holder.itemView.setOnClickListener { onClick(item) }; holder.itemView.setOnLongClickListener { onLongClick(item, it); true } }
     override fun getItemCount() = items.size
     class Holder(view: View) : RecyclerView.ViewHolder(view) { val title: TextView = view.findViewById(R.id.videoTitle); val meta: TextView = view.findViewById(R.id.videoMeta); val thumb: VideoThumbnailView = view.findViewById(R.id.videoThumbnail) }
 }
